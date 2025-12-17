@@ -20,8 +20,8 @@ export interface PrimaryDbConfig {
   /** Default schema (default: 'public') */
   schema?: string;
 
-  /** SSL mode: 'require' | 'prefer' | 'disable' (default: 'require') */
-  sslMode?: 'require' | 'prefer' | 'disable';
+  /** SSL mode: 'require' | 'prefer' | 'disable' | 'no-verify' (default: 'require') */
+  sslMode?: 'require' | 'prefer' | 'disable' | 'no-verify';
 }
 
 /**
@@ -47,9 +47,15 @@ export interface DatabaseModuleOptions {
   /**
    * Primary database client constructor (for querying tenant registry)
    * Only required in gateway mode
-   * @example import { PrismaClient } from '@prisma/client'
+   * @example import { PrismaClient } from './prisma/generated/prisma/client'
    */
   prismaClientConstructor: any;
+
+  /**
+   * Prisma adapter constructor for PostgreSQL (required for Prisma 7+)
+   * @example import { PrismaPg } from '@prisma/adapter-pg'
+   */
+  prismaAdapterConstructor: any;
 
   /**
    * Connection cache TTL in milliseconds

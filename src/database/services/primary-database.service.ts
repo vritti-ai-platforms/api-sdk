@@ -55,19 +55,21 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
    */
   private async initializePrimaryDbClient(): Promise<void> {
     try {
-      const PrimaryDbClient = this.options.prismaClientConstructor;
+      const PrismaClient = this.options.prismaClientConstructor;
+      const PrismaAdapter = this.options.prismaAdapterConstructor;
 
       // Build connection URL from individual properties
       const databaseUrl = this.buildPrimaryDbUrl();
+      const schema = this.options.primaryDb.schema || 'public';
 
-      this.primaryDbClient = new PrimaryDbClient({
-        datasources: {
-          db: {
-            url: databaseUrl,
-          },
-        },
-        log: ['error', 'warn'],
-      });
+      // Prisma 7: Use driver adapter pattern instead of datasources
+      // Schema must be passed as second argument (not in URL) for adapter-pg
+      const adapter = new PrismaAdapter(
+        { connectionString: databaseUrl },
+        { schema }
+      );
+
+      this.primaryDbClient = new PrismaClient({ adapter });
 
       await this.primaryDbClient.$connect();
       this.logger.log('Connected to primary database (tenant registry)');

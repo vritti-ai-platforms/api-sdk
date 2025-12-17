@@ -102,16 +102,15 @@ export class TenantDatabaseService implements OnModuleDestroy {
       // Build tenant-specific database URL
       const databaseUrl = this.buildTenantDbUrl(tenant);
 
-      // Load Prisma client constructor
+      // Load Prisma client and adapter constructors
       const PrismaClient = await this.options.prismaClientConstructor;
+      const PrismaAdapter = this.options.prismaAdapterConstructor;
+
+      // Prisma 7: Use driver adapter pattern instead of datasources
+      const adapter = new PrismaAdapter({ connectionString: databaseUrl });
 
       // Create new instance with tenant-specific connection
-      const client = new PrismaClient({
-        datasources: {
-          db: { url: databaseUrl },
-        },
-        log: ['error', 'warn'],
-      });
+      const client = new PrismaClient({ adapter });
 
       await client.$connect();
       this.logger.log(`Connected to database for tenant: ${tenant.subdomain}`);
