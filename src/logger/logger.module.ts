@@ -286,11 +286,14 @@ function createLoggerProviders(options: LoggerModuleOptions = {}): Provider[] {
   return providers;
 }
 
+/** Valid NestJS log levels */
+type NestLogLevel = 'error' | 'warn' | 'log' | 'debug' | 'verbose';
+
 /**
  * Helper function to get all log levels up to and including the specified level.
  */
-function getLevelsUpTo(level: string): Array<'error' | 'warn' | 'log' | 'debug' | 'verbose'> {
-  const allLevels: Array<'error' | 'warn' | 'log' | 'debug' | 'verbose'> = [
+function getLevelsUpTo(level: string): NestLogLevel[] {
+  const allLevels: NestLogLevel[] = [
     'error',
     'warn',
     'log',
@@ -298,11 +301,15 @@ function getLevelsUpTo(level: string): Array<'error' | 'warn' | 'log' | 'debug' 
     'verbose',
   ];
 
-  const levelIndex = allLevels.indexOf(level as any);
-  if (levelIndex === -1) {
+  // Check if level is a valid NestLogLevel
+  const isValidLevel = (l: string): l is NestLogLevel =>
+    allLevels.includes(l as NestLogLevel);
+
+  if (!isValidLevel(level)) {
     return ['error', 'warn', 'log'];
   }
 
+  const levelIndex = allLevels.indexOf(level);
   return allLevels.slice(0, levelIndex + 1);
 }
 

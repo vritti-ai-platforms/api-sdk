@@ -15,6 +15,26 @@
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
       }
+    },
+    "./drizzle-orm": {
+      "import": {
+        "types": "./dist/drizzle-orm.d.ts",
+        "default": "./dist/drizzle-orm.js"
+      },
+      "require": {
+        "types": "./dist/drizzle-orm.d.cts",
+        "default": "./dist/drizzle-orm.cjs"
+      }
+    },
+    "./drizzle-pg-core": {
+      "import": {
+        "types": "./dist/drizzle-pg-core.d.ts",
+        "default": "./dist/drizzle-pg-core.js"
+      },
+      "require": {
+        "types": "./dist/drizzle-pg-core.d.cts",
+        "default": "./dist/drizzle-pg-core.cjs"
+      }
     }
   },
   "files": [
@@ -42,7 +62,12 @@
     "clean": "rm -rf dist",
     "prepublishOnly": "yarn type-check && yarn test && yarn build"
   },
-  "dependencies": {},
+  "dependencies": {
+    "drizzle-orm": "^1.0.0-beta.3-36e9b9e",
+    "pg": "^8.16.0",
+    "winston": "^3.11.0",
+    "winston-daily-rotate-file": "^5.0.0"
+  },
   "peerDependencies": {
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^3.0.0",
@@ -50,9 +75,7 @@
     "@nestjs/jwt": "^10.0.0",
     "fastify": "^5.0.0",
     "reflect-metadata": "^0.2.0",
-    "rxjs": "^7.8.0",
-    "winston": "^3.11.0",
-    "winston-daily-rotate-file": "^5.0.0"
+    "rxjs": "^7.8.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
@@ -65,6 +88,7 @@
     "@swc/core": "^1.13.5",
     "@types/jsonwebtoken": "^9.0.8",
     "@types/node": "^24.9.2",
+    "@types/pg": "^8.16.0",
     "eslint": "^9.38.0",
     "fastify": "^5.6.1",
     "jsonwebtoken": "^9.0.2",
@@ -75,8 +99,6 @@
     "tsup": "^8.5.0",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.46.2",
-    "winston": "^3.18.3",
-    "winston-daily-rotate-file": "^5.0.0"
+    "typescript-eslint": "^8.46.2"
   }
 }

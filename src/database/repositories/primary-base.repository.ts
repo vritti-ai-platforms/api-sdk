@@ -1,106 +1,153 @@
 import { Logger } from '@nestjs/common';
+import {
+  eq,
+  sql,
+  SQL,
+  getTableName,
+  InferInsertModel,
+  InferSelectModel,
+} from 'drizzle-orm';
+import { PgTable } from 'drizzle-orm/pg-core';
 import { PrimaryDatabaseService } from '../services/primary-database.service';
+import type { TypedDrizzleClient } from '../schema.registry';
 
 /**
- * Abstract base repository for primary database operations.
+ * Type-safe wrapper for Drizzle's RelationalQueryBuilder.
+ * This interface matches the method signatures of RelationalQueryBuilder
+ * but properly binds the TSelect generic for type safety.
+ *
+ * We use this instead of RelationalQueryBuilder directly because
+ * TypeScript cannot infer TSelect from the generic base repository context.
+ */
+interface TypedRelationalQueryBuilder<TSelect> {
+  findFirst(config?: {
+    where?: SQL;
+    with?: Record<string, unknown>;
+    columns?: Record<string, boolean>;
+  }): Promise<TSelect | undefined>;
+
+  findMany(config?: {
+    where?: SQL;
+    orderBy?: SQL;
+    limit?: number;
+    offset?: number;
+    with?: Record<string, unknown>;
+    columns?: Record<string, boolean>;
+  }): Promise<TSelect[]>;
+}
+
+/**
+ * Abstract base repository for primary database operations using Drizzle ORM.
  * Provides common CRUD operations with automatic logging.
  *
- * @template TModel - The Prisma model type
- * @template TCreateDTO - DTO type for create operations
- * @template TUpdateDTO - DTO type for update operations
+ * @template TTable - The Drizzle table type (must be registered in SchemaRegistry)
+ * @template TInsert - Type for insert operations (inferred from table.$inferInsert)
+ * @template TSelect - Type for select operations (inferred from table.$inferSelect)
+ *
+ * @remarks
+ * **Type Assertion Pattern:** This repository uses `as any` casts when passing
+ * the generic table to Drizzle methods. This is necessary because TypeScript
+ * cannot prove that a generic `TTable extends PgTable` satisfies Drizzle's
+ * stricter internal type requirements for `insert()`, `update()`, and `delete()`.
+ *
+ * The public API maintains full type safety:
+ * - Input parameters are typed as `TInsert` (inferred from table)
+ * - Return values are typed as `TSelect` (inferred from table)
+ * - The casts are implementation details that don't leak to consumers
  *
  * @example
  * ```typescript
- * // Using the model delegate pattern (RECOMMENDED)
- * // Type-safe, IDE autocomplete, refactor-friendly
+ * import { users } from '@/db/schema';
+ *
+ * type User = typeof users.$inferSelect;
+ * type NewUser = typeof users.$inferInsert;
+ *
  * @Injectable()
- * export class UserRepository extends PrimaryBaseRepository<
- *   User,
- *   CreateUserDto,
- *   UpdateUserDto
- * > {
+ * export class UserRepository extends PrimaryBaseRepository<typeof users> {
  *   constructor(database: PrimaryDatabaseService) {
- *     super(database, (prisma) => prisma.user);  // ✅ Type-safe with autocomplete!
+ *     super(database, users);
  *   }
  *
- *   // Add custom methods as needed
- *   async findByEmail(email: string): Promise<User | null> {
- *     return this.model.findUnique({ where: { email } });
+ *   // Use Prisma-like relational query syntax (recommended)
+ *   async findByEmail(email: string): Promise<User | undefined> {
+ *     return this.model.findFirst({
+ *       where: eq(users.email, email),
+ *     });
  *   }
- * }
  *
- * // Short syntax is also supported
- * @Injectable()
- * export class TenantRepository extends PrimaryBaseRepository<Tenant> {
- *   constructor(database: PrimaryDatabaseService) {
- *     super(database, (p) => p.tenant);  // ✅ Concise!
- *   }
- * }
- *
- * // Works with complex model names
- * @Injectable()
- * export class EmailVerificationRepository extends PrimaryBaseRepository<EmailVerification> {
- *   constructor(database: PrimaryDatabaseService) {
- *     super(database, (p) => p.emailVerification);  // ✅ Matches Prisma naming
+ *   // Use Prisma-like with relations
+ *   async findWithRelations(id: string): Promise<User | undefined> {
+ *     return this.model.findFirst({
+ *       where: eq(users.id, id),
+ *       with: { posts: true, profile: true }
+ *     });
  *   }
  * }
  * ```
  */
 export abstract class PrimaryBaseRepository<
-  TModel,
-  TCreateDTO = any,
-  TUpdateDTO = any,
+  TTable extends PgTable,
+  TInsert = InferInsertModel<TTable>,
+  TSelect = InferSelectModel<TTable>,
 > {
   protected readonly logger: Logger;
-  private readonly modelGetter: (prisma: any) => any;
 
   /**
-   * Lazy getter for Prisma client.
+   * The table name extracted from the Drizzle table at runtime.
+   * Used to access the query API for this repository's table.
+   */
+  private readonly tableName: string;
+
+  /**
+   * Lazy getter for Drizzle client.
    * Accesses the client from the database service only when needed,
    * avoiding initialization timing issues with NestJS lifecycle.
    */
-  protected get prisma(): any {
-    return this.database.prismaClient;
+  protected get db(): TypedDrizzleClient {
+    return this.database.drizzleClient;
   }
 
   /**
-   * Lazy getter for the Prisma model delegate.
-   * Returns the specific model (e.g., prisma.user, prisma.tenant) for this repository.
+   * Model query API for THIS repository's table (Prisma-like syntax)
+   * Scoped to only the table this repository manages.
+   * Returns a type-safe wrapper around Drizzle's RelationalQueryBuilder.
+   *
+   * @example
+   * ```typescript
+   * // Use relational queries with type safety
+   * const user = await this.model.findFirst({
+   *   where: eq(users.id, id),
+   *   with: { posts: true, profile: true }
+   * });
+   * ```
    */
-  protected get model(): any {
-    return this.modelGetter(this.prisma);
+  protected get model(): TypedRelationalQueryBuilder<TSelect> {
+    return this.database.drizzleClient.query[
+      this.tableName as keyof TypedDrizzleClient['query']
+    ] as unknown as TypedRelationalQueryBuilder<TSelect>;
   }
 
   /**
    * Create a new repository instance
    *
    * @param database - The primary database service
-   * @param getModel - Function that returns the Prisma model delegate from the client
+   * @param table - The Drizzle table schema object
    *
    * @example
    * ```typescript
-   * // Standard usage with full parameter name
-   * constructor(database: PrimaryDatabaseService) {
-   *   super(database, (prisma) => prisma.user);
-   * }
+   * import { users } from '@/db/schema';
    *
-   * // Short syntax
    * constructor(database: PrimaryDatabaseService) {
-   *   super(database, (p) => p.user);
-   * }
-   *
-   * // Complex model names
-   * constructor(database: PrimaryDatabaseService) {
-   *   super(database, (p) => p.emailVerification);
+   *   super(database, users);
    * }
    * ```
    */
   constructor(
     protected readonly database: PrimaryDatabaseService,
-    getModel: (prisma: any) => any,
+    protected readonly table: TTable,
   ) {
+    this.tableName = getTableName(table);
     this.logger = new Logger(this.constructor.name);
-    this.modelGetter = getModel;
     this.logger.debug(`Initialized ${this.constructor.name}`);
   }
 
@@ -114,79 +161,85 @@ export abstract class PrimaryBaseRepository<
    * ```typescript
    * const user = await userRepository.create({
    *   email: 'user@example.com',
-   *   name: 'John Doe'
+   *   firstName: 'John'
    * });
    * ```
    */
-  async create(data: TCreateDTO): Promise<TModel> {
+  async create(data: TInsert): Promise<TSelect> {
     this.logger.log('Creating record');
-    return await this.model.create({ data });
+    const results = (await this.db
+      .insert(this.table as any)
+      .values(data as any)
+      .returning()) as TSelect[];
+    return results[0]!;
   }
 
   /**
    * Find a single record by ID
    *
    * @param id - The record ID
-   * @returns Promise resolving to the record or null if not found
+   * @returns Promise resolving to the record or undefined if not found
    *
    * @example
    * ```typescript
    * const user = await userRepository.findById('user-id-123');
    * ```
    */
-  async findById(id: string): Promise<TModel | null> {
+  async findById(id: string): Promise<TSelect | undefined> {
     this.logger.debug(`Finding record by ID: ${id}`);
-    return await this.model.findUnique({ where: { id } });
+    const idColumn = (this.table as any).id;
+    return this.model.findFirst({
+      where: eq(idColumn, id),
+    });
   }
 
   /**
    * Find a single record with custom where clause
    *
-   * @param where - The where clause or findUnique args
-   * @returns Promise resolving to the record or null if not found
+   * @param where - SQL condition
+   * @returns Promise resolving to the record or undefined if not found
    *
    * @example
    * ```typescript
-   * // Simple where clause
-   * const user = await userRepository.findOne({ email: 'user@example.com' });
-   *
-   * // With include
-   * const user = await userRepository.findOne({
-   *   where: { email: 'user@example.com' },
-   *   include: { posts: true }
-   * });
+   * import { eq } from 'drizzle-orm';
+   * const user = await userRepository.findOne(eq(users.email, 'user@example.com'));
    * ```
    */
-  async findOne(where: any): Promise<TModel | null> {
+  async findOne(where: SQL): Promise<TSelect | undefined> {
     this.logger.debug('Finding record with custom query');
-    return await this.model.findUnique(
-      typeof where === 'object' && 'where' in where ? where : { where },
-    );
+    return this.model.findFirst({ where });
   }
 
   /**
    * Find multiple records
    *
-   * @param args - Prisma findMany arguments (where, orderBy, take, skip, etc.)
+   * @param options - Query options (where, orderBy, limit, offset)
    * @returns Promise resolving to an array of records
    *
    * @example
    * ```typescript
+   * import { eq, desc } from 'drizzle-orm';
+   *
    * // Find all users
    * const users = await userRepository.findMany();
    *
    * // Find with filtering and pagination
    * const users = await userRepository.findMany({
-   *   where: { status: 'ACTIVE' },
-   *   orderBy: { createdAt: 'desc' },
-   *   take: 10,
-   *   skip: 0
+   *   where: eq(users.accountStatus, 'ACTIVE'),
+   *   orderBy: desc(users.createdAt),
+   *   limit: 10,
+   *   offset: 0
    * });
    * ```
    */
-  async findMany(args?: any): Promise<TModel[]> {
+  async findMany(options?: {
+    where?: SQL;
+    orderBy?: SQL;
+    limit?: number;
+    offset?: number;
+  }): Promise<TSelect[]> {
     this.logger.debug('Finding multiple records');
-    return await this.model.findMany(args);
+    return this.model.findMany(options);
   }
 
   /**
@@ -199,34 +252,49 @@ export abstract class PrimaryBaseRepository<
    * @example
    * ```typescript
    * const user = await userRepository.update('user-id-123', {
-   *   name: 'Jane Doe'
+   *   firstName: 'Jane'
    * });
    * ```
    */
-  async update(id: string, data: TUpdateDTO): Promise<TModel> {
+  async update(id: string, data: Partial<TInsert>): Promise<TSelect> {
     this.logger.log(`Updating record with ID: ${id}`);
-    return await this.model.update({ where: { id }, data });
+    const idColumn = (this.table as any).id;
+    const results = (await this.db
+      .update(this.table as any)
+      .set(data as any)
+      .where(eq(idColumn, id))
+      .returning()) as TSelect[];
+    return results[0]!;
   }
 
   /**
    * Update multiple records
    *
-   * @param where - The where clause to match records
+   * @param where - SQL condition to match records
    * @param data - The data to update
    * @returns Promise resolving to the count of updated records
    *
    * @example
    * ```typescript
+   * import { eq } from 'drizzle-orm';
+   *
    * const result = await userRepository.updateMany(
-   *   { status: 'PENDING' },
-   *   { status: 'ACTIVE' }
+   *   eq(users.accountStatus, 'PENDING'),
+   *   { accountStatus: 'ACTIVE' }
    * );
    * console.log(`Updated ${result.count} users`);
    * ```
    */
-  async updateMany(where: any, data: TUpdateDTO): Promise<{ count: number }> {
+  async updateMany(
+    where: SQL,
+    data: Partial<TInsert>,
+  ): Promise<{ count: number }> {
     this.logger.log('Updating multiple records');
-    return await this.model.updateMany({ where, data });
+    const result = await this.db
+      .update(this.table as any)
+      .set(data as any)
+      .where(where);
+    return { count: result.rowCount ?? 0 };
   }
 
   /**
@@ -240,66 +308,90 @@ export abstract class PrimaryBaseRepository<
    * const user = await userRepository.delete('user-id-123');
    * ```
    */
-  async delete(id: string): Promise<TModel> {
+  async delete(id: string): Promise<TSelect> {
     this.logger.log(`Deleting record with ID: ${id}`);
-    return await this.model.delete({ where: { id } });
+    const idColumn = (this.table as any).id;
+    const results = (await this.db
+      .delete(this.table as any)
+      .where(eq(idColumn, id))
+      .returning()) as TSelect[];
+    return results[0]!;
   }
 
   /**
    * Delete multiple records
    *
-   * @param where - The where clause to match records
+   * @param where - SQL condition to match records
    * @returns Promise resolving to the count of deleted records
    *
    * @example
    * ```typescript
-   * const result = await userRepository.deleteMany({
-   *   status: 'INACTIVE',
-   *   createdAt: { lt: new Date('2020-01-01') }
-   * });
+   * import { lt } from 'drizzle-orm';
+   *
+   * const result = await userRepository.deleteMany(
+   *   lt(users.createdAt, new Date('2020-01-01'))
+   * );
    * console.log(`Deleted ${result.count} users`);
    * ```
    */
-  async deleteMany(where: any): Promise<{ count: number }> {
+  async deleteMany(where: SQL): Promise<{ count: number }> {
     this.logger.log('Deleting multiple records');
-    return await this.model.deleteMany({ where });
+    const result = await this.db.delete(this.table as any).where(where);
+    return { count: result.rowCount ?? 0 };
   }
 
   /**
    * Count records
    *
-   * @param where - Optional where clause to filter records
+   * @param where - Optional SQL condition to filter records
    * @returns Promise resolving to the count of records
    *
    * @example
    * ```typescript
+   * import { eq } from 'drizzle-orm';
+   *
    * // Count all users
    * const total = await userRepository.count();
    *
    * // Count active users
-   * const activeCount = await userRepository.count({ status: 'ACTIVE' });
+   * const activeCount = await userRepository.count(
+   *   eq(users.accountStatus, 'ACTIVE')
+   * );
    * ```
    */
-  async count(where?: any): Promise<number> {
+  async count(where?: SQL): Promise<number> {
     this.logger.debug('Counting records');
-    return await this.model.count({ where });
+
+    let query = this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(this.table as any)
+      .$dynamic();
+
+    if (where) {
+      query = query.where(where);
+    }
+
+    const results = await query;
+    return (results[0] as { count: number }).count;
   }
 
   /**
    * Check if a record exists
    *
-   * @param where - The where clause to match records
+   * @param where - SQL condition to match records
    * @returns Promise resolving to true if at least one record exists, false otherwise
    *
    * @example
    * ```typescript
-   * const emailExists = await userRepository.exists({
-   *   email: 'user@example.com'
-   * });
+   * import { eq } from 'drizzle-orm';
+   *
+   * const emailExists = await userRepository.exists(
+   *   eq(users.email, 'user@example.com')
+   * );
    * ```
    */
-  async exists(where: any): Promise<boolean> {
-    const count = await this.model.count({ where });
+  async exists(where: SQL): Promise<boolean> {
+    const count = await this.count(where);
     return count > 0;
   }
 }

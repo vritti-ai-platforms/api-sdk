@@ -11,6 +11,13 @@ export { PrimaryDatabaseService } from './database/services/primary-database.ser
 export { PrimaryBaseRepository } from './database/repositories/primary-base.repository';
 export { TenantBaseRepository } from './database/repositories/tenant-base.repository';
 
+// Schema Registry (for module augmentation)
+export type {
+  SchemaRegistry,
+  RegisteredSchema,
+  TypedDrizzleClient,
+} from './database/schema.registry';
+
 // Guards
 export { VrittiAuthGuard } from './auth/guards/vritti-auth.guard';
 

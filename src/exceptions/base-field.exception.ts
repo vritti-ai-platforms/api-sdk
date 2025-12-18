@@ -1,9 +1,8 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
+import type { FieldError } from '../types/error-response.types';
 
-export interface FieldError {
-  field?: string;
-  message: string;
-}
+// Re-export FieldError for backwards compatibility
+export type { FieldError } from '../types/error-response.types';
 
 export abstract class BaseFieldException extends HttpException {
   constructor(

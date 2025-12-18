@@ -1,106 +1,137 @@
 import { Logger } from '@nestjs/common';
+import {
+  eq,
+  sql,
+  SQL,
+  getTableName,
+  InferInsertModel,
+  InferSelectModel,
+} from 'drizzle-orm';
+import { PgTable } from 'drizzle-orm/pg-core';
 import { TenantDatabaseService } from '../services/tenant-database.service';
+import type { TypedDrizzleClient } from '../schema.registry';
 
 /**
- * Abstract base repository for tenant-scoped database operations.
+ * Type helper to extract table name from Drizzle table.
+ * TTable['_']['name'] gives us the string literal type (e.g., 'products')
+ */
+type ExtractTableName<TTable extends PgTable> = TTable['_']['name'];
+
+/**
+ * Abstract base repository for tenant-scoped database operations using Drizzle ORM.
  * All operations are automatically scoped to the current tenant.
  *
- * @template TModel - The Prisma model type
- * @template TCreateDTO - DTO type for create operations
- * @template TUpdateDTO - DTO type for update operations
+ * @template TTable - The Drizzle table type (must be registered in SchemaRegistry)
+ * @template TInsert - Type for insert operations (inferred from table.$inferInsert)
+ * @template TSelect - Type for select operations (inferred from table.$inferSelect)
+ *
+ * @remarks
+ * **Type Assertion Pattern:** This repository uses `as any` casts when passing
+ * the generic table to Drizzle methods. This is necessary because TypeScript
+ * cannot prove that a generic `TTable extends PgTable` satisfies Drizzle's
+ * stricter internal type requirements for `insert()`, `update()`, and `delete()`.
+ *
+ * The public API maintains full type safety:
+ * - Input parameters are typed as `TInsert` (inferred from table)
+ * - Return values are typed as `TSelect` (inferred from table)
+ * - The casts are implementation details that don't leak to consumers
  *
  * @example
  * ```typescript
- * // Using the model delegate pattern (RECOMMENDED)
- * // Type-safe, IDE autocomplete, refactor-friendly
+ * import { products } from '@/db/schema';
+ *
+ * type Product = typeof products.$inferSelect;
+ * type NewProduct = typeof products.$inferInsert;
+ *
  * @Injectable()
- * export class ProductRepository extends TenantBaseRepository<
- *   Product,
- *   CreateProductDto,
- *   UpdateProductDto
- * > {
+ * export class ProductRepository extends TenantBaseRepository<typeof products> {
  *   constructor(database: TenantDatabaseService) {
- *     super(database, (prisma) => prisma.product);  // ✅ Type-safe with autocomplete!
+ *     super(database, products);
  *   }
  *
- *   // Add custom methods as needed
+ *   // Use SQL-builder syntax
  *   async findBySku(sku: string): Promise<Product | null> {
- *     return this.model.findUnique({ where: { sku } });
+ *     const [result] = await this.db
+ *       .select()
+ *       .from(this.table)
+ *       .where(eq(products.sku, sku))
+ *       .limit(1);
+ *     return result ?? null;
  *   }
- * }
  *
- * // Short syntax is also supported
- * @Injectable()
- * export class OrderRepository extends TenantBaseRepository<Order> {
- *   constructor(database: TenantDatabaseService) {
- *     super(database, (p) => p.order);  // ✅ Concise!
- *   }
- * }
- *
- * // Works with complex model names
- * @Injectable()
- * export class InventoryItemRepository extends TenantBaseRepository<InventoryItem> {
- *   constructor(database: TenantDatabaseService) {
- *     super(database, (p) => p.inventoryItem);  // ✅ Matches Prisma naming
+ *   // Use Prisma-like relational query syntax
+ *   async findWithRelations(id: string): Promise<Product | null> {
+ *     return await this.model.findFirst({
+ *       where: eq(products.id, id),
+ *       with: { category: true, variants: true }
+ *     });
  *   }
  * }
  * ```
  */
 export abstract class TenantBaseRepository<
-  TModel,
-  TCreateDTO = any,
-  TUpdateDTO = any,
+  TTable extends PgTable,
+  TInsert = InferInsertModel<TTable>,
+  TSelect = InferSelectModel<TTable>,
 > {
   protected readonly logger: Logger;
-  private readonly modelGetter: (prisma: any) => any;
 
   /**
-   * Lazy getter for Prisma client.
+   * The table name extracted from the Drizzle table at runtime.
+   * Used to access the query API for this repository's table.
+   */
+  private readonly tableName: string;
+
+  /**
+   * Lazy getter for Drizzle client.
    * Accesses the client from the database service only when needed,
    * avoiding initialization timing issues with NestJS lifecycle.
    */
-  protected get prisma(): any {
-    return this.database.prismaClient;
+  protected get db(): TypedDrizzleClient {
+    return this.database.drizzleClient;
   }
 
   /**
-   * Lazy getter for the Prisma model delegate.
-   * Returns the specific model (e.g., prisma.product, prisma.order) for this repository.
+   * Model query API for THIS repository's table (Prisma-like syntax)
+   * Scoped to only the table this repository manages
+   *
+   * @example
+   * ```typescript
+   * // Use relational queries with type safety
+   * const product = await this.model.findFirst({
+   *   where: eq(products.id, id),
+   *   with: { category: true, variants: true }
+   * });
+   * ```
    */
-  protected get model(): any {
-    return this.modelGetter(this.prisma);
+  protected get model(): TypedDrizzleClient['query'][ExtractTableName<TTable> &
+    keyof TypedDrizzleClient['query']] {
+    return this.database.drizzleClient.query[
+      this.tableName as ExtractTableName<TTable> & keyof TypedDrizzleClient['query']
+    ];
   }
 
   /**
    * Create a new repository instance
    *
    * @param database - The tenant database service
-   * @param getModel - Function that returns the Prisma model delegate from the client
+   * @param table - The Drizzle table schema object
    *
    * @example
    * ```typescript
-   * // Standard usage with full parameter name
-   * constructor(database: TenantDatabaseService) {
-   *   super(database, (prisma) => prisma.product);
-   * }
+   * import { products } from '@/db/schema';
    *
-   * // Short syntax
    * constructor(database: TenantDatabaseService) {
-   *   super(database, (p) => p.product);
-   * }
-   *
-   * // Complex model names
-   * constructor(database: TenantDatabaseService) {
-   *   super(database, (p) => p.inventoryItem);
+   *   super(database, products);
    * }
    * ```
    */
   constructor(
     protected readonly database: TenantDatabaseService,
-    getModel: (prisma: any) => any,
+    protected readonly table: TTable,
   ) {
+    this.tableName = getTableName(table);
     this.logger = new Logger(this.constructor.name);
-    this.modelGetter = getModel;
     this.logger.debug(`Initialized ${this.constructor.name}`);
   }
 
@@ -119,9 +150,13 @@ export abstract class TenantBaseRepository<
    * });
    * ```
    */
-  async create(data: TCreateDTO): Promise<TModel> {
+  async create(data: TInsert): Promise<TSelect> {
     this.logger.log('Creating record');
-    return await this.model.create({ data });
+    const results = (await this.db
+      .insert(this.table as any)
+      .values(data as any)
+      .returning()) as TSelect[];
+    return results[0]!;
   }
 
   /**
@@ -135,59 +170,85 @@ export abstract class TenantBaseRepository<
    * const product = await productRepository.findById('product-id-123');
    * ```
    */
-  async findById(id: string): Promise<TModel | null> {
+  async findById(id: string): Promise<TSelect | null> {
     this.logger.debug(`Finding record by ID: ${id}`);
-    return await this.model.findUnique({ where: { id } });
+    const idColumn = (this.table as any).id;
+    const results = await this.db
+      .select()
+      .from(this.table as any)
+      .where(eq(idColumn, id))
+      .limit(1);
+    return (results[0] as TSelect) ?? null;
   }
 
   /**
    * Find a single record with custom where clause
    *
-   * @param where - The where clause or findUnique args
+   * @param where - SQL condition
    * @returns Promise resolving to the record or null if not found
    *
    * @example
    * ```typescript
-   * // Simple where clause
-   * const product = await productRepository.findOne({ sku: 'WDG-001' });
-   *
-   * // With include
-   * const product = await productRepository.findOne({
-   *   where: { sku: 'WDG-001' },
-   *   include: { category: true }
-   * });
+   * import { eq } from 'drizzle-orm';
+   * const product = await productRepository.findOne(eq(products.sku, 'WDG-001'));
    * ```
    */
-  async findOne(where: any): Promise<TModel | null> {
+  async findOne(where: SQL): Promise<TSelect | null> {
     this.logger.debug('Finding record with custom query');
-    return await this.model.findUnique(
-      typeof where === 'object' && 'where' in where ? where : { where },
-    );
+    const results = await this.db
+      .select()
+      .from(this.table as any)
+      .where(where)
+      .limit(1);
+    return (results[0] as TSelect) ?? null;
   }
 
   /**
    * Find multiple records
    *
-   * @param args - Prisma findMany arguments (where, orderBy, take, skip, etc.)
+   * @param options - Query options (where, orderBy, limit, offset)
    * @returns Promise resolving to an array of records
    *
    * @example
    * ```typescript
+   * import { eq, desc } from 'drizzle-orm';
+   *
    * // Find all products
    * const products = await productRepository.findMany();
    *
    * // Find with filtering and pagination
    * const products = await productRepository.findMany({
-   *   where: { status: 'ACTIVE' },
-   *   orderBy: { createdAt: 'desc' },
-   *   take: 10,
-   *   skip: 0
+   *   where: eq(products.status, 'ACTIVE'),
+   *   orderBy: desc(products.createdAt),
+   *   limit: 10,
+   *   offset: 0
    * });
    * ```
    */
-  async findMany(args?: any): Promise<TModel[]> {
+  async findMany(options?: {
+    where?: SQL;
+    orderBy?: SQL;
+    limit?: number;
+    offset?: number;
+  }): Promise<TSelect[]> {
     this.logger.debug('Finding multiple records');
-    return await this.model.findMany(args);
+
+    let query = this.db.select().from(this.table as any).$dynamic();
+
+    if (options?.where) {
+      query = query.where(options.where);
+    }
+    if (options?.orderBy) {
+      query = query.orderBy(options.orderBy);
+    }
+    if (options?.limit) {
+      query = query.limit(options.limit);
+    }
+    if (options?.offset) {
+      query = query.offset(options.offset);
+    }
+
+    return (await query) as TSelect[];
   }
 
   /**
@@ -204,30 +265,45 @@ export abstract class TenantBaseRepository<
    * });
    * ```
    */
-  async update(id: string, data: TUpdateDTO): Promise<TModel> {
+  async update(id: string, data: Partial<TInsert>): Promise<TSelect> {
     this.logger.log(`Updating record with ID: ${id}`);
-    return await this.model.update({ where: { id }, data });
+    const idColumn = (this.table as any).id;
+    const results = (await this.db
+      .update(this.table as any)
+      .set(data as any)
+      .where(eq(idColumn, id))
+      .returning()) as TSelect[];
+    return results[0]!;
   }
 
   /**
    * Update multiple records
    *
-   * @param where - The where clause to match records
+   * @param where - SQL condition to match records
    * @param data - The data to update
    * @returns Promise resolving to the count of updated records
    *
    * @example
    * ```typescript
+   * import { eq } from 'drizzle-orm';
+   *
    * const result = await productRepository.updateMany(
-   *   { status: 'PENDING' },
+   *   eq(products.status, 'PENDING'),
    *   { status: 'ACTIVE' }
    * );
    * console.log(`Updated ${result.count} products`);
    * ```
    */
-  async updateMany(where: any, data: TUpdateDTO): Promise<{ count: number }> {
+  async updateMany(
+    where: SQL,
+    data: Partial<TInsert>,
+  ): Promise<{ count: number }> {
     this.logger.log('Updating multiple records');
-    return await this.model.updateMany({ where, data });
+    const result = await this.db
+      .update(this.table as any)
+      .set(data as any)
+      .where(where);
+    return { count: result.rowCount ?? 0 };
   }
 
   /**
@@ -241,66 +317,90 @@ export abstract class TenantBaseRepository<
    * const product = await productRepository.delete('product-id-123');
    * ```
    */
-  async delete(id: string): Promise<TModel> {
+  async delete(id: string): Promise<TSelect> {
     this.logger.log(`Deleting record with ID: ${id}`);
-    return await this.model.delete({ where: { id } });
+    const idColumn = (this.table as any).id;
+    const results = (await this.db
+      .delete(this.table as any)
+      .where(eq(idColumn, id))
+      .returning()) as TSelect[];
+    return results[0]!;
   }
 
   /**
    * Delete multiple records
    *
-   * @param where - The where clause to match records
+   * @param where - SQL condition to match records
    * @returns Promise resolving to the count of deleted records
    *
    * @example
    * ```typescript
-   * const result = await productRepository.deleteMany({
-   *   status: 'INACTIVE',
-   *   createdAt: { lt: new Date('2020-01-01') }
-   * });
+   * import { lt } from 'drizzle-orm';
+   *
+   * const result = await productRepository.deleteMany(
+   *   lt(products.createdAt, new Date('2020-01-01'))
+   * );
    * console.log(`Deleted ${result.count} products`);
    * ```
    */
-  async deleteMany(where: any): Promise<{ count: number }> {
+  async deleteMany(where: SQL): Promise<{ count: number }> {
     this.logger.log('Deleting multiple records');
-    return await this.model.deleteMany({ where });
+    const result = await this.db.delete(this.table as any).where(where);
+    return { count: result.rowCount ?? 0 };
   }
 
   /**
    * Count records
    *
-   * @param where - Optional where clause to filter records
+   * @param where - Optional SQL condition to filter records
    * @returns Promise resolving to the count of records
    *
    * @example
    * ```typescript
+   * import { eq } from 'drizzle-orm';
+   *
    * // Count all products
    * const total = await productRepository.count();
    *
    * // Count active products
-   * const activeCount = await productRepository.count({ status: 'ACTIVE' });
+   * const activeCount = await productRepository.count(
+   *   eq(products.status, 'ACTIVE')
+   * );
    * ```
    */
-  async count(where?: any): Promise<number> {
+  async count(where?: SQL): Promise<number> {
     this.logger.debug('Counting records');
-    return await this.model.count({ where });
+
+    let query = this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(this.table as any)
+      .$dynamic();
+
+    if (where) {
+      query = query.where(where);
+    }
+
+    const results = await query;
+    return (results[0] as { count: number }).count;
   }
 
   /**
    * Check if a record exists
    *
-   * @param where - The where clause to match records
+   * @param where - SQL condition to match records
    * @returns Promise resolving to true if at least one record exists, false otherwise
    *
    * @example
    * ```typescript
-   * const skuExists = await productRepository.exists({
-   *   sku: 'WDG-001'
-   * });
+   * import { eq } from 'drizzle-orm';
+   *
+   * const skuExists = await productRepository.exists(
+   *   eq(products.sku, 'WDG-001')
+   * );
    * ```
    */
-  async exists(where: any): Promise<boolean> {
-    const count = await this.model.count({ where });
+  async exists(where: SQL): Promise<boolean> {
+    const count = await this.count(where);
     return count > 0;
   }
 }

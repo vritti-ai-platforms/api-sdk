@@ -1,3 +1,5 @@
+import type { RegisteredSchema } from '../schema.registry';
+
 /**
  * Primary database connection configuration
  */
@@ -45,17 +47,11 @@ export interface DatabaseModuleOptions {
   primaryDb: PrimaryDbConfig;
 
   /**
-   * Primary database client constructor (for querying tenant registry)
-   * Only required in gateway mode
-   * @example import { PrismaClient } from './prisma/generated/prisma/client'
+   * Drizzle schema object containing all tables and relations
+   * Import your schema from db/schema/index.ts and pass it here
+   * @example import * as schema from '@/db/schema'
    */
-  prismaClientConstructor: any;
-
-  /**
-   * Prisma adapter constructor for PostgreSQL (required for Prisma 7+)
-   * @example import { PrismaPg } from '@prisma/adapter-pg'
-   */
-  prismaAdapterConstructor: any;
+  drizzleSchema: RegisteredSchema;
 
   /**
    * Connection cache TTL in milliseconds

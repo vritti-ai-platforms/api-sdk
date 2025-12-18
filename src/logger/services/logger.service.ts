@@ -13,6 +13,17 @@ import type { LoggerModuleOptions, LogLevel, LogMetadata } from '../types';
 import { getCorrelationContext } from '../utils';
 
 /**
+ * Type for log message parameter.
+ * NestJS LoggerService interface uses `any` for compatibility,
+ * but this type documents the expected message shapes.
+ *
+ * @remarks
+ * The public interface methods use `any` to maintain compatibility with
+ * NestJS's LoggerService interface. This type is for documentation purposes.
+ */
+export type LogMessage = string | Error | object;
+
+/**
  * Unified logger service implementing NestJS LoggerService interface.
  * Supports both default NestJS Logger and Winston implementations via facade pattern.
  */

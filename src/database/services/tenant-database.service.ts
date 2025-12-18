@@ -5,15 +5,26 @@ import {
   Logger,
   OnModuleDestroy,
 } from '@nestjs/common';
+import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import { DATABASE_MODULE_OPTIONS } from '../constants';
 import type { DatabaseModuleOptions, TenantInfo } from '../interfaces';
 import { TenantContextService } from './tenant-context.service';
+import type { TypedDrizzleClient } from '../schema.registry';
+
+/**
+ * Tenant connection wrapper containing both pool and Drizzle instance
+ */
+interface TenantConnection {
+  pool: Pool;
+  db: TypedDrizzleClient;
+}
 
 /**
  * Service responsible for managing tenant-scoped database connections
  *
  * This service:
- * - Maintains a connection pool (Map<cacheKey, DbClient>)
+ * - Maintains a connection pool (Map<cacheKey, TenantConnection>)
  * - Creates new connections dynamically based on tenant context
  * - Reuses existing connections for the same tenant
  * - Supports both cloud schemas and enterprise databases
@@ -21,15 +32,15 @@ import { TenantContextService } from './tenant-context.service';
  *
  * @example
  * // In a controller or service
- * const dbClient = await this.tenantDatabase.getDbClient<PrismaClient>();
- * const users = await dbClient.user.findMany();
+ * const db = this.tenantDatabase.drizzleClient;
+ * const users = await db.select().from(usersTable);
  */
 @Injectable()
 export class TenantDatabaseService implements OnModuleDestroy {
   private readonly logger = new Logger(TenantDatabaseService.name);
 
-  /** Connection pool: Map<cacheKey, DbClient> */
-  private readonly clients = new Map<string, any>();
+  /** Connection pool: Map<cacheKey, TenantConnection> */
+  private readonly clients = new Map<string, TenantConnection>();
 
   /** Track last usage time for idle connection cleanup */
   private readonly clientLastUsed = new Map<string, number>();
@@ -46,15 +57,22 @@ export class TenantDatabaseService implements OnModuleDestroy {
   }
 
   /**
-   * Get the Prisma client for the current tenant's database.
+   * Get the Drizzle client for the current tenant's database.
    * This returns the tenant-scoped database client.
    *
-   * @returns Tenant-scoped database client instance
+   * @returns Tenant-scoped Drizzle database instance
    * @throws UnauthorizedException if tenant context not set
    * @throws InternalServerErrorException if connection fails
    */
-  get prismaClient(): any {
+  get drizzleClient(): TypedDrizzleClient {
     return this.getDbClient();
+  }
+
+  /**
+   * Get the Drizzle schema
+   */
+  get schema(): Record<string, unknown> {
+    return this.options.drizzleSchema;
   }
 
   /**
@@ -65,68 +83,67 @@ export class TenantDatabaseService implements OnModuleDestroy {
    * 2. Builds a connection URL based on tenant type
    * 3. Returns cached client if exists, otherwise creates new one
    *
-   * @returns Promise<Database client instance>
+   * @returns Drizzle database instance
    * @throws UnauthorizedException if tenant context not set
    * @throws InternalServerErrorException if connection fails
-   *
-   * @example
-   * const dbClient = await tenantDatabase.getDbClient<PrismaClient>();
-   * const users = await dbClient.user.findMany();
    */
-  private async getDbClient<T = any>(): Promise<T> {
+  private getDbClient(): TypedDrizzleClient {
     const tenant = this.tenantContext.getTenant();
-
     const cacheKey = this.buildCacheKey(tenant);
 
     // Check if connection already exists
-    if (this.clients.has(cacheKey)) {
+    const existing = this.clients.get(cacheKey);
+    if (existing) {
       this.clientLastUsed.set(cacheKey, Date.now());
       this.logger.debug(`Reusing cached connection: ${cacheKey}`);
-      return this.clients.get(cacheKey) as T;
+      return existing.db;
     }
 
-    // Create new connection
+    // Create new connection synchronously
     this.logger.log(`Creating new database connection: ${cacheKey}`);
-    const client = await this.createDbClient(tenant);
-    this.clients.set(cacheKey, client);
+    const connection = this.createDbClientSync(tenant);
+    this.clients.set(cacheKey, connection);
     this.clientLastUsed.set(cacheKey, Date.now());
 
-    return client as T;
+    return connection.db;
   }
 
   /**
-   * Create a new database client for the given tenant
+   * Create a new database client for the given tenant (synchronous)
    */
-  private async createDbClient(tenant: TenantInfo): Promise<any> {
+  private createDbClientSync(tenant: TenantInfo): TenantConnection {
     try {
       // Build tenant-specific database URL
       const databaseUrl = this.buildTenantDbUrl(tenant);
 
-      // Load Prisma client and adapter constructors
-      const PrismaClient = await this.options.prismaClientConstructor;
-      const PrismaAdapter = this.options.prismaAdapterConstructor;
+      // Create PostgreSQL pool
+      const pool = new Pool({
+        connectionString: databaseUrl,
+        max: tenant.connectionPoolSize || this.options.maxConnections || 10,
+      });
 
-      // Prisma 7: Use driver adapter pattern instead of datasources
-      const adapter = new PrismaAdapter({ connectionString: databaseUrl });
+      // Initialize Drizzle with the schema (v2 API)
+      const db = drizzle({
+        client: pool,
+        schema: this.options.drizzleSchema,
+      }) as TypedDrizzleClient;
 
-      // Create new instance with tenant-specific connection
-      const client = new PrismaClient({ adapter });
-
-      await client.$connect();
       this.logger.log(`Connected to database for tenant: ${tenant.subdomain}`);
 
-      return client;
+      return { pool, db };
     } catch (error) {
       this.logger.error(
         `Failed to create database connection for tenant: ${tenant.subdomain}`,
         error,
       );
-      throw new InternalServerErrorException('Failed to connect to tenant database');
+      throw new InternalServerErrorException(
+        'Failed to connect to tenant database',
+      );
     }
   }
 
   /**
-   * Build connection URL for enterprise tenant (dedicated database)
+   * Build connection URL for tenant (dedicated database)
    */
   private buildTenantDbUrl(tenant: TenantInfo): string {
     const {
@@ -139,14 +156,18 @@ export class TenantDatabaseService implements OnModuleDestroy {
     } = tenant;
 
     if (!databaseHost || !databaseName || !databaseUsername) {
-      throw new Error(`Enterprise tenant ${tenant.subdomain} missing database configuration`);
+      throw new Error(
+        `Tenant ${tenant.subdomain} missing database configuration`,
+      );
     }
 
     const port = databasePort || 5432;
     const sslMode = databaseSslMode || 'require';
-    const connectionUrl = `postgresql://${databaseUsername}:${databasePassword}@${databaseHost}:${port}/${databaseName}?sslmode=${sslMode}`;
+    const connectionUrl = `postgresql://${databaseUsername}:${encodeURIComponent(databasePassword || '')}@${databaseHost}:${port}/${databaseName}?sslmode=${sslMode}`;
 
-    this.logger.debug(`Enterprise connection URL: ${this.maskPassword(connectionUrl)}`);
+    this.logger.debug(
+      `Tenant connection URL: ${this.maskPassword(connectionUrl)}`,
+    );
 
     return connectionUrl;
   }
@@ -168,13 +189,15 @@ export class TenantDatabaseService implements OnModuleDestroy {
       this.cleanupIdleConnections();
     }, interval);
 
-    this.logger.log(`Connection cleanup scheduled every ${interval / 1000} seconds`);
+    this.logger.log(
+      `Connection cleanup scheduled every ${interval / 1000} seconds`,
+    );
   }
 
   /**
    * Clean up idle connections that haven't been used recently
    */
-  private cleanupIdleConnections(): void {
+  private async cleanupIdleConnections(): Promise<void> {
     const now = Date.now();
     const maxIdle = this.options.connectionCacheTTL || 300000;
 
@@ -182,16 +205,14 @@ export class TenantDatabaseService implements OnModuleDestroy {
 
     for (const [key, lastUsed] of this.clientLastUsed.entries()) {
       if (now - lastUsed > maxIdle) {
-        const client = this.clients.get(key);
-        if (client) {
-          client
-            .$disconnect()
-            .then(() => {
-              this.logger.debug(`Cleaned up idle connection: ${key}`);
-            })
-            .catch((error: any) => {
-              this.logger.error(`Error disconnecting idle client: ${key}`, error);
-            });
+        const connection = this.clients.get(key);
+        if (connection) {
+          try {
+            await connection.pool.end();
+            this.logger.debug(`Cleaned up idle connection: ${key}`);
+          } catch (error) {
+            this.logger.error(`Error disconnecting idle client: ${key}`, error);
+          }
 
           this.clients.delete(key);
           this.clientLastUsed.delete(key);
@@ -234,14 +255,16 @@ export class TenantDatabaseService implements OnModuleDestroy {
     // Disconnect all clients
     this.logger.log(`Disconnecting ${this.clients.size} database connections`);
 
-    const disconnectPromises = Array.from(this.clients.entries()).map(async ([key, client]) => {
-      try {
-        await client.$disconnect();
-        this.logger.debug(`Disconnected: ${key}`);
-      } catch (error) {
-        this.logger.error(`Error disconnecting client: ${key}`, error);
-      }
-    });
+    const disconnectPromises = Array.from(this.clients.entries()).map(
+      async ([key, connection]) => {
+        try {
+          await connection.pool.end();
+          this.logger.debug(`Disconnected: ${key}`);
+        } catch (error) {
+          this.logger.error(`Error disconnecting client: ${key}`, error);
+        }
+      },
+    );
 
     await Promise.all(disconnectPromises);
     this.logger.log('All database connections closed');

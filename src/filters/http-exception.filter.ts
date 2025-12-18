@@ -10,6 +10,38 @@ import type { FastifyReply } from 'fastify';
 import type { ApiErrorResponse, FieldError } from '../types/error-response.types';
 
 /**
+ * Shape of exception response from custom field exceptions (BaseFieldException).
+ */
+interface FieldExceptionResponse {
+  errors: FieldError[];
+  detail?: string;
+}
+
+/**
+ * Shape of exception response from class-validator validation errors.
+ */
+interface ValidationExceptionResponse {
+  message: Array<string | { property: string; constraints: Record<string, string> }>;
+  error?: string;
+}
+
+/**
+ * Shape of standard NestJS exception response.
+ */
+interface StandardExceptionResponse {
+  message: string | string[];
+  error?: string;
+}
+
+/**
+ * Union type for all possible exception response shapes.
+ */
+type ExceptionResponseObject =
+  | FieldExceptionResponse
+  | ValidationExceptionResponse
+  | StandardExceptionResponse;
+
+/**
  * Converts an HTTP status code to its corresponding title string.
  * Uses the HttpStatus enum to map status codes to human-readable titles.
  *
@@ -72,20 +104,21 @@ export class HttpExceptionFilter implements ExceptionFilter {
       const exceptionResponse = exception.getResponse();
 
       if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
-        const responseObj = exceptionResponse as any;
+        const responseObj = exceptionResponse as ExceptionResponseObject;
 
         // Handle custom field exceptions from @vritti/api-sdk
-        if (responseObj.errors && Array.isArray(responseObj.errors)) {
+        if ('errors' in responseObj && Array.isArray(responseObj.errors)) {
           errors = responseObj.errors;
-          detail = responseObj.detail || exception.message;
+          detail = ('detail' in responseObj ? responseObj.detail : undefined) || exception.message;
         }
         // Handle class-validator DTO validation errors
-        else if (responseObj.message && Array.isArray(responseObj.message)) {
-          errors = responseObj.message.map((msg: any) => {
-            if (typeof msg === 'object' && msg.property && msg.constraints) {
+        else if ('message' in responseObj && Array.isArray(responseObj.message)) {
+          errors = responseObj.message.map((msg) => {
+            if (typeof msg === 'object' && 'property' in msg && 'constraints' in msg) {
+              const constraintValues = Object.values(msg.constraints);
               return {
                 field: msg.property,
-                message: Object.values(msg.constraints)[0] as string,
+                message: constraintValues[0] ?? 'Validation failed',
               };
             }
             return { message: typeof msg === 'string' ? msg : JSON.stringify(msg) };
@@ -93,9 +126,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
           detail = 'Validation failed';
         }
         // Handle standard NestJS exceptions
-        else if (responseObj.message) {
-          errors = [{ message: Array.isArray(responseObj.message) ? responseObj.message.join(', ') : responseObj.message }];
-          detail = responseObj.error || exception.message;
+        else if ('message' in responseObj) {
+          const message = responseObj.message;
+          errors = [{ message: Array.isArray(message) ? message.join(', ') : message }];
+          detail = ('error' in responseObj ? responseObj.error : undefined) || exception.message;
         }
       } else if (typeof exceptionResponse === 'string') {
         errors = [{ message: exceptionResponse }];
