@@ -120,10 +120,21 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
       });
 
       // Initialize Drizzle with the schema provided (v2 API)
+      // Relations must be passed separately for db.query to work
+      this.logger.debug(
+        `Schema keys passed to drizzle: [${Object.keys(this.options.drizzleSchema || {}).join(', ')}]`,
+      );
+      this.logger.debug(
+        `Relations keys passed to drizzle: [${Object.keys(this.options.drizzleRelations || {}).join(', ')}]`,
+      );
       this.db = drizzle({
         client: this.pool,
         schema: this.options.drizzleSchema,
+        relations: this.options.drizzleRelations,
       }) as TypedDrizzleClient;
+      this.logger.debug(
+        `Drizzle query keys after init: [${Object.keys(this.db.query || {}).join(', ')}]`,
+      );
 
       // Test connection
       await this.pool.query('SELECT 1');

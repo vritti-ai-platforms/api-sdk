@@ -12,23 +12,49 @@ import { PrimaryDatabaseService } from '../services/primary-database.service';
 import type { TypedDrizzleClient } from '../schema.registry';
 
 /**
- * Type-safe wrapper for Drizzle's RelationalQueryBuilder.
+ * Drizzle ORM v2 object-based where filter type.
+ * Supports simple equality, operators, AND/OR/NOT, and RAW SQL.
+ *
+ * @example
+ * ```typescript
+ * // Simple equality
+ * { email: 'user@example.com' }
+ *
+ * // With operators
+ * { age: { gt: 18, lt: 65 } }
+ *
+ * // AND/OR combinations
+ * { AND: [{ status: 'ACTIVE' }, { age: { gte: 18 } }] }
+ *
+ * // RAW SQL expression
+ * { RAW: (table) => sql`${table.email} ILIKE '%@gmail.com'` }
+ * ```
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RelationsWhereFilter = Record<string, any>;
+
+/**
+ * Type-safe wrapper for Drizzle's RelationalQueryBuilder (v2 API).
  * This interface matches the method signatures of RelationalQueryBuilder
  * but properly binds the TSelect generic for type safety.
  *
  * We use this instead of RelationalQueryBuilder directly because
  * TypeScript cannot infer TSelect from the generic base repository context.
+ *
+ * @remarks
+ * Drizzle ORM v2 uses object-based `where` filters instead of SQL expressions.
+ * See: https://orm.drizzle.team/docs/relations-v1-v2
  */
 interface TypedRelationalQueryBuilder<TSelect> {
   findFirst(config?: {
-    where?: SQL;
+    where?: RelationsWhereFilter;
     with?: Record<string, unknown>;
     columns?: Record<string, boolean>;
   }): Promise<TSelect | undefined>;
 
   findMany(config?: {
-    where?: SQL;
-    orderBy?: SQL;
+    where?: RelationsWhereFilter;
+    orderBy?: Record<string, 'asc' | 'desc'>;
     limit?: number;
     offset?: number;
     with?: Record<string, unknown>;
@@ -68,17 +94,17 @@ interface TypedRelationalQueryBuilder<TSelect> {
  *     super(database, users);
  *   }
  *
- *   // Use Prisma-like relational query syntax (recommended)
+ *   // Use Drizzle v2 object-based where syntax (recommended)
  *   async findByEmail(email: string): Promise<User | undefined> {
  *     return this.model.findFirst({
- *       where: eq(users.email, email),
+ *       where: { email },
  *     });
  *   }
  *
- *   // Use Prisma-like with relations
+ *   // With relations
  *   async findWithRelations(id: string): Promise<User | undefined> {
  *     return this.model.findFirst({
- *       where: eq(users.id, id),
+ *       where: { id },
  *       with: { posts: true, profile: true }
  *     });
  *   }
@@ -108,23 +134,34 @@ export abstract class PrimaryBaseRepository<
   }
 
   /**
-   * Model query API for THIS repository's table (Prisma-like syntax)
+   * Model query API for THIS repository's table (Drizzle v2 relational queries)
    * Scoped to only the table this repository manages.
    * Returns a type-safe wrapper around Drizzle's RelationalQueryBuilder.
    *
    * @example
    * ```typescript
-   * // Use relational queries with type safety
+   * // Use relational queries with v2 object-based where syntax
    * const user = await this.model.findFirst({
-   *   where: eq(users.id, id),
+   *   where: { id },
    *   with: { posts: true, profile: true }
    * });
    * ```
    */
   protected get model(): TypedRelationalQueryBuilder<TSelect> {
-    return this.database.drizzleClient.query[
-      this.tableName as keyof TypedDrizzleClient['query']
-    ] as unknown as TypedRelationalQueryBuilder<TSelect>;
+    const query = this.database.drizzleClient.query;
+    const queryKeys = Object.keys(query || {});
+    this.logger.debug(
+      `Looking for '${this.tableName}' in query keys: [${queryKeys.join(', ')}]`,
+    );
+
+    const model = query[this.tableName as keyof TypedDrizzleClient['query']];
+    if (!model) {
+      this.logger.error(
+        `Table '${this.tableName}' not found in query object. Available: [${queryKeys.join(', ')}]`,
+      );
+    }
+
+    return model as unknown as TypedRelationalQueryBuilder<TSelect>;
   }
 
   /**
@@ -149,6 +186,7 @@ export abstract class PrimaryBaseRepository<
     this.tableName = getTableName(table);
     this.logger = new Logger(this.constructor.name);
     this.logger.debug(`Initialized ${this.constructor.name}`);
+    this.logger.debug(`Table name from getTableName: '${this.tableName}'`);
   }
 
   /**
@@ -187,54 +225,70 @@ export abstract class PrimaryBaseRepository<
    */
   async findById(id: string): Promise<TSelect | undefined> {
     this.logger.debug(`Finding record by ID: ${id}`);
-    const idColumn = (this.table as any).id;
     return this.model.findFirst({
-      where: eq(idColumn, id),
+      where: { id },
     });
   }
 
   /**
-   * Find a single record with custom where clause
+   * Find a single record with custom where clause (Drizzle v2 object-based syntax)
    *
-   * @param where - SQL condition
+   * @param where - Object-based filter condition
    * @returns Promise resolving to the record or undefined if not found
    *
    * @example
    * ```typescript
-   * import { eq } from 'drizzle-orm';
-   * const user = await userRepository.findOne(eq(users.email, 'user@example.com'));
+   * // Simple equality
+   * const user = await userRepository.findOne({ email: 'user@example.com' });
+   *
+   * // With operators
+   * const user = await userRepository.findOne({ age: { gte: 18 } });
+   *
+   * // Multiple conditions (AND)
+   * const user = await userRepository.findOne({
+   *   email: 'user@example.com',
+   *   status: 'ACTIVE'
+   * });
    * ```
    */
-  async findOne(where: SQL): Promise<TSelect | undefined> {
+  async findOne(where: RelationsWhereFilter): Promise<TSelect | undefined> {
     this.logger.debug('Finding record with custom query');
     return this.model.findFirst({ where });
   }
 
   /**
-   * Find multiple records
+   * Find multiple records (Drizzle v2 object-based syntax)
    *
    * @param options - Query options (where, orderBy, limit, offset)
    * @returns Promise resolving to an array of records
    *
    * @example
    * ```typescript
-   * import { eq, desc } from 'drizzle-orm';
-   *
    * // Find all users
    * const users = await userRepository.findMany();
    *
-   * // Find with filtering and pagination
+   * // Find with filtering and pagination (v2 object syntax)
    * const users = await userRepository.findMany({
-   *   where: eq(users.accountStatus, 'ACTIVE'),
-   *   orderBy: desc(users.createdAt),
+   *   where: { accountStatus: 'ACTIVE' },
+   *   orderBy: { createdAt: 'desc' },
    *   limit: 10,
    *   offset: 0
+   * });
+   *
+   * // Multiple conditions
+   * const users = await userRepository.findMany({
+   *   where: {
+   *     AND: [
+   *       { status: 'ACTIVE' },
+   *       { age: { gte: 18 } }
+   *     ]
+   *   }
    * });
    * ```
    */
   async findMany(options?: {
-    where?: SQL;
-    orderBy?: SQL;
+    where?: RelationsWhereFilter;
+    orderBy?: Record<string, 'asc' | 'desc'>;
     limit?: number;
     offset?: number;
   }): Promise<TSelect[]> {

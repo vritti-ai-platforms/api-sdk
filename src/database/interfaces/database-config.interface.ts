@@ -47,11 +47,19 @@ export interface DatabaseModuleOptions {
   primaryDb: PrimaryDbConfig;
 
   /**
-   * Drizzle schema object containing all tables and relations
+   * Drizzle schema object containing all tables
    * Import your schema from db/schema/index.ts and pass it here
    * @example import * as schema from '@/db/schema'
    */
   drizzleSchema: RegisteredSchema;
+
+  /**
+   * Drizzle relations object from defineRelations()
+   * Required for relational queries (db.query.*.findFirst/findMany)
+   * @example import { relations } from '@/db/schema'
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  drizzleRelations?: Record<string, any>;
 
   /**
    * Connection cache TTL in milliseconds
