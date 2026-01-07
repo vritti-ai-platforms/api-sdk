@@ -12,6 +12,14 @@ import { PrimaryDatabaseService } from '../services/primary-database.service';
 import type { TypedDrizzleClient } from '../schema.registry';
 
 /**
+ * Convert snake_case string to camelCase
+ * @example 'email_verifications' -> 'emailVerifications'
+ */
+function snakeToCamel(str: string): string {
+  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+/**
  * Drizzle ORM v2 object-based where filter type.
  * Supports simple equality, operators, AND/OR/NOT, and RAW SQL.
  *
@@ -120,7 +128,8 @@ export abstract class PrimaryBaseRepository<
 
   /**
    * The table name extracted from the Drizzle table at runtime.
-   * Used to access the query API for this repository's table.
+   * Stored in camelCase to match Drizzle's query object keys.
+   * Example: 'email_verifications' -> 'emailVerifications'
    */
   private readonly tableName: string;
 
@@ -183,10 +192,13 @@ export abstract class PrimaryBaseRepository<
     protected readonly database: PrimaryDatabaseService,
     protected readonly table: TTable,
   ) {
-    this.tableName = getTableName(table);
+    // Convert snake_case table name to camelCase to match Drizzle query object keys
+    // Example: 'email_verifications' -> 'emailVerifications'
+    const dbTableName = getTableName(table);
+    this.tableName = snakeToCamel(dbTableName);
     this.logger = new Logger(this.constructor.name);
     this.logger.debug(`Initialized ${this.constructor.name}`);
-    this.logger.debug(`Table name from getTableName: '${this.tableName}'`);
+    this.logger.debug(`Table name: '${dbTableName}' -> query key: '${this.tableName}'`);
   }
 
   /**

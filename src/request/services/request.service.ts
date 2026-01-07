@@ -1,6 +1,7 @@
 import { Inject, Injectable, Scope } from '@nestjs/common';
 import { REQUEST } from '@nestjs/core';
 import type { FastifyRequest } from 'fastify';
+import { getConfig } from '../../config';
 
 @Injectable({ scope: Scope.REQUEST })
 export class RequestService {
@@ -35,17 +36,18 @@ export class RequestService {
   }
 
   /**
-   * Extract refresh token from session-id cookie
-   * Cookie name: session-id
+   * Extract refresh token from httpOnly cookie
+   * Cookie name is configurable via api-sdk config
    * @returns Refresh token or null if not found
    */
   getRefreshToken(): string | null {
     try {
       const cookies = (this.request as unknown as { cookies?: Record<string, string> }).cookies;
       if (cookies && typeof cookies === 'object') {
-        const sessionId = cookies['session-id'];
-        if (sessionId) {
-          return sessionId;
+        const config = getConfig();
+        const refreshToken = cookies[config.cookie.refreshCookieName];
+        if (refreshToken) {
+          return refreshToken;
         }
       }
       return null;

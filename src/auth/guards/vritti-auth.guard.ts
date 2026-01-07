@@ -10,14 +10,16 @@ import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { FastifyRequest } from 'fastify';
-import * as jwt from 'jsonwebtoken';
 import { PrimaryDatabaseService } from '../../database/services/primary-database.service';
 import { RequestService } from '../../request/services/request.service';
+import { getConfig } from '../../config';
+import { verifyTokenHash } from '../utils/token-hash.util';
 
 // Type for decoded JWT token
 interface DecodedToken {
   userId?: string;
   type?: string;
+  refreshTokenHash?: string;
   exp?: number;
   nbf?: number;
   iat?: number;
@@ -25,27 +27,27 @@ interface DecodedToken {
 }
 
 /**
- * Vritti Authentication Guard - Validates JWT tokens and tenant context
+ * Vritti Authentication Guard - Validates JWT access tokens and tenant context
  *
- * This guard performs comprehensive validation and attaches user data to request.
+ * This guard performs access token validation and attaches user data to request.
+ * NOTE: Refresh tokens are NOT validated here - they are only validated in
+ * /auth/token and /auth/refresh endpoints (session.service.ts).
  *
  * Validation Flow:
  * 1. Checks if endpoint is marked with @Public() decorator → skip all validation
  * 2. Checks if endpoint is marked with @Onboarding() decorator:
  *    - Requires token type='onboarding'
  *    - Validates JWT signature and expiry only
- *    - Skips tenant and refresh token validation
+ *    - Skips tenant validation
  *    - Attaches user data to request.user
  * 3. For regular endpoints (no decorator):
  *    - Rejects tokens with type='onboarding'
  *    - Validates access token (JWT signature, expiry, nbf)
- *    - Validates refresh token from session-id cookie
  *    - Validates tenant exists and is ACTIVE
  *    - Attaches user data to request.user
  *
  * Token Format:
  * - Access Token: "Authorization: Bearer <jwt_token>"
- * - Refresh Token: "session-id" cookie
  *
  * Token Types:
  * - type='onboarding': Limited access during registration flow (@Onboarding endpoints only)
@@ -53,11 +55,9 @@ interface DecodedToken {
  *
  * Environment Variables Required:
  * - JWT_SECRET: Secret key to verify access tokens (required)
- * - JWT_REFRESH_SECRET: Secret key for refresh tokens (optional, falls back to JWT_SECRET)
  *
  * Error Responses:
  * - 401: Invalid/expired access token
- * - 401: Invalid/expired refresh token
  * - 401: Tenant not found or inactive
  * - 401: Tenant identifier not found
  * - 401: Token type mismatch (onboarding token on regular endpoint or vice versa)
@@ -149,6 +149,9 @@ export class VrittiAuthGuard implements CanActivate {
         const validatedToken = this.validateAccessToken(accessToken);
         this.logger.debug('Onboarding token validated successfully');
 
+        // Validate refresh token binding if enabled
+        this.validateRefreshTokenBinding(context, validatedToken);
+
         // Attach user data to request (use userId field from our tokens, fallback to sub for standard JWT)
         const userId = (validatedToken as any).userId;
         (request as any).user = { id: userId };
@@ -166,21 +169,14 @@ export class VrittiAuthGuard implements CanActivate {
       const validatedToken = this.validateAccessToken(accessToken);
       this.logger.debug('Access token validated successfully');
 
-      // Step 6: Validate refresh token from session-id cookie
-      const refreshToken = this.requestService.getRefreshToken();
-      if (!refreshToken) {
-        this.logger.warn('Refresh token (session-id) not found in cookies');
-        throw new UnauthorizedException('Refresh token not found');
-      }
+      // Step 5.5: Validate refresh token binding if enabled
+      this.validateRefreshTokenBinding(context, validatedToken);
 
-      this.validateRefreshToken(refreshToken);
-      this.logger.debug('Refresh token validated successfully');
-
-      // Step 7: Attach user data to request (use userId field from our tokens, fallback to sub for standard JWT)
+      // Step 6: Attach user data to request (use userId field from our tokens)
       const userId = (validatedToken as any).userId;
       (request as any).user = { id: userId };
 
-      // Step 8: Extract tenant identifier using RequestService
+      // Step 7: Extract tenant identifier using RequestService
       const tenantIdentifier = this.requestService.getTenantIdentifier();
 
       if (!tenantIdentifier) {
@@ -190,13 +186,13 @@ export class VrittiAuthGuard implements CanActivate {
 
       this.logger.debug(`Tenant identifier extracted: ${tenantIdentifier}`);
 
-      // Step 9: Skip database validation for platform admin (cloud.vritti.com)
+      // Step 8: Skip database validation for platform admin (cloud.vritti.com)
       if (tenantIdentifier === 'cloud') {
         this.logger.debug('Platform admin access detected, skipping tenant database validation');
         return true;
       }
 
-      // Step 10: Fetch tenant details from primary database
+      // Step 9: Fetch tenant details from primary database
       const tenantInfo = await this.primaryDatabase.getTenantInfo(tenantIdentifier);
 
       if (!tenantInfo) {
@@ -204,7 +200,7 @@ export class VrittiAuthGuard implements CanActivate {
         throw new UnauthorizedException('Invalid tenant');
       }
 
-      // Step 11: Validate tenant is ACTIVE
+      // Step 10: Validate tenant is ACTIVE
       if (tenantInfo.status !== 'ACTIVE') {
         this.logger.warn(`Tenant ${tenantIdentifier} has status: ${tenantInfo.status}`);
         throw new UnauthorizedException(`Tenant is ${tenantInfo.status}`);
@@ -271,70 +267,48 @@ export class VrittiAuthGuard implements CanActivate {
   }
 
   /**
-   * Validate refresh token with proper expiry checks
-   * Throws UnauthorizedException if token is invalid or expired
+   * Validate that the access token is bound to the refresh token in the cookie.
+   * This prevents token theft - a stolen access token is useless without the
+   * corresponding refresh token cookie.
+   *
+   * @param context - The execution context containing the request
+   * @param validatedToken - The decoded and validated JWT token
+   * @throws UnauthorizedException if token binding validation fails
    */
-  private validateRefreshToken(token: string): void {
-    const jwtSecret =
-      this.configService.get<string>('JWT_REFRESH_SECRET') ||
-      this.configService.get<string>('JWT_SECRET');
-    this.validateRefreshTokenWithSecret(token, jwtSecret);
-  }
+  private validateRefreshTokenBinding(
+    context: ExecutionContext,
+    validatedToken: DecodedToken,
+  ): void {
+    const config = getConfig();
 
-  /**
-   * Helper to validate refresh token with specific secret
-   */
-  private validateRefreshTokenWithSecret(token: string, secret: string | undefined): void {
-    if (!secret) {
-      this.logger.error('JWT secret not configured for refresh token validation');
-      throw new UnauthorizedException('Server configuration error');
+    // Skip validation if disabled in config
+    if (!config.jwt.validateTokenBinding) {
+      this.logger.debug('Token binding validation is disabled');
+      return;
     }
 
-    try {
-      const decoded = jwt.verify(token, secret, {
-        algorithms: ['HS256', 'HS512', 'RS256'],
-      }) as DecodedToken;
-
-      this.logger.debug(`Refresh token decoded for user: ${(decoded as any).userId}`);
-
-      // Check expiry explicitly
-      if (decoded.exp) {
-        const expiryTime = decoded.exp * 1000; // Convert to milliseconds
-        const currentTime = Date.now();
-
-        if (currentTime > expiryTime) {
-          this.logger.warn('Refresh token has expired');
-          throw new UnauthorizedException('Refresh token has expired. Please login again');
-        }
-
-        const timeRemaining = expiryTime - currentTime;
-        this.logger.debug(
-          `Refresh token valid for ${Math.floor(timeRemaining / 1000)} more seconds`,
-        );
-      }
-    } catch (error: unknown) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-
-      const jwtError = error as { name?: string; message?: string; expiredAt?: string };
-      if (jwtError?.name === 'TokenExpiredError') {
-        this.logger.warn(`Refresh token expired at: ${jwtError?.expiredAt}`);
-        throw new UnauthorizedException('Refresh token has expired. Please login again');
-      }
-
-      if (jwtError?.name === 'JsonWebTokenError') {
-        this.logger.warn(`Refresh token verification failed: ${jwtError?.message}`);
-        throw new UnauthorizedException('Invalid refresh token');
-      }
-
-      if (jwtError?.name === 'NotBeforeError') {
-        this.logger.warn('Refresh token used before valid (nbf claim)');
-        throw new UnauthorizedException('Refresh token not yet valid');
-      }
-
-      this.logger.error('Unexpected error validating refresh token', error);
-      throw new UnauthorizedException('Refresh token validation failed');
+    // Skip validation if token doesn't have refreshTokenHash
+    // (backwards compatibility for tokens issued before this feature)
+    if (!validatedToken.refreshTokenHash) {
+      this.logger.debug('Token does not contain refreshTokenHash, skipping binding validation');
+      return;
     }
+
+    const request = context.switchToHttp().getRequest<FastifyRequest>();
+    const cookies = (request as any).cookies || {};
+    const refreshToken = cookies[config.cookie.refreshCookieName];
+
+    if (!refreshToken) {
+      this.logger.warn('Session validation failed - refresh token cookie not found');
+      throw new UnauthorizedException('Session validation failed');
+    }
+
+    if (!verifyTokenHash(refreshToken, validatedToken.refreshTokenHash)) {
+      this.logger.warn('Session validation failed - token binding mismatch');
+      throw new UnauthorizedException('Session validation failed');
+    }
+
+    this.logger.debug('Token binding validated successfully');
   }
+
 }

@@ -1,3 +1,20 @@
+// Config system
+export {
+  defineConfig,
+  configureApiSdk,
+  getConfig,
+  resetConfig,
+  getRefreshCookieOptions,
+  getJwtExpiry,
+  type ApiSdkConfig,
+  type CookieConfig,
+  type JwtConfig,
+  type GuardConfig,
+} from './config';
+
+// Token hash utilities
+export { hashToken, verifyTokenHash } from './auth/utils/token-hash.util';
+
 // Core modules
 export { AuthConfigModule } from './auth/auth-config.module';
 export { DatabaseModule } from './database/database.module';
