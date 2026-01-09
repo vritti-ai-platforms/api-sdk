@@ -1,18 +1,18 @@
 import {
-  CallHandler,
-  ExecutionContext,
+  type CallHandler,
+  type ExecutionContext,
   Injectable,
   Logger,
-  NestInterceptor,
+  type NestInterceptor,
   Scope,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import type { Reflector } from '@nestjs/core';
 import type { FastifyRequest } from 'fastify';
-import { Observable } from 'rxjs';
-import { RequestService } from '../../request';
-import { PrimaryDatabaseService } from '../services/primary-database.service';
-import { TenantContextService } from '../services/tenant-context.service';
+import type { Observable } from 'rxjs';
+import type { RequestService } from '../../request';
+import type { PrimaryDatabaseService } from '../services/primary-database.service';
+import type { TenantContextService } from '../services/tenant-context.service';
 
 /**
  * Interceptor that extracts tenant context from HTTP requests (Gateway Mode)
@@ -66,10 +66,7 @@ export class TenantContextInterceptor implements NestInterceptor {
     this.logger.debug(`Processing request: ${request.method} ${request.url}`);
 
     // Check if endpoint is marked as @Public()
-    const isPublic = this.reflector.getAllAndOverride<boolean>('isPublic', [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const isPublic = this.reflector.getAllAndOverride<boolean>('isPublic', [context.getHandler(), context.getClass()]);
 
     try {
       // Extract tenant identifier using RequestService (no code duplication)

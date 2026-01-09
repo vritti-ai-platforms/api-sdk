@@ -1,5 +1,5 @@
-import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { TenantInfo } from '../interfaces';
+import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
+import type { TenantInfo } from '../interfaces';
 import { TenantContextService } from '../services/tenant-context.service';
 
 /**
@@ -48,7 +48,7 @@ import { TenantContextService } from '../services/tenant-context.service';
  *   return ['feature-a'];
  * }
  */
-export const Tenant = createParamDecorator((data: unknown, ctx: ExecutionContext): TenantInfo => {
+export const Tenant = createParamDecorator((_data: unknown, ctx: ExecutionContext): TenantInfo => {
   const request = ctx.switchToHttp().getRequest();
 
   // Get from TenantContextService

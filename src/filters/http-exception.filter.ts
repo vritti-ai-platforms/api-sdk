@@ -1,11 +1,4 @@
-import {
-  ExceptionFilter,
-  Catch,
-  ArgumentsHost,
-  HttpException,
-  HttpStatus,
-  Logger,
-} from '@nestjs/common';
+import { type ArgumentsHost, Catch, type ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
 import type { ApiErrorResponse, FieldError } from '../types/error-response.types';
 
@@ -36,10 +29,7 @@ interface StandardExceptionResponse {
 /**
  * Union type for all possible exception response shapes.
  */
-type ExceptionResponseObject =
-  | FieldExceptionResponse
-  | ValidationExceptionResponse
-  | StandardExceptionResponse;
+type ExceptionResponseObject = FieldExceptionResponse | ValidationExceptionResponse | StandardExceptionResponse;
 
 /**
  * Converts an HTTP status code to its corresponding title string.
@@ -55,9 +45,7 @@ type ExceptionResponseObject =
  */
 export function getHttpStatusTitle(status: number): string {
   // Find the enum key for the given status code
-  const enumKey = Object.entries(HttpStatus).find(
-    ([key, value]) => value === status && isNaN(Number(key))
-  )?.[0];
+  const enumKey = Object.entries(HttpStatus).find(([key, value]) => value === status && Number.isNaN(Number(key)))?.[0];
 
   if (!enumKey) {
     return 'Error';
@@ -66,7 +54,7 @@ export function getHttpStatusTitle(status: number): string {
   // Convert enum key to title case (e.g., BAD_REQUEST -> Bad Request)
   return enumKey
     .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
 }
 

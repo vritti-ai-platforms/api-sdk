@@ -43,14 +43,7 @@ export default defineConfig({
   keepNames: true,
 
   // External dependencies - don't bundle peer dependencies or optional Prisma clients
-  external: [
-    '@nestjs/common',
-    '@nestjs/core',
-    'reflect-metadata',
-    'rxjs',
-    '@prisma/client',
-    '@prisma/cloud-client',
-  ],
+  external: ['@nestjs/common', '@nestjs/core', 'reflect-metadata', 'rxjs', '@prisma/client', '@prisma/cloud-client'],
 
   // Platform configuration for Node.js
   platform: 'node',

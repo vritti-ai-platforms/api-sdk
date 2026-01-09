@@ -1,25 +1,25 @@
-import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { describe, it } from 'node:test';
 import { HttpStatus } from '@nestjs/common';
 import {
-  BadRequestException,
-  UnauthorizedException,
-  ForbiddenException,
-  NotFoundException,
-  ConflictException,
-  InternalServerErrorException,
-  ValidationException,
-  UnprocessableEntityException,
-  TooManyRequestsException,
-  ServiceUnavailableException,
-  MethodNotAllowedException,
-  GoneException,
-  NotAcceptableException,
-  RequestTimeoutException,
-  PayloadTooLargeException,
-  UnsupportedMediaTypeException,
-  NotImplementedException,
   BadGatewayException,
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  GoneException,
+  InternalServerErrorException,
+  MethodNotAllowedException,
+  NotAcceptableException,
+  NotFoundException,
+  NotImplementedException,
+  PayloadTooLargeException,
+  RequestTimeoutException,
+  ServiceUnavailableException,
+  TooManyRequestsException,
+  UnauthorizedException,
+  UnprocessableEntityException,
+  UnsupportedMediaTypeException,
+  ValidationException,
 } from './index';
 
 describe('Exception Classes - 3 Parameter Support', () => {
@@ -54,7 +54,7 @@ describe('Exception Classes - 3 Parameter Support', () => {
     it('should support array of FieldError objects', () => {
       const exception = new BadRequestException([
         { field: 'email', message: 'Invalid email' },
-        { field: 'password', message: 'Password too short' }
+        { field: 'password', message: 'Password too short' },
       ]);
       const response = exception.getResponse() as any;
 
@@ -66,10 +66,7 @@ describe('Exception Classes - 3 Parameter Support', () => {
     });
 
     it('should support array + detail', () => {
-      const exception = new BadRequestException(
-        [{ field: 'email', message: 'Invalid' }],
-        'Please check your input'
-      );
+      const exception = new BadRequestException([{ field: 'email', message: 'Invalid' }], 'Please check your input');
       const response = exception.getResponse() as any;
 
       assert.equal(exception.getStatus(), HttpStatus.BAD_REQUEST);
@@ -141,7 +138,7 @@ describe('Exception Classes - 3 Parameter Support', () => {
     it('should support array of errors with optional detail', () => {
       const exception = new ValidationException(
         [{ field: 'email', message: 'Invalid format' }],
-        'Please correct the errors and try again'
+        'Please correct the errors and try again',
       );
       const response = exception.getResponse() as any;
 
@@ -241,7 +238,11 @@ describe('Exception Classes - 3 Parameter Support', () => {
 
   describe('UnsupportedMediaTypeException', () => {
     it('should support 3 parameters with detail', () => {
-      const exception = new UnsupportedMediaTypeException('contentType', 'Not supported', 'Only JSON and form-data are accepted');
+      const exception = new UnsupportedMediaTypeException(
+        'contentType',
+        'Not supported',
+        'Only JSON and form-data are accepted',
+      );
       const response = exception.getResponse() as any;
 
       assert.equal(exception.getStatus(), HttpStatus.UNSUPPORTED_MEDIA_TYPE);
@@ -252,7 +253,11 @@ describe('Exception Classes - 3 Parameter Support', () => {
 
   describe('NotImplementedException', () => {
     it('should support 3 parameters with detail', () => {
-      const exception = new NotImplementedException('export', 'Not implemented', 'PDF export will be available in v2.0');
+      const exception = new NotImplementedException(
+        'export',
+        'Not implemented',
+        'PDF export will be available in v2.0',
+      );
       const response = exception.getResponse() as any;
 
       assert.equal(exception.getStatus(), HttpStatus.NOT_IMPLEMENTED);
@@ -263,7 +268,11 @@ describe('Exception Classes - 3 Parameter Support', () => {
 
   describe('BadGatewayException', () => {
     it('should support 3 parameters with detail', () => {
-      const exception = new BadGatewayException('proxy', 'Gateway error', 'Payment service is not responding correctly');
+      const exception = new BadGatewayException(
+        'proxy',
+        'Gateway error',
+        'Payment service is not responding correctly',
+      );
       const response = exception.getResponse() as any;
 
       assert.equal(exception.getStatus(), HttpStatus.BAD_GATEWAY);

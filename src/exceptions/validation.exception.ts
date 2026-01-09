@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { BaseFieldException, FieldError } from './base-field.exception';
+import { BaseFieldException, type FieldError } from './base-field.exception';
 
 /**
  * Exception thrown when request validation fails (HTTP 400).

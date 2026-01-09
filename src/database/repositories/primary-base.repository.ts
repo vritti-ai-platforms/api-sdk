@@ -1,15 +1,8 @@
 import { Logger } from '@nestjs/common';
-import {
-  eq,
-  sql,
-  SQL,
-  getTableName,
-  InferInsertModel,
-  InferSelectModel,
-} from 'drizzle-orm';
-import { PgTable } from 'drizzle-orm/pg-core';
-import { PrimaryDatabaseService } from '../services/primary-database.service';
+import { eq, getTableName, type InferInsertModel, type InferSelectModel, type SQL, sql } from 'drizzle-orm';
+import type { PgTable } from 'drizzle-orm/pg-core';
 import type { TypedDrizzleClient } from '../schema.registry';
+import type { PrimaryDatabaseService } from '../services/primary-database.service';
 
 /**
  * Convert snake_case string to camelCase
@@ -159,15 +152,11 @@ export abstract class PrimaryBaseRepository<
   protected get model(): TypedRelationalQueryBuilder<TSelect> {
     const query = this.database.drizzleClient.query;
     const queryKeys = Object.keys(query || {});
-    this.logger.debug(
-      `Looking for '${this.tableName}' in query keys: [${queryKeys.join(', ')}]`,
-    );
+    this.logger.debug(`Looking for '${this.tableName}' in query keys: [${queryKeys.join(', ')}]`);
 
     const model = query[this.tableName as keyof TypedDrizzleClient['query']];
     if (!model) {
-      this.logger.error(
-        `Table '${this.tableName}' not found in query object. Available: [${queryKeys.join(', ')}]`,
-      );
+      this.logger.error(`Table '${this.tableName}' not found in query object. Available: [${queryKeys.join(', ')}]`);
     }
 
     return model as unknown as TypedRelationalQueryBuilder<TSelect>;
@@ -351,10 +340,7 @@ export abstract class PrimaryBaseRepository<
    * console.log(`Updated ${result.count} users`);
    * ```
    */
-  async updateMany(
-    where: SQL,
-    data: Partial<TInsert>,
-  ): Promise<{ count: number }> {
+  async updateMany(where: SQL, data: Partial<TInsert>): Promise<{ count: number }> {
     this.logger.log('Updating multiple records');
     const result = await this.db
       .update(this.table as any)

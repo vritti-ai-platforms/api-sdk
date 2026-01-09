@@ -1,1 +1,1 @@
-export { HttpExceptionFilter, getHttpStatusTitle } from './http-exception.filter';
+export { getHttpStatusTitle, HttpExceptionFilter } from './http-exception.filter';

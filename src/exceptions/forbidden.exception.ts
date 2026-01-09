@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { BaseFieldException, FieldError } from './base-field.exception';
+import { BaseFieldException, type FieldError } from './base-field.exception';
 
 /**
  * Exception thrown when the user does not have permission to access a resource (HTTP 403).
@@ -20,11 +20,7 @@ import { BaseFieldException, FieldError } from './base-field.exception';
  * ]);
  */
 export class ForbiddenException extends BaseFieldException {
-  constructor(
-    messageOrField: string | FieldError[],
-    fieldMessageOrDetail?: string,
-    detail?: string
-  ) {
+  constructor(messageOrField: string | FieldError[], fieldMessageOrDetail?: string, detail?: string) {
     if (Array.isArray(messageOrField)) {
       // (errors: FieldError[], detail?: string)
       super(messageOrField, HttpStatus.FORBIDDEN, fieldMessageOrDetail);

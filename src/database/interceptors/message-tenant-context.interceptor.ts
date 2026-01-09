@@ -1,15 +1,15 @@
 import {
-  CallHandler,
-  ExecutionContext,
+  type CallHandler,
+  type ExecutionContext,
   Injectable,
   Logger,
-  NestInterceptor,
+  type NestInterceptor,
   Scope,
 } from '@nestjs/common';
-import { Observable } from 'rxjs';
+import type { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import type { TenantInfo } from '../interfaces';
-import { TenantContextService } from '../services/tenant-context.service';
+import type { TenantContextService } from '../services/tenant-context.service';
 
 /**
  * Interceptor that extracts tenant context from RabbitMQ messages (Microservice Mode)
@@ -57,7 +57,7 @@ export class MessageTenantContextInterceptor implements NestInterceptor {
       const payload = rpcContext.getData();
 
       // Extract tenant from message payload
-      if (payload && payload.tenant) {
+      if (payload?.tenant) {
         const tenant = payload.tenant as TenantInfo;
 
         this.logger.debug(`Setting tenant context from message: ${tenant.subdomain}`);

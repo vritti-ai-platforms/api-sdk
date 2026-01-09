@@ -1,5 +1,5 @@
 import { Injectable, Scope, UnauthorizedException } from '@nestjs/common';
-import { TenantInfo } from '../interfaces';
+import type { TenantInfo } from '../interfaces';
 
 /**
  * Request-scoped service that holds tenant context for the current request or RabbitMQ message

@@ -1,12 +1,5 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  ForbiddenException,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
-import { FastifyReply, FastifyRequest } from 'fastify';
+import { type CanActivate, type ExecutionContext, ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 
 /**
  * CSRF Guard
@@ -32,8 +25,6 @@ import { FastifyReply, FastifyRequest } from 'fastify';
 export class CsrfGuard implements CanActivate {
   private readonly logger = new Logger(CsrfGuard.name);
 
-  constructor(private reflector: Reflector) {}
-
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<FastifyRequest>();
     const reply = context.switchToHttp().getResponse<FastifyReply>();
@@ -44,16 +35,13 @@ export class CsrfGuard implements CanActivate {
       return true;
     }
 
-
     // Validate CSRF token using Fastify's csrfProtection hook
     try {
       // Access the Fastify instance's CSRF protection
       const fastifyInstance = request.server as any;
 
       if (!fastifyInstance.csrfProtection) {
-        this.logger.error(
-          'CSRF protection plugin not found. Ensure @fastify/csrf-protection is registered.',
-        );
+        this.logger.error('CSRF protection plugin not found. Ensure @fastify/csrf-protection is registered.');
         throw new ForbiddenException('CSRF protection not configured');
       }
 
@@ -69,9 +57,7 @@ export class CsrfGuard implements CanActivate {
         });
       });
 
-      this.logger.debug(
-        `CSRF validation successful for ${request.method} ${request.url}`,
-      );
+      this.logger.debug(`CSRF validation successful for ${request.method} ${request.url}`);
 
       return true;
     } catch (error) {

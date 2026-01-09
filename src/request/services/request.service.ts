@@ -51,7 +51,7 @@ export class RequestService {
         }
       }
       return null;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       return null;
     }
   }

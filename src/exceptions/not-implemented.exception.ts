@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { BaseFieldException, FieldError } from './base-field.exception';
+import { BaseFieldException, type FieldError } from './base-field.exception';
 
 /**
  * Exception thrown when a feature or endpoint is not yet implemented (HTTP 501).
@@ -21,11 +21,7 @@ import { BaseFieldException, FieldError } from './base-field.exception';
  * ]);
  */
 export class NotImplementedException extends BaseFieldException {
-  constructor(
-    messageOrField: string | FieldError[],
-    fieldMessageOrDetail?: string,
-    detail?: string
-  ) {
+  constructor(messageOrField: string | FieldError[], fieldMessageOrDetail?: string, detail?: string) {
     if (Array.isArray(messageOrField)) {
       // (errors: FieldError[], detail?: string)
       super(messageOrField, HttpStatus.NOT_IMPLEMENTED, fieldMessageOrDetail);

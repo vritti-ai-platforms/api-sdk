@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { BaseFieldException, FieldError } from './base-field.exception';
+import { BaseFieldException, type FieldError } from './base-field.exception';
 
 /**
  * Exception thrown when a gateway or proxy receives an invalid response (HTTP 502).
@@ -21,11 +21,7 @@ import { BaseFieldException, FieldError } from './base-field.exception';
  * ]);
  */
 export class BadGatewayException extends BaseFieldException {
-  constructor(
-    messageOrField: string | FieldError[],
-    fieldMessageOrDetail?: string,
-    detail?: string
-  ) {
+  constructor(messageOrField: string | FieldError[], fieldMessageOrDetail?: string, detail?: string) {
     if (Array.isArray(messageOrField)) {
       // (errors: FieldError[], detail?: string)
       super(messageOrField, HttpStatus.BAD_GATEWAY, fieldMessageOrDetail);

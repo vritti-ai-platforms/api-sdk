@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { BaseFieldException, FieldError } from './base-field.exception';
+import { BaseFieldException, type FieldError } from './base-field.exception';
 
 /**
  * Exception thrown when an unexpected server error occurs (HTTP 500).
@@ -20,11 +20,7 @@ import { BaseFieldException, FieldError } from './base-field.exception';
  * ]);
  */
 export class InternalServerErrorException extends BaseFieldException {
-  constructor(
-    messageOrField: string | FieldError[],
-    fieldMessageOrDetail?: string,
-    detail?: string
-  ) {
+  constructor(messageOrField: string | FieldError[], fieldMessageOrDetail?: string, detail?: string) {
     if (Array.isArray(messageOrField)) {
       // (errors: FieldError[], detail?: string)
       super(messageOrField, HttpStatus.INTERNAL_SERVER_ERROR, fieldMessageOrDetail);

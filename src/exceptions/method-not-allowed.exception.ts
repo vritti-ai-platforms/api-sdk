@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { BaseFieldException, FieldError } from './base-field.exception';
+import { BaseFieldException, type FieldError } from './base-field.exception';
 
 /**
  * Exception thrown when an HTTP method is not supported for the endpoint (HTTP 405).
@@ -21,11 +21,7 @@ import { BaseFieldException, FieldError } from './base-field.exception';
  * ]);
  */
 export class MethodNotAllowedException extends BaseFieldException {
-  constructor(
-    messageOrField: string | FieldError[],
-    fieldMessageOrDetail?: string,
-    detail?: string
-  ) {
+  constructor(messageOrField: string | FieldError[], fieldMessageOrDetail?: string, detail?: string) {
     if (Array.isArray(messageOrField)) {
       // (errors: FieldError[], detail?: string)
       super(messageOrField, HttpStatus.METHOD_NOT_ALLOWED, fieldMessageOrDetail);

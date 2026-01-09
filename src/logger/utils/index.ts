@@ -5,9 +5,9 @@
  * @module logging/utils
  */
 
-import type { FastifyReply } from 'fastify';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
+import type { FastifyReply } from 'fastify';
 import type { CorrelationContext } from '../types';
 
 // ============================================================================
@@ -29,10 +29,7 @@ export function getCorrelationContext(): CorrelationContext | undefined {
 /**
  * Runs a callback within a correlation context.
  */
-export function runWithCorrelationContext<T>(
-  context: CorrelationContext,
-  callback: () => T,
-): T {
+export function runWithCorrelationContext<T>(context: CorrelationContext, callback: () => T): T {
   return correlationStorage.run(context, callback);
 }
 
@@ -77,4 +74,3 @@ export function addCorrelationIdToResponse(
     reply.raw.setHeader(headerName, correlationId);
   }
 }
-

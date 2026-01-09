@@ -1,18 +1,18 @@
 import {
-  CanActivate,
-  ExecutionContext,
+  type CanActivate,
+  type ExecutionContext,
   Injectable,
   Logger,
   Scope,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { Reflector } from '@nestjs/core';
-import { JwtService } from '@nestjs/jwt';
-import { FastifyRequest } from 'fastify';
-import { PrimaryDatabaseService } from '../../database/services/primary-database.service';
-import { RequestService } from '../../request/services/request.service';
+import type { ConfigService } from '@nestjs/config';
+import type { Reflector } from '@nestjs/core';
+import type { JwtService } from '@nestjs/jwt';
+import type { FastifyRequest } from 'fastify';
 import { getConfig } from '../../config';
+import type { PrimaryDatabaseService } from '../../database/services/primary-database.service';
+import type { RequestService } from '../../request/services/request.service';
 import { verifyTokenHash } from '../utils/token-hash.util';
 
 // Type for decoded JWT token
@@ -96,7 +96,7 @@ export class VrittiAuthGuard implements CanActivate {
 
   constructor(
     private readonly reflector: Reflector,
-    private readonly configService: ConfigService,
+    readonly _configService: ConfigService,
     private readonly jwtService: JwtService,
     private readonly primaryDatabase: PrimaryDatabaseService,
     private readonly requestService: RequestService,
@@ -106,10 +106,7 @@ export class VrittiAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<FastifyRequest>();
 
     // Step 1: Check if endpoint is marked as @Public()
-    const isPublic = this.reflector.getAllAndOverride<boolean>('isPublic', [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const isPublic = this.reflector.getAllAndOverride<boolean>('isPublic', [context.getHandler(), context.getClass()]);
 
     if (isPublic) {
       this.logger.debug('Public endpoint detected, skipping authentication');
@@ -234,9 +231,7 @@ export class VrittiAuthGuard implements CanActivate {
         const currentTime = Date.now();
 
         const timeRemaining = expiryTime - currentTime;
-        this.logger.debug(
-          `Access token valid for ${Math.floor(timeRemaining / 1000)} more seconds`,
-        );
+        this.logger.debug(`Access token valid for ${Math.floor(timeRemaining / 1000)} more seconds`);
       }
 
       return decoded;
@@ -275,10 +270,7 @@ export class VrittiAuthGuard implements CanActivate {
    * @param validatedToken - The decoded and validated JWT token
    * @throws UnauthorizedException if token binding validation fails
    */
-  private validateRefreshTokenBinding(
-    context: ExecutionContext,
-    validatedToken: DecodedToken,
-  ): void {
+  private validateRefreshTokenBinding(context: ExecutionContext, validatedToken: DecodedToken): void {
     const config = getConfig();
 
     // Skip validation if disabled in config
@@ -310,5 +302,4 @@ export class VrittiAuthGuard implements CanActivate {
 
     this.logger.debug('Token binding validated successfully');
   }
-
 }

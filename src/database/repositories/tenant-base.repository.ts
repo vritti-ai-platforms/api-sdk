@@ -1,15 +1,8 @@
 import { Logger } from '@nestjs/common';
-import {
-  eq,
-  sql,
-  SQL,
-  getTableName,
-  InferInsertModel,
-  InferSelectModel,
-} from 'drizzle-orm';
-import { PgTable } from 'drizzle-orm/pg-core';
-import { TenantDatabaseService } from '../services/tenant-database.service';
+import { eq, getTableName, type InferInsertModel, type InferSelectModel, type SQL, sql } from 'drizzle-orm';
+import type { PgTable } from 'drizzle-orm/pg-core';
 import type { TypedDrizzleClient } from '../schema.registry';
+import type { TenantDatabaseService } from '../services/tenant-database.service';
 
 /**
  * Type helper to extract table name from Drizzle table.
@@ -104,8 +97,7 @@ export abstract class TenantBaseRepository<
    * });
    * ```
    */
-  protected get model(): TypedDrizzleClient['query'][ExtractTableName<TTable> &
-    keyof TypedDrizzleClient['query']] {
+  protected get model(): TypedDrizzleClient['query'][ExtractTableName<TTable> & keyof TypedDrizzleClient['query']] {
     return this.database.drizzleClient.query[
       this.tableName as ExtractTableName<TTable> & keyof TypedDrizzleClient['query']
     ];
@@ -225,15 +217,13 @@ export abstract class TenantBaseRepository<
    * });
    * ```
    */
-  async findMany(options?: {
-    where?: SQL;
-    orderBy?: SQL;
-    limit?: number;
-    offset?: number;
-  }): Promise<TSelect[]> {
+  async findMany(options?: { where?: SQL; orderBy?: SQL; limit?: number; offset?: number }): Promise<TSelect[]> {
     this.logger.debug('Finding multiple records');
 
-    let query = this.db.select().from(this.table as any).$dynamic();
+    let query = this.db
+      .select()
+      .from(this.table as any)
+      .$dynamic();
 
     if (options?.where) {
       query = query.where(options.where);
@@ -294,10 +284,7 @@ export abstract class TenantBaseRepository<
    * console.log(`Updated ${result.count} products`);
    * ```
    */
-  async updateMany(
-    where: SQL,
-    data: Partial<TInsert>,
-  ): Promise<{ count: number }> {
+  async updateMany(where: SQL, data: Partial<TInsert>): Promise<{ count: number }> {
     this.logger.log('Updating multiple records');
     const result = await this.db
       .update(this.table as any)

@@ -6,7 +6,7 @@
  * @module logger/logger.service
  */
 
-import { Injectable, Logger, LoggerService as NestLoggerService, Optional } from '@nestjs/common';
+import { Injectable, type Logger, type LoggerService as NestLoggerService, Optional } from '@nestjs/common';
 import { createLogger, format, transports, type Logger as WinstonLogger } from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
 import type { LoggerModuleOptions, LogLevel, LogMetadata } from '../types';
@@ -61,10 +61,7 @@ export class LoggerService implements NestLoggerService {
     // Base formatters
     // Winston automatically merges metadata into the info object, so all properties
     // (context, correlationId, etc.) are already at the top level
-    const baseFormatters = [
-      format.timestamp({ format: 'YYYY-MM-DDTHH:mm:ss.SSSZ' }),
-      format.errors({ stack: true }),
-    ];
+    const baseFormatters = [format.timestamp({ format: 'YYYY-MM-DDTHH:mm:ss.SSSZ' }), format.errors({ stack: true })];
 
     // Console transport
     const consoleTransport =
@@ -90,7 +87,7 @@ export class LoggerService implements NestLoggerService {
 
                 // Append stack trace on new line if present
                 if (trace) {
-                  output += '\n' + trace;
+                  output += `\n${trace}`;
                 }
 
                 return output;
@@ -171,12 +168,7 @@ export class LoggerService implements NestLoggerService {
   /**
    * Unified internal logging method that handles both Winston and NestJS Logger.
    */
-  private _log(
-    level: LogLevel,
-    message: any,
-    context?: string,
-    trace?: string,
-  ): void {
+  private _log(level: LogLevel, message: any, context?: string, trace?: string): void {
     const ctx = context ?? this.context;
 
     // Check if Winston logger by duck typing
@@ -208,12 +200,7 @@ export class LoggerService implements NestLoggerService {
   /**
    * Logs with custom metadata (Winston only).
    */
-  logWithMetadata(
-    level: LogLevel,
-    message: any,
-    metadata?: LogMetadata,
-    context?: string,
-  ): void {
+  logWithMetadata(level: LogLevel, message: any, metadata?: LogMetadata, context?: string): void {
     const ctx = context ?? this.context;
 
     // Check if Winston logger by duck typing
@@ -246,11 +233,7 @@ export class LoggerService implements NestLoggerService {
    * Enriches metadata with correlation context from AsyncLocalStorage.
    * Inline from winston-logger.service.ts
    */
-  private enrichMetadata(
-    metadata: LogMetadata = {},
-    context?: string,
-    trace?: string,
-  ): LogMetadata {
+  private enrichMetadata(metadata: LogMetadata = {}, context?: string, trace?: string): LogMetadata {
     const enriched: LogMetadata = { ...metadata };
 
     if (context) enriched.context = context;

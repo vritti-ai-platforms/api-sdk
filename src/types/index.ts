@@ -1,1 +1,1 @@
-export type { FieldError, ProblemDetails, ApiErrorResponse } from './error-response.types';
+export type { ApiErrorResponse, FieldError, ProblemDetails } from './error-response.types';

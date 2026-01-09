@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { BaseFieldException, FieldError } from './base-field.exception';
+import { BaseFieldException, type FieldError } from './base-field.exception';
 
 /**
  * Exception thrown when the media type of the request is not supported (HTTP 415).
@@ -21,11 +21,7 @@ import { BaseFieldException, FieldError } from './base-field.exception';
  * ]);
  */
 export class UnsupportedMediaTypeException extends BaseFieldException {
-  constructor(
-    messageOrField: string | FieldError[],
-    fieldMessageOrDetail?: string,
-    detail?: string
-  ) {
+  constructor(messageOrField: string | FieldError[], fieldMessageOrDetail?: string, detail?: string) {
     if (Array.isArray(messageOrField)) {
       // (errors: FieldError[], detail?: string)
       super(messageOrField, HttpStatus.UNSUPPORTED_MEDIA_TYPE, fieldMessageOrDetail);

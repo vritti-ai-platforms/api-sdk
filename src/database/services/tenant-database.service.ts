@@ -1,16 +1,10 @@
-import {
-  Inject,
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-  OnModuleDestroy,
-} from '@nestjs/common';
-import { Pool } from 'pg';
+import { Inject, Injectable, InternalServerErrorException, Logger, type OnModuleDestroy } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
 import { DATABASE_MODULE_OPTIONS } from '../constants';
 import type { DatabaseModuleOptions, TenantInfo } from '../interfaces';
-import { TenantContextService } from './tenant-context.service';
 import type { TypedDrizzleClient } from '../schema.registry';
+import type { TenantContextService } from './tenant-context.service';
 
 /**
  * Tenant connection wrapper containing both pool and Drizzle instance
@@ -132,13 +126,8 @@ export class TenantDatabaseService implements OnModuleDestroy {
 
       return { pool, db };
     } catch (error) {
-      this.logger.error(
-        `Failed to create database connection for tenant: ${tenant.subdomain}`,
-        error,
-      );
-      throw new InternalServerErrorException(
-        'Failed to connect to tenant database',
-      );
+      this.logger.error(`Failed to create database connection for tenant: ${tenant.subdomain}`, error);
+      throw new InternalServerErrorException('Failed to connect to tenant database');
     }
   }
 
@@ -146,28 +135,17 @@ export class TenantDatabaseService implements OnModuleDestroy {
    * Build connection URL for tenant (dedicated database)
    */
   private buildTenantDbUrl(tenant: TenantInfo): string {
-    const {
-      databaseHost,
-      databasePort,
-      databaseName,
-      databaseUsername,
-      databasePassword,
-      databaseSslMode,
-    } = tenant;
+    const { databaseHost, databasePort, databaseName, databaseUsername, databasePassword, databaseSslMode } = tenant;
 
     if (!databaseHost || !databaseName || !databaseUsername) {
-      throw new Error(
-        `Tenant ${tenant.subdomain} missing database configuration`,
-      );
+      throw new Error(`Tenant ${tenant.subdomain} missing database configuration`);
     }
 
     const port = databasePort || 5432;
     const sslMode = databaseSslMode || 'require';
     const connectionUrl = `postgresql://${databaseUsername}:${encodeURIComponent(databasePassword || '')}@${databaseHost}:${port}/${databaseName}?sslmode=${sslMode}`;
 
-    this.logger.debug(
-      `Tenant connection URL: ${this.maskPassword(connectionUrl)}`,
-    );
+    this.logger.debug(`Tenant connection URL: ${this.maskPassword(connectionUrl)}`);
 
     return connectionUrl;
   }
@@ -189,9 +167,7 @@ export class TenantDatabaseService implements OnModuleDestroy {
       this.cleanupIdleConnections();
     }, interval);
 
-    this.logger.log(
-      `Connection cleanup scheduled every ${interval / 1000} seconds`,
-    );
+    this.logger.log(`Connection cleanup scheduled every ${interval / 1000} seconds`);
   }
 
   /**
@@ -255,16 +231,14 @@ export class TenantDatabaseService implements OnModuleDestroy {
     // Disconnect all clients
     this.logger.log(`Disconnecting ${this.clients.size} database connections`);
 
-    const disconnectPromises = Array.from(this.clients.entries()).map(
-      async ([key, connection]) => {
-        try {
-          await connection.pool.end();
-          this.logger.debug(`Disconnected: ${key}`);
-        } catch (error) {
-          this.logger.error(`Error disconnecting client: ${key}`, error);
-        }
-      },
-    );
+    const disconnectPromises = Array.from(this.clients.entries()).map(async ([key, connection]) => {
+      try {
+        await connection.pool.end();
+        this.logger.debug(`Disconnected: ${key}`);
+      } catch (error) {
+        this.logger.error(`Error disconnecting client: ${key}`, error);
+      }
+    });
 
     await Promise.all(disconnectPromises);
     this.logger.log('All database connections closed');

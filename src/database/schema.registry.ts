@@ -1,4 +1,4 @@
-import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 /**
  * Schema Registry Interface
@@ -14,17 +14,13 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
  *   }
  * }
  */
-export interface SchemaRegistry {
-  // Empty by default - projects fill this via module augmentation
-}
+export type SchemaRegistry = {};
 
 /**
  * Extracts the registered schema type.
  * Falls back to Record<string, unknown> if no schema is registered.
  */
-export type RegisteredSchema = SchemaRegistry extends { schema: infer S }
-  ? S
-  : Record<string, unknown>;
+export type RegisteredSchema = SchemaRegistry extends { schema: infer S } ? S : Record<string, unknown>;
 
 /**
  * Type alias for the Drizzle database client with registered schema

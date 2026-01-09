@@ -12,22 +12,18 @@
  */
 
 import {
-  DynamicModule,
+  type DynamicModule,
   Global,
-  MiddlewareConsumer,
-  Module,
-  NestModule,
-  Provider,
   Logger,
+  type MiddlewareConsumer,
+  Module,
+  type NestModule,
+  type Provider,
 } from '@nestjs/common';
-import type {
-  LoggerModuleOptions,
-  LoggerModuleAsyncOptions,
-  LoggerOptionsFactory,
-} from './types';
-import { LoggerService } from './services/logger.service';
-import { CorrelationIdMiddleware } from './middleware/correlation-id.middleware';
 import { HttpLoggerInterceptor } from './interceptors/http-logger.interceptor';
+import { CorrelationIdMiddleware } from './middleware/correlation-id.middleware';
+import { LoggerService } from './services/logger.service';
+import type { LoggerModuleAsyncOptions, LoggerModuleOptions, LoggerOptionsFactory } from './types';
 
 // ============================================================================
 // Constants (inline from constants.ts)
@@ -173,17 +169,13 @@ function mergeWithDefaults(options: LoggerModuleOptions = {}): LoggerModuleOptio
     : ENVIRONMENT_PRESETS.development;
 
   // Filter out undefined values from user options to avoid overriding preset defaults
-  const filteredOptions = Object.fromEntries(
-    Object.entries(options).filter(([_, value]) => value !== undefined)
-  );
+  const filteredOptions = Object.fromEntries(Object.entries(options).filter(([_, value]) => value !== undefined));
 
   // Handle nested httpLogger object - merge with preset httpLogger if both exist
   if (filteredOptions.httpLogger && preset?.httpLogger) {
     filteredOptions.httpLogger = {
       ...preset.httpLogger,
-      ...Object.fromEntries(
-        Object.entries(filteredOptions.httpLogger).filter(([_, value]) => value !== undefined)
-      ),
+      ...Object.fromEntries(Object.entries(filteredOptions.httpLogger).filter(([_, value]) => value !== undefined)),
     };
   }
 
@@ -293,17 +285,10 @@ type NestLogLevel = 'error' | 'warn' | 'log' | 'debug' | 'verbose';
  * Helper function to get all log levels up to and including the specified level.
  */
 function getLevelsUpTo(level: string): NestLogLevel[] {
-  const allLevels: NestLogLevel[] = [
-    'error',
-    'warn',
-    'log',
-    'debug',
-    'verbose',
-  ];
+  const allLevels: NestLogLevel[] = ['error', 'warn', 'log', 'debug', 'verbose'];
 
   // Check if level is a valid NestLogLevel
-  const isValidLevel = (l: string): l is NestLogLevel =>
-    allLevels.includes(l as NestLogLevel);
+  const isValidLevel = (l: string): l is NestLogLevel => allLevels.includes(l as NestLogLevel);
 
   if (!isValidLevel(level)) {
     return ['error', 'warn', 'log'];
@@ -469,7 +454,7 @@ export class LoggerModule implements NestModule {
    * ```
    */
   static forRootAsync(options: LoggerModuleAsyncOptions): DynamicModule {
-    const asyncProviders = this.createAsyncProviders(options);
+    const asyncProviders = LoggerModule.createAsyncProviders(options);
 
     return {
       module: LoggerModule,
@@ -532,7 +517,7 @@ export class LoggerModule implements NestModule {
    * Configures middleware for the module.
    * Middleware is registered globally in main.ts using Fastify hooks.
    */
-  configure(consumer: MiddlewareConsumer): void {
+  configure(_consumer: MiddlewareConsumer): void {
     // Middleware is registered globally in main.ts using Fastify's addHook('onRequest')
     // This avoids DI issues with the middleware constructor
   }
@@ -542,10 +527,10 @@ export class LoggerModule implements NestModule {
    */
   private static createAsyncProviders(options: LoggerModuleAsyncOptions): Provider[] {
     if (options.useFactory) {
-      return [this.createAsyncOptionsProvider(options)];
+      return [LoggerModule.createAsyncOptionsProvider(options)];
     }
 
-    const providers: Provider[] = [this.createAsyncOptionsProvider(options)];
+    const providers: Provider[] = [LoggerModule.createAsyncOptionsProvider(options)];
 
     if (options.useClass) {
       providers.push({
@@ -565,7 +550,7 @@ export class LoggerModule implements NestModule {
       return {
         provide: LOGGER_MODULE_OPTIONS,
         useFactory: async (...args: any[]) => {
-          const userOptions = await options.useFactory!(...args);
+          const userOptions = await options.useFactory?.(...args);
           return mergeWithDefaults(userOptions);
         },
         inject: (options.inject || []) as any[],
@@ -594,8 +579,6 @@ export class LoggerModule implements NestModule {
       };
     }
 
-    throw new Error(
-      'LoggerModule.forRootAsync() requires one of: useFactory, useClass, or useExisting',
-    );
+    throw new Error('LoggerModule.forRootAsync() requires one of: useFactory, useClass, or useExisting');
   }
 }

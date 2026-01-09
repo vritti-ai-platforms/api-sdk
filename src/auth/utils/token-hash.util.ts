@@ -1,4 +1,4 @@
-import * as crypto from 'crypto';
+import * as crypto from 'node:crypto';
 
 /**
  * Hash a token using SHA-256
@@ -18,8 +18,5 @@ export function hashToken(token: string): string {
 export function verifyTokenHash(token: string, expectedHash: string): boolean {
   const computedHash = hashToken(token);
   if (computedHash.length !== expectedHash.length) return false;
-  return crypto.timingSafeEqual(
-    Buffer.from(computedHash, 'hex'),
-    Buffer.from(expectedHash, 'hex'),
-  );
+  return crypto.timingSafeEqual(Buffer.from(computedHash, 'hex'), Buffer.from(expectedHash, 'hex'));
 }

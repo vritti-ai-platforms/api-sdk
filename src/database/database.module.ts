@@ -1,4 +1,4 @@
-import { DynamicModule, Global, Module, Provider } from '@nestjs/common';
+import { type DynamicModule, Global, Module, type Provider } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { RequestModule } from '../request/request.module';
 import { DATABASE_MODULE_OPTIONS } from './constants';
@@ -93,7 +93,7 @@ export class DatabaseModule {
     useFactory: (...args: any[]) => Promise<DatabaseModuleOptions> | DatabaseModuleOptions;
     inject?: any[];
   }): DynamicModule {
-    return this.createDynamicModule(options, 'server');
+    return DatabaseModule.createDynamicModule(options, 'server');
   }
 
   /**
@@ -119,7 +119,7 @@ export class DatabaseModule {
     useFactory: (...args: any[]) => Promise<DatabaseModuleOptions> | DatabaseModuleOptions;
     inject?: any[];
   }): DynamicModule {
-    return this.createDynamicModule(options, 'microservice');
+    return DatabaseModule.createDynamicModule(options, 'microservice');
   }
 
   /**
@@ -142,12 +142,7 @@ export class DatabaseModule {
       inject: options.inject || [],
     };
 
-    const providers: Provider[] = [
-      asyncProvider,
-      TenantContextService,
-      PrimaryDatabaseService,
-      TenantDatabaseService,
-    ];
+    const providers: Provider[] = [asyncProvider, TenantContextService, PrimaryDatabaseService, TenantDatabaseService];
 
     // Conditionally add interceptor based on mode
     if (mode === 'server') {

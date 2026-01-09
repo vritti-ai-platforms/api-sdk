@@ -6,14 +6,14 @@
  * @module logger/correlation-id.middleware
  */
 
-import { Injectable, NestMiddleware } from '@nestjs/common';
-import type { FastifyRequest, FastifyReply } from 'fastify';
+import { Injectable, type NestMiddleware } from '@nestjs/common';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import {
-  generateCorrelationId,
   addCorrelationIdToResponse,
-  runWithCorrelationContext,
   correlationStorage,
   DEFAULT_CORRELATION_HEADER,
+  generateCorrelationId,
+  runWithCorrelationContext,
 } from '../utils';
 
 /**
@@ -53,7 +53,7 @@ export class CorrelationIdMiddleware implements NestMiddleware {
   /**
    * Middleware handler for processing requests.
    */
-  use(req: FastifyRequest, reply: FastifyReply, next: () => void): void {
+  use(_req: FastifyRequest, reply: FastifyReply, next: () => void): void {
     // Generate new correlation ID for this request
     const correlationId = generateCorrelationId();
 
@@ -73,7 +73,7 @@ export class CorrelationIdMiddleware implements NestMiddleware {
    * This is an async function that returns a Promise, ensuring the AsyncLocalStorage
    * context persists throughout the entire request lifecycle.
    */
-  async onRequest(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  async onRequest(_req: FastifyRequest, reply: FastifyReply): Promise<void> {
     // Generate new correlation ID for this request
     const correlationId = generateCorrelationId();
 

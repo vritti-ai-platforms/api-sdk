@@ -3,12 +3,12 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
-  OnModuleDestroy,
-  OnModuleInit,
+  type OnModuleDestroy,
+  type OnModuleInit,
 } from '@nestjs/common';
-import { Pool } from 'pg';
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, or } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
 import { DATABASE_MODULE_OPTIONS } from '../constants';
 import type { DatabaseModuleOptions, TenantInfo } from '../interfaces';
 import type { TypedDrizzleClient } from '../schema.registry';
@@ -121,9 +121,7 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
 
       // Initialize Drizzle with the schema provided (v2 API)
       // Relations must be passed separately for db.query to work
-      this.logger.debug(
-        `Schema keys passed to drizzle: [${Object.keys(this.options.drizzleSchema || {}).join(', ')}]`,
-      );
+      this.logger.debug(`Schema keys passed to drizzle: [${Object.keys(this.options.drizzleSchema || {}).join(', ')}]`);
       this.logger.debug(
         `Relations keys passed to drizzle: [${Object.keys(this.options.drizzleRelations || {}).join(', ')}]`,
       );
@@ -132,18 +130,14 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
         schema: this.options.drizzleSchema,
         relations: this.options.drizzleRelations,
       }) as TypedDrizzleClient;
-      this.logger.debug(
-        `Drizzle query keys after init: [${Object.keys(this.db.query || {}).join(', ')}]`,
-      );
+      this.logger.debug(`Drizzle query keys after init: [${Object.keys(this.db.query || {}).join(', ')}]`);
 
       // Test connection
       await this.pool.query('SELECT 1');
       this.logger.log('Connected to primary database (tenant registry)');
     } catch (error) {
       this.logger.error('Failed to connect to primary database', error);
-      throw new InternalServerErrorException(
-        'Failed to initialize tenant registry',
-      );
+      throw new InternalServerErrorException('Failed to initialize tenant registry');
     }
   }
 
@@ -212,9 +206,7 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
         throw new Error('Primary database client not initialized');
       }
 
-      this.logger.debug(
-        `Querying primary database for tenant: ${tenantIdentifier}`,
-      );
+      this.logger.debug(`Querying primary database for tenant: ${tenantIdentifier}`);
 
       // Get table references from schema
       // Cast to TenantSchemaRequirement - consumer must provide these tables
@@ -225,16 +217,8 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
       const result = await this.db
         .select()
         .from(tenants)
-        .leftJoin(
-          tenantDatabaseConfigs,
-          eq(tenants.id, tenantDatabaseConfigs.tenantId),
-        )
-        .where(
-          or(
-            eq(tenants.id, tenantIdentifier),
-            eq(tenants.subdomain, tenantIdentifier),
-          ),
-        )
+        .leftJoin(tenantDatabaseConfigs, eq(tenants.id, tenantDatabaseConfigs.tenantId))
+        .where(or(eq(tenants.id, tenantIdentifier), eq(tenants.subdomain, tenantIdentifier)))
         .limit(1);
 
       if (!result.length) {
@@ -265,12 +249,8 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
         databaseName: config?.dbName || undefined,
         databaseHost: config?.dbHost || undefined,
         databasePort: config?.dbPort || undefined,
-        databaseUsername: config?.dbUsername
-          ? this.decrypt(config.dbUsername)
-          : undefined,
-        databasePassword: config?.dbPassword
-          ? this.decrypt(config.dbPassword)
-          : undefined,
+        databaseUsername: config?.dbUsername ? this.decrypt(config.dbUsername) : undefined,
+        databasePassword: config?.dbPassword ? this.decrypt(config.dbPassword) : undefined,
         databaseSslMode: config?.dbSslMode || undefined,
         connectionPoolSize: config?.connectionPoolSize || undefined,
       };
@@ -280,10 +260,7 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
 
       return info;
     } catch (error) {
-      this.logger.error(
-        `Failed to fetch tenant info: ${tenantIdentifier}`,
-        error,
-      );
+      this.logger.error(`Failed to fetch tenant info: ${tenantIdentifier}`, error);
       throw new InternalServerErrorException('Failed to resolve tenant');
     }
   }

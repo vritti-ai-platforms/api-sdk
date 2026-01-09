@@ -9,7 +9,7 @@ export abstract class BaseFieldException extends HttpException {
     statusOrMessageOrErrors: HttpStatus | string | FieldError[],
     messageOrStatus?: string | HttpStatus,
     statusOrDetail?: HttpStatus | string,
-    detail?: string
+    detail?: string,
   ) {
     let errors: FieldError[];
     let httpStatus: HttpStatus;
@@ -18,7 +18,7 @@ export abstract class BaseFieldException extends HttpException {
     if (Array.isArray(statusOrMessageOrErrors)) {
       // (errors: FieldError[], httpStatus: HttpStatus, detail?: string)
       errors = statusOrMessageOrErrors;
-      httpStatus = messageOrStatus as HttpStatus || HttpStatus.BAD_REQUEST;
+      httpStatus = (messageOrStatus as HttpStatus) || HttpStatus.BAD_REQUEST;
       finalDetail = typeof statusOrDetail === 'string' ? statusOrDetail : undefined;
     } else if (typeof statusOrMessageOrErrors === 'string' && typeof messageOrStatus === 'string') {
       // (field: string, message: string, httpStatus: HttpStatus, detail?: string)

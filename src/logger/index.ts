@@ -10,48 +10,46 @@
  * @module logger
  */
 
+export { HttpLoggerInterceptor } from './interceptors/http-logger.interceptor';
 // ============================================================================
 // Main Module (Import this in your AppModule)
 // ============================================================================
-export { LoggerModule, LOGGER_MODULE_OPTIONS } from './logger.module';
+export { LOGGER_MODULE_OPTIONS, LoggerModule } from './logger.module';
 
+// ============================================================================
+// Middleware & Interceptors
+// ============================================================================
+export { CorrelationIdMiddleware } from './middleware/correlation-id.middleware';
 // ============================================================================
 // Main Service (Inject this in your services)
 // ============================================================================
 export { LoggerService } from './services/logger.service';
 
 // ============================================================================
-// Middleware & Interceptors
-// ============================================================================
-export { CorrelationIdMiddleware } from './middleware/correlation-id.middleware';
-export { HttpLoggerInterceptor } from './interceptors/http-logger.interceptor';
-
-// ============================================================================
 // Type Definitions
 // ============================================================================
 export type {
-  LogLevel,
-  LogFormat,
-  LogMetadata,
-  LoggerModuleOptions,
-  LoggerOptionsFactory,
-  LoggerModuleAsyncOptions,
   CorrelationContext,
   HttpLoggerOptions,
+  LogFormat,
+  LoggerModuleAsyncOptions,
+  LoggerModuleOptions,
+  LoggerOptionsFactory,
+  LogLevel,
+  LogMetadata,
 } from './types';
 
 // ============================================================================
 // Utility Functions
 // ============================================================================
 export {
+  addCorrelationIdToResponse,
   // AsyncLocalStorage management
   correlationStorage,
-  getCorrelationContext,
-  runWithCorrelationContext,
-  updateCorrelationContext,
-
   // Correlation ID helpers
   DEFAULT_CORRELATION_HEADER,
   generateCorrelationId,
-  addCorrelationIdToResponse,
+  getCorrelationContext,
+  runWithCorrelationContext,
+  updateCorrelationContext,
 } from './utils';

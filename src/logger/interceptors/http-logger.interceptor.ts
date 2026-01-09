@@ -5,12 +5,12 @@
  * @module logger/http-logger.interceptor
  */
 
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Optional } from '@nestjs/common';
-import { Observable } from 'rxjs';
-import { tap, catchError } from 'rxjs/operators';
-import type { FastifyRequest, FastifyReply } from 'fastify';
+import { type CallHandler, type ExecutionContext, Injectable, type NestInterceptor, Optional } from '@nestjs/common';
+import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { Observable } from 'rxjs';
+import { catchError, tap } from 'rxjs/operators';
 import type { LoggerService } from '../services/logger.service';
-import type { LogMetadata, HttpLoggerOptions } from '../types';
+import type { HttpLoggerOptions, LogMetadata } from '../types';
 import { getCorrelationContext } from '../utils';
 
 /**
@@ -90,12 +90,7 @@ export class HttpLoggerInterceptor implements NestInterceptor {
       const statusCode = response.statusCode;
 
       // Determine log level based on status code
-      const logLevel =
-        statusCode >= 500
-          ? 'error'
-          : statusCode >= 400
-          ? 'warn'
-          : 'log';
+      const logLevel = statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'log';
 
       const metadata: LogMetadata = {
         type: 'http_response',
@@ -121,12 +116,7 @@ export class HttpLoggerInterceptor implements NestInterceptor {
     }
   }
 
-  private logError(
-    request: FastifyRequest,
-    response: FastifyReply,
-    duration: number,
-    error: any,
-  ): void {
+  private logError(request: FastifyRequest, response: FastifyReply, duration: number, error: any): void {
     try {
       const correlationContext = getCorrelationContext();
       const statusCode = response.statusCode || 500;
