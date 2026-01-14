@@ -9,7 +9,7 @@ import { type CallHandler, type ExecutionContext, Injectable, type NestIntercept
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Observable } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
-import type { LoggerService } from '../services/logger.service';
+import { LoggerService } from '../services/logger.service';
 import type { HttpLoggerOptions, LogMetadata } from '../types';
 import { getCorrelationContext } from '../utils';
 

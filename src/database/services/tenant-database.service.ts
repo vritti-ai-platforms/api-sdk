@@ -4,7 +4,7 @@ import { Pool } from 'pg';
 import { DATABASE_MODULE_OPTIONS } from '../constants';
 import type { DatabaseModuleOptions, TenantInfo } from '../interfaces';
 import type { TypedDrizzleClient } from '../schema.registry';
-import type { TenantContextService } from './tenant-context.service';
+import { TenantContextService } from './tenant-context.service';
 
 /**
  * Tenant connection wrapper containing both pool and Drizzle instance

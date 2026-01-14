@@ -7,12 +7,12 @@ import {
   Scope,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { Reflector } from '@nestjs/core';
+import { Reflector } from '@nestjs/core';
 import type { FastifyRequest } from 'fastify';
 import type { Observable } from 'rxjs';
-import type { RequestService } from '../../request';
-import type { PrimaryDatabaseService } from '../services/primary-database.service';
-import type { TenantContextService } from '../services/tenant-context.service';
+import { RequestService } from '../../request';
+import { PrimaryDatabaseService } from '../services/primary-database.service';
+import { TenantContextService } from '../services/tenant-context.service';
 
 /**
  * Interceptor that extracts tenant context from HTTP requests (Gateway Mode)

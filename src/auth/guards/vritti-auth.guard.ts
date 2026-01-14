@@ -6,13 +6,13 @@ import {
   Scope,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { ConfigService } from '@nestjs/config';
-import type { Reflector } from '@nestjs/core';
-import type { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { Reflector } from '@nestjs/core';
+import { JwtService } from '@nestjs/jwt';
 import type { FastifyRequest } from 'fastify';
 import { getConfig } from '../../config';
-import type { PrimaryDatabaseService } from '../../database/services/primary-database.service';
-import type { RequestService } from '../../request/services/request.service';
+import { PrimaryDatabaseService } from '../../database/services/primary-database.service';
+import { RequestService } from '../../request/services/request.service';
 import { verifyTokenHash } from '../utils/token-hash.util';
 
 // Type for decoded JWT token

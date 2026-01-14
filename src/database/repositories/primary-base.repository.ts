@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import { eq, getTableName, type InferInsertModel, type InferSelectModel, type SQL, sql } from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
 import type { TypedDrizzleClient } from '../schema.registry';
-import type { PrimaryDatabaseService } from '../services/primary-database.service';
+import { PrimaryDatabaseService } from '../services/primary-database.service';
 
 /**
  * Convert snake_case string to camelCase

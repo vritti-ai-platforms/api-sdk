@@ -9,7 +9,7 @@ import {
 import type { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import type { TenantInfo } from '../interfaces';
-import type { TenantContextService } from '../services/tenant-context.service';
+import { TenantContextService } from '../services/tenant-context.service';
 
 /**
  * Interceptor that extracts tenant context from RabbitMQ messages (Microservice Mode)

@@ -31,7 +31,6 @@ export { TenantBaseRepository } from './database/repositories/tenant-base.reposi
 // Schema Registry (for module augmentation)
 export type {
   RegisteredSchema,
-  SchemaRegistry,
   TypedDrizzleClient,
 } from './database/schema.registry';
 export { PrimaryDatabaseService } from './database/services/primary-database.service';

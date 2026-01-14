@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import { eq, getTableName, type InferInsertModel, type InferSelectModel, type SQL, sql } from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
 import type { TypedDrizzleClient } from '../schema.registry';
-import type { TenantDatabaseService } from '../services/tenant-database.service';
+import { TenantDatabaseService } from '../services/tenant-database.service';
 
 /**
  * Type helper to extract table name from Drizzle table.
