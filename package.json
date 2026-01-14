@@ -1,7 +1,7 @@
 {
   "name": "@vritti/api-sdk",
   "type": "module",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -60,7 +60,7 @@
     "format": "biome format --write .",
     "lint": "biome lint .",
     "clean": "rm -rf dist",
-    "prepublishOnly": "yarn type-check && yarn test && yarn build"
+    "prepublishOnly": "npm run type-check && npm run test && npm run build"
   },
   "dependencies": {
     "drizzle-orm": "^1.0.0-beta.3-36e9b9e",
@@ -73,7 +73,7 @@
     "@nestjs/config": "^3.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/jwt": "^10.0.0",
-    "fastify": "^5.0.0",
+    "fastify": "5.6.2",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0"
   },
@@ -83,15 +83,12 @@
     "@nestjs/config": "^3.2.3",
     "@nestjs/core": "^11.0.1",
     "@nestjs/jwt": "^10.2.0",
-    "@prisma/adapter-pg": "^7.0.0",
-    "@prisma/client": "^7.0.0",
     "@swc/core": "^1.13.5",
     "@types/jsonwebtoken": "^9.0.8",
     "@types/node": "^24.9.2",
     "@types/pg": "^8.16.0",
-    "fastify": "^5.6.1",
+    "fastify": "5.6.2",
     "jsonwebtoken": "^9.0.2",
-    "prisma": "^7.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "tsup": "^8.5.0",
