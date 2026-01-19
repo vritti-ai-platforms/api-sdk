@@ -58,6 +58,13 @@ export interface CookieConfig {
    * @default 'strict'
    */
   refreshCookieSameSite: 'strict' | 'lax' | 'none';
+
+  /**
+   * Cookie domain (e.g., 'localhost' for dev, '.vritti.cloud' for prod)
+   * Required for cross-subdomain auth (e.g., cloud.localhost accessing localhost API)
+   * @default undefined (uses request domain)
+   */
+  refreshCookieDomain?: string;
 }
 
 /**
@@ -151,6 +158,7 @@ const defaultConfig: FullConfig = {
     refreshCookiePath: '/',
     refreshCookieSecure: process.env.NODE_ENV === 'production',
     refreshCookieSameSite: 'strict',
+    refreshCookieDomain: 'localhost',
   },
   jwt: {
     accessTokenExpiry: '15m',
@@ -217,13 +225,20 @@ export function resetConfig(): void {
  * Get refresh cookie options (convenience method)
  */
 export function getRefreshCookieOptions() {
-  return {
+  const options: Record<string, unknown> = {
     httpOnly: true,
     secure: currentConfig.cookie.refreshCookieSecure,
     sameSite: currentConfig.cookie.refreshCookieSameSite,
     path: currentConfig.cookie.refreshCookiePath,
     maxAge: currentConfig.cookie.refreshCookieMaxAge,
   };
+
+  // Only add domain if specified (needed for cross-subdomain auth like cloud.localhost)
+  if (currentConfig.cookie.refreshCookieDomain) {
+    options.domain = currentConfig.cookie.refreshCookieDomain;
+  }
+
+  return options;
 }
 
 /**
