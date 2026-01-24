@@ -7,6 +7,7 @@ export { Public } from './auth/decorators/public.decorator';
 export { UserId } from './auth/decorators/user-id.decorator';
 // Guards
 export { VrittiAuthGuard } from './auth/guards/vritti-auth.guard';
+export { SseAuthGuard } from './auth/guards/sse-auth.guard';
 // Token hash utilities
 export { hashToken, verifyTokenHash } from './auth/utils/token-hash.util';
 export {
@@ -42,9 +43,12 @@ export { TenantDatabaseService } from './database/services/tenant-database.servi
 export * from './exceptions';
 // RFC 7807 Filters (includes HttpExceptionFilter)
 export * from './filters';
-export { CsrfGuard } from './http/guards/csrf.guard';
+// Auth decorators (SkipCsrf for webhook endpoints)
+export { SkipCsrf, SKIP_CSRF_KEY } from './auth/decorators/skip-csrf.decorator';
 // HTTP utilities
 export { HttpModule } from './http/http.module';
+// Phone utilities
+export { extractCountryFromPhone, normalizePhoneNumber } from './utils/phone.utils';
 // Logger utilities
 export * from './logger';
 // RFC 7807 Types (using named exports to avoid conflicts)

@@ -1,5 +1,5 @@
 import { type DynamicModule, Global, Module, type Provider } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_INTERCEPTOR, Reflector } from '@nestjs/core';
 import { RequestModule } from '../request/request.module';
 import { DATABASE_MODULE_OPTIONS } from './constants';
 import { MessageTenantContextInterceptor } from './interceptors/message-tenant-context.interceptor';
@@ -142,7 +142,17 @@ export class DatabaseModule {
       inject: options.inject || [],
     };
 
-    const providers: Provider[] = [asyncProvider, TenantContextService, PrimaryDatabaseService, TenantDatabaseService];
+    const providers: Provider[] = [
+      // Required for external packages - NestJS global Reflector not available
+      {
+        provide: Reflector,
+        useClass: Reflector,
+      },
+      asyncProvider,
+      TenantContextService,
+      PrimaryDatabaseService,
+      TenantDatabaseService,
+    ];
 
     // Conditionally add interceptor based on mode
     if (mode === 'server') {
@@ -159,7 +169,7 @@ export class DatabaseModule {
 
     return {
       module: DatabaseModule,
-      imports: [RequestModule], // Import RequestModule for gateway interceptor
+      imports: [RequestModule],
       providers,
       exports: [TenantDatabaseService, TenantContextService, PrimaryDatabaseService, asyncProvider],
     };

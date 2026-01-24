@@ -1,6 +1,7 @@
 import {
   type CanActivate,
   type ExecutionContext,
+  ForbiddenException,
   Injectable,
   Logger,
   Scope,
@@ -9,7 +10,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
-import type { FastifyRequest } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
+import { SKIP_CSRF_KEY } from '../decorators/skip-csrf.decorator';
 import { getConfig } from '../../config';
 import { PrimaryDatabaseService } from '../../database/services/primary-database.service';
 import { RequestService } from '../../request/services/request.service';
@@ -104,8 +106,20 @@ export class VrittiAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<FastifyRequest>();
+    const reply = context.switchToHttp().getResponse<FastifyReply>();
 
-    // Step 1: Check if endpoint is marked as @Public()
+    // Step 1: Check @SkipCsrf() decorator
+    const skipCsrf = this.reflector.getAllAndOverride<boolean>(SKIP_CSRF_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    // Step 2: Validate CSRF for state-changing methods (unless skipped)
+    if (!skipCsrf) {
+      await this.validateCsrf(request, reply);
+    }
+
+    // Step 3: Check if endpoint is marked as @Public()
     const isPublic = this.reflector.getAllAndOverride<boolean>('isPublic', [context.getHandler(), context.getClass()]);
 
     if (isPublic) {
@@ -113,7 +127,7 @@ export class VrittiAuthGuard implements CanActivate {
       return true;
     }
 
-    // Step 2: Check if endpoint is marked as @Onboarding()
+    // Step 4: Check if endpoint is marked as @Onboarding()
     const isOnboarding = this.reflector.getAllAndOverride<boolean>('isOnboarding', [
       context.getHandler(),
       context.getClass(),
@@ -301,5 +315,57 @@ export class VrittiAuthGuard implements CanActivate {
     }
 
     this.logger.debug('Token binding validated successfully');
+  }
+
+  /**
+   * Validate CSRF token for state-changing requests
+   * Uses Fastify's csrf-protection plugin for token validation
+   *
+   * @param request - Fastify request object
+   * @param reply - Fastify reply object
+   * @throws ForbiddenException if CSRF validation fails
+   */
+  private async validateCsrf(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    // Skip CSRF for safe methods (GET, HEAD, OPTIONS)
+    const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
+    if (safeMethods.includes(request.method)) {
+      return;
+    }
+
+    try {
+      const fastifyInstance = request.server as any;
+
+      if (!fastifyInstance.csrfProtection) {
+        this.logger.error('CSRF protection plugin not found. Ensure @fastify/csrf-protection is registered.');
+        throw new ForbiddenException('CSRF protection not configured');
+      }
+
+      // Call the CSRF protection hook
+      await new Promise<void>((resolve, reject) => {
+        fastifyInstance.csrfProtection(request, reply, (err?: Error) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      });
+
+      this.logger.debug(`CSRF validation successful for ${request.method} ${request.url}`);
+    } catch (error) {
+      this.logger.warn(
+        `CSRF validation failed for ${request.method} ${request.url}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+
+      throw new ForbiddenException({
+        errors: [
+          {
+            field: 'csrf',
+            message: 'Invalid or missing CSRF token',
+          },
+        ],
+        message: 'CSRF validation failed',
+      });
+    }
   }
 }
