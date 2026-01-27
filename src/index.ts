@@ -45,8 +45,6 @@ export * from './exceptions';
 export * from './filters';
 // Auth decorators (SkipCsrf for webhook endpoints)
 export { SkipCsrf, SKIP_CSRF_KEY } from './auth/decorators/skip-csrf.decorator';
-// HTTP utilities
-export { HttpModule } from './http/http.module';
 // Phone utilities
 export { extractCountryFromPhone, normalizePhoneNumber } from './utils/phone.utils';
 // Logger utilities
