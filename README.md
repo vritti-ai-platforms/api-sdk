@@ -769,7 +769,7 @@ interface DatabaseModuleOptions {
 ### Setup
 
 ```bash
-git clone https://github.com/vritti-hub/api-sdk.git
+git clone https://github.com/vritti-ai-platforms/api-sdk.git
 cd api-sdk
 yarn install
 ```
@@ -966,10 +966,10 @@ Contributions are welcome! Please follow these steps:
 
 ## License
 
-MIT © [Shashank Raju](https://github.com/vritti-hub)
+MIT © [Shashank Raju](https://github.com/vritti-ai-platforms)
 
 ## Author
 
 **Shashank Raju**
 - Email: shashank@vrittiai.com
-- GitHub: [@vritti-hub](https://github.com/vritti-hub)
+- GitHub: [@vritti-ai-platforms](https://github.com/vritti-ai-platforms)
