@@ -49,5 +49,7 @@ export { SkipCsrf, SKIP_CSRF_KEY } from './auth/decorators/skip-csrf.decorator';
 export { extractCountryFromPhone, normalizePhoneNumber } from './utils/phone.utils';
 // Logger utilities
 export * from './logger';
+// RabbitMQ utilities
+export * from './rabbitmq';
 // RFC 7807 Types (using named exports to avoid conflicts)
 export type { ApiErrorResponse, ProblemDetails } from './types';
