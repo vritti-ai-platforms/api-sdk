@@ -776,14 +776,30 @@ yarn install
 
 ### Available Scripts
 
-- `yarn dev` - Run in watch mode
-- `yarn build` - Build for production
-- `yarn type-check` - TypeScript type checking
+- `yarn dev` - Run in watch mode (includes type checking before start)
+- `yarn build` - Build for production (includes type checking)
+- `yarn type-check` - TypeScript type checking only
 - `yarn test` - Run tests
 - `yarn test:watch` - Run tests in watch mode
 - `yarn lint` - Lint source files
 - `yarn format` - Format code with Prettier
 - `yarn clean` - Remove build artifacts
+
+**Note on Type Checking:**
+- The `build` and `dev` scripts now include automatic type checking via `tsc --noEmit`
+- This ensures type errors are caught early in development
+- The `type-check` script is still available for standalone type checking
+- This follows the monorepo convention used in quantum-ui, web-nexus, and auth-microfrontend
+
+### Build Process
+
+The build process includes the following steps:
+
+1. **Type Checking**: `tsc --noEmit` validates TypeScript types without emitting files
+2. **Bundling**: `tsup` bundles the code using the configuration in `tsup.config.ts`
+3. **Declaration Files**: Generated automatically by tsup with source maps
+
+If type checking fails, the build will not proceed. This ensures published packages are type-safe.
 
 ### Project Structure
 
