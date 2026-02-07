@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { BaseFieldException, type FieldError } from './base-field.exception';
+import { HttpProblemException, type ProblemOptions } from './base-field.exception';
 
 /**
  * Exception thrown when a gateway or proxy receives an invalid response (HTTP 502).
@@ -7,33 +7,17 @@ import { BaseFieldException, type FieldError } from './base-field.exception';
  *
  * @example
  * // Simple message
- * throw new BadGatewayException('Bad gateway');
+ * throw new BadGatewayException('Upstream service returned invalid response');
  *
- * // Field-specific error
- * throw new BadGatewayException('upstream', 'Upstream service returned invalid response');
- *
- * // With detail
- * throw new BadGatewayException('proxy', 'Gateway error', 'Payment service is not responding correctly');
- *
- * // Multiple field errors
- * throw new BadGatewayException([
- *   { field: 'gateway', message: 'Invalid response from upstream server' }
- * ]);
+ * // With options
+ * throw new BadGatewayException({
+ *   title: 'Upstream Service Error',
+ *   detail: 'The payment service is not responding correctly',
+ *   instance: '/api/payments/process',
+ * });
  */
-export class BadGatewayException extends BaseFieldException {
-  constructor(messageOrField: string | FieldError[], fieldMessageOrDetail?: string, detail?: string) {
-    if (Array.isArray(messageOrField)) {
-      // (errors: FieldError[], detail?: string)
-      super(messageOrField, HttpStatus.BAD_GATEWAY, fieldMessageOrDetail);
-    } else if (detail !== undefined) {
-      // (field: string, message: string, detail: string)
-      super(messageOrField, fieldMessageOrDetail!, HttpStatus.BAD_GATEWAY, detail);
-    } else if (fieldMessageOrDetail) {
-      // (field: string, message: string)
-      super(messageOrField, fieldMessageOrDetail, HttpStatus.BAD_GATEWAY);
-    } else {
-      // (message: string)
-      super(messageOrField, HttpStatus.BAD_GATEWAY);
-    }
+export class BadGatewayException extends HttpProblemException {
+  constructor(detailOrOptions?: string | ProblemOptions) {
+    super(detailOrOptions ?? 'Bad Gateway', HttpStatus.BAD_GATEWAY);
   }
 }

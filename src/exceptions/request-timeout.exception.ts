@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { BaseFieldException, type FieldError } from './base-field.exception';
+import { HttpProblemException, type ProblemOptions } from './base-field.exception';
 
 /**
  * Exception thrown when a request takes too long to process (HTTP 408).
@@ -9,31 +9,21 @@ import { BaseFieldException, type FieldError } from './base-field.exception';
  * // Simple message
  * throw new RequestTimeoutException('Request timeout');
  *
- * // Field-specific error
- * throw new RequestTimeoutException('operation', 'Operation timed out');
+ * // With custom title and detail
+ * throw new RequestTimeoutException({
+ *   title: 'Operation Timeout',
+ *   detail: 'The request took too long to complete',
+ * });
  *
- * // With detail
- * throw new RequestTimeoutException('query', 'Database query timeout', 'Try with fewer filters');
- *
- * // Multiple field errors
- * throw new RequestTimeoutException([
- *   { field: 'processing', message: 'Request took too long to complete' }
- * ]);
+ * // With instance for tracking
+ * throw new RequestTimeoutException({
+ *   title: 'Database Timeout',
+ *   detail: 'Query execution exceeded time limit',
+ *   instance: '/api/queries/123',
+ * });
  */
-export class RequestTimeoutException extends BaseFieldException {
-  constructor(messageOrField: string | FieldError[], fieldMessageOrDetail?: string, detail?: string) {
-    if (Array.isArray(messageOrField)) {
-      // (errors: FieldError[], detail?: string)
-      super(messageOrField, HttpStatus.REQUEST_TIMEOUT, fieldMessageOrDetail);
-    } else if (detail !== undefined) {
-      // (field: string, message: string, detail: string)
-      super(messageOrField, fieldMessageOrDetail!, HttpStatus.REQUEST_TIMEOUT, detail);
-    } else if (fieldMessageOrDetail) {
-      // (field: string, message: string)
-      super(messageOrField, fieldMessageOrDetail, HttpStatus.REQUEST_TIMEOUT);
-    } else {
-      // (message: string)
-      super(messageOrField, HttpStatus.REQUEST_TIMEOUT);
-    }
+export class RequestTimeoutException extends HttpProblemException {
+  constructor(detailOrOptions?: string | ProblemOptions) {
+    super(detailOrOptions ?? 'Request Timeout', HttpStatus.REQUEST_TIMEOUT);
   }
 }

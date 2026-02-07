@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { BaseFieldException, type FieldError } from './base-field.exception';
+import { HttpProblemException, type ProblemOptions } from './base-field.exception';
 
 /**
  * Exception thrown when a resource has been permanently removed (HTTP 410).
@@ -9,31 +9,21 @@ import { BaseFieldException, type FieldError } from './base-field.exception';
  * // Simple message
  * throw new GoneException('Resource permanently deleted');
  *
- * // Field-specific error
- * throw new GoneException('account', 'Account has been permanently deleted');
+ * // With label and detail
+ * throw new GoneException({
+ *   label: 'Account Deleted',
+ *   detail: 'This account has been permanently removed',
+ * });
  *
- * // With detail
- * throw new GoneException('account', 'Deleted', 'This account was removed on user request');
- *
- * // Multiple field errors
- * throw new GoneException([
- *   { field: 'resource', message: 'This content has been permanently removed' }
- * ]);
+ * // With field errors
+ * throw new GoneException({
+ *   label: 'Resource Removed',
+ *   detail: 'The resource was removed due to policy violation',
+ *   errors: [{ field: 'resource', message: 'This content has been permanently deleted' }],
+ * });
  */
-export class GoneException extends BaseFieldException {
-  constructor(messageOrField: string | FieldError[], fieldMessageOrDetail?: string, detail?: string) {
-    if (Array.isArray(messageOrField)) {
-      // (errors: FieldError[], detail?: string)
-      super(messageOrField, HttpStatus.GONE, fieldMessageOrDetail);
-    } else if (detail !== undefined) {
-      // (field: string, message: string, detail: string)
-      super(messageOrField, fieldMessageOrDetail!, HttpStatus.GONE, detail);
-    } else if (fieldMessageOrDetail) {
-      // (field: string, message: string)
-      super(messageOrField, fieldMessageOrDetail, HttpStatus.GONE);
-    } else {
-      // (message: string)
-      super(messageOrField, HttpStatus.GONE);
-    }
+export class GoneException extends HttpProblemException {
+  constructor(detailOrOptions?: string | ProblemOptions) {
+    super(detailOrOptions ?? 'Gone', HttpStatus.GONE);
   }
 }

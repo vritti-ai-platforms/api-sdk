@@ -1,13 +1,15 @@
 import { type ArgumentsHost, Catch, type ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
-import type { FastifyReply } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { ApiErrorResponse, FieldError } from '../types/error-response.types';
 
 /**
- * Shape of exception response from custom field exceptions (BaseFieldException).
+ * Shape of exception response from custom HttpProblemException.
  */
-interface FieldExceptionResponse {
-  errors: FieldError[];
+interface ProblemExceptionResponse {
+  type?: string;
+  label?: string;
   detail?: string;
+  errors?: FieldError[];
 }
 
 /**
@@ -29,7 +31,7 @@ interface StandardExceptionResponse {
 /**
  * Union type for all possible exception response shapes.
  */
-type ExceptionResponseObject = FieldExceptionResponse | ValidationExceptionResponse | StandardExceptionResponse;
+type ExceptionResponseObject = ProblemExceptionResponse | ValidationExceptionResponse | StandardExceptionResponse;
 
 /**
  * Converts an HTTP status code to its corresponding title string.
@@ -59,18 +61,21 @@ export function getHttpStatusTitle(status: number): string {
 }
 
 /**
- * Global HTTP Exception Filter implementing RFC 7807 Problem Details
+ * Global HTTP Exception Filter implementing RFC 9457 Problem Details
  *
- * Transforms all exceptions into a standardized RFC 7807 format:
+ * Transforms all exceptions into a standardized RFC 9457 format:
  * {
- *   title: string,        // Human-readable status title
+ *   type: string,         // Problem type URI (default: "about:blank")
+ *   title: string,        // HTTP status phrase (e.g., "Unauthorized")
  *   status: number,       // HTTP status code
- *   detail: string,       // Detailed error description
- *   errors: FieldError[]  // Field-specific error messages
+ *   label?: string,       // Root error heading (maps to AlertTitle)
+ *   detail: string,       // Root error description (maps to AlertDescription)
+ *   instance: string,     // Request path
+ *   errors: FieldError[]  // Field-specific errors (field is required)
  * }
  *
  * Handles:
- * - Custom field exceptions from @vritti/api-sdk (BaseFieldException)
+ * - Custom HttpProblemException from @vritti/api-sdk
  * - Class-validator DTO validation errors
  * - Standard NestJS HTTP exceptions
  * - Unknown errors
@@ -82,10 +87,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<FastifyReply>();
+    const request = ctx.getRequest<FastifyRequest>();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let errors: FieldError[] = [];
+    let type = 'about:blank';
+    let label: string | undefined;
     let detail = 'Internal server error';
+    let errors: FieldError[] = [];
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -94,10 +102,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
       if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
         const responseObj = exceptionResponse as ExceptionResponseObject;
 
-        // Handle custom field exceptions from @vritti/api-sdk
-        if ('errors' in responseObj && Array.isArray(responseObj.errors)) {
-          errors = responseObj.errors;
-          detail = ('detail' in responseObj ? responseObj.detail : undefined) || exception.message;
+        // Handle custom HttpProblemException from @vritti/api-sdk
+        if ('type' in responseObj || 'label' in responseObj || 'errors' in responseObj) {
+          const problemResponse = responseObj as ProblemExceptionResponse;
+          type = problemResponse.type ?? 'about:blank';
+          label = problemResponse.label;
+          detail = problemResponse.detail ?? exception.message ?? getHttpStatusTitle(status);
+          errors = problemResponse.errors ?? [];
         }
         // Handle class-validator DTO validation errors
         else if ('message' in responseObj && Array.isArray(responseObj.message)) {
@@ -109,18 +120,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
                 message: constraintValues[0] ?? 'Validation failed',
               };
             }
-            return { message: typeof msg === 'string' ? msg : JSON.stringify(msg) };
-          });
+            // Non-field-specific validation messages are ignored
+            // They should be handled as detail at the response level
+            return null;
+          }).filter((error): error is FieldError => error !== null);
           detail = 'Validation failed';
         }
         // Handle standard NestJS exceptions
         else if ('message' in responseObj) {
           const message = responseObj.message;
-          errors = [{ message: Array.isArray(message) ? message.join(', ') : message }];
-          detail = ('error' in responseObj ? responseObj.error : undefined) || exception.message;
+          detail = Array.isArray(message) ? message.join(', ') : message;
         }
       } else if (typeof exceptionResponse === 'string') {
-        errors = [{ message: exceptionResponse }];
         detail = exceptionResponse;
       }
     } else {
@@ -128,16 +139,22 @@ export class HttpExceptionFilter implements ExceptionFilter {
       const errorMessage = exception instanceof Error ? exception.message : 'Unknown error';
       const stack = exception instanceof Error ? exception.stack : undefined;
       this.logger.error(`Unexpected error: ${errorMessage}`, stack);
-      errors = [{ message: 'An unexpected error occurred' }];
+      detail = 'An unexpected error occurred';
     }
 
     const problemDetails: ApiErrorResponse = {
+      type,
       title: getHttpStatusTitle(status),
       status,
+      ...(label && { label }),
       detail,
+      instance: request.url,
       errors,
     };
 
-    response.status(status).send(problemDetails);
+    response
+      .header('Content-Type', 'application/problem+json')
+      .status(status)
+      .send(problemDetails);
   }
 }

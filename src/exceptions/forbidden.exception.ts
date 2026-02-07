@@ -1,38 +1,28 @@
 import { HttpStatus } from '@nestjs/common';
-import { BaseFieldException, type FieldError } from './base-field.exception';
+import { HttpProblemException, type ProblemOptions } from './base-field.exception';
 
 /**
  * Exception thrown when the user does not have permission to access a resource (HTTP 403).
  *
  * @example
- * // Simple message
+ * // Simple detail message
  * throw new ForbiddenException('Access denied');
  *
- * // Field-specific error
- * throw new ForbiddenException('resource', 'You do not have permission');
+ * // With custom label
+ * throw new ForbiddenException({
+ *   label: 'Access Denied',
+ *   detail: 'You do not have permission to perform this action',
+ * });
  *
- * // With detail
- * throw new ForbiddenException('resource', 'Access denied', 'Admin role required');
- *
- * // Multiple field errors
- * throw new ForbiddenException([
- *   { field: 'action', message: 'Insufficient permissions' }
- * ]);
+ * // With field-specific errors
+ * throw new ForbiddenException({
+ *   label: 'Permission Denied',
+ *   detail: 'Contact your administrator for access',
+ *   errors: [{ field: 'role', message: 'Admin role required' }],
+ * });
  */
-export class ForbiddenException extends BaseFieldException {
-  constructor(messageOrField: string | FieldError[], fieldMessageOrDetail?: string, detail?: string) {
-    if (Array.isArray(messageOrField)) {
-      // (errors: FieldError[], detail?: string)
-      super(messageOrField, HttpStatus.FORBIDDEN, fieldMessageOrDetail);
-    } else if (detail !== undefined) {
-      // (field: string, message: string, detail: string)
-      super(messageOrField, fieldMessageOrDetail!, HttpStatus.FORBIDDEN, detail);
-    } else if (fieldMessageOrDetail) {
-      // (field: string, message: string)
-      super(messageOrField, fieldMessageOrDetail, HttpStatus.FORBIDDEN);
-    } else {
-      // (message: string)
-      super(messageOrField, HttpStatus.FORBIDDEN);
-    }
+export class ForbiddenException extends HttpProblemException {
+  constructor(detailOrOptions?: string | ProblemOptions) {
+    super(detailOrOptions ?? 'Forbidden', HttpStatus.FORBIDDEN);
   }
 }

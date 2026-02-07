@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { BaseFieldException, type FieldError } from './base-field.exception';
+import { HttpProblemException, type ProblemOptions } from './base-field.exception';
 
 /**
  * Exception thrown when a requested resource cannot be found (HTTP 404).
@@ -8,31 +8,20 @@ import { BaseFieldException, type FieldError } from './base-field.exception';
  * // Simple message
  * throw new NotFoundException('Resource not found');
  *
- * // Field-specific error
- * throw new NotFoundException('userId', 'User not found');
+ * // With custom label and detail
+ * throw new NotFoundException({
+ *   label: 'User Not Found',
+ *   detail: 'The requested user does not exist',
+ * });
  *
- * // With detail
- * throw new NotFoundException('userId', 'User not found', 'No user exists with the provided ID');
- *
- * // Multiple field errors
- * throw new NotFoundException([
- *   { field: 'userId', message: 'User does not exist' }
- * ]);
+ * // With field errors
+ * throw new NotFoundException({
+ *   detail: 'The requested resource could not be located',
+ *   errors: [{ field: 'userId', message: 'User does not exist' }],
+ * });
  */
-export class NotFoundException extends BaseFieldException {
-  constructor(messageOrField: string | FieldError[], fieldMessageOrDetail?: string, detail?: string) {
-    if (Array.isArray(messageOrField)) {
-      // (errors: FieldError[], detail?: string)
-      super(messageOrField, HttpStatus.NOT_FOUND, fieldMessageOrDetail);
-    } else if (detail !== undefined) {
-      // (field: string, message: string, detail: string)
-      super(messageOrField, fieldMessageOrDetail!, HttpStatus.NOT_FOUND, detail);
-    } else if (fieldMessageOrDetail) {
-      // (field: string, message: string)
-      super(messageOrField, fieldMessageOrDetail, HttpStatus.NOT_FOUND);
-    } else {
-      // (message: string)
-      super(messageOrField, HttpStatus.NOT_FOUND);
-    }
+export class NotFoundException extends HttpProblemException {
+  constructor(detailOrOptions?: string | ProblemOptions) {
+    super(detailOrOptions ?? 'Not Found', HttpStatus.NOT_FOUND);
   }
 }

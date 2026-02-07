@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { BaseFieldException, type FieldError } from './base-field.exception';
+import { HttpProblemException, type ProblemOptions } from './base-field.exception';
 
 /**
  * Exception thrown when a request is malformed or contains invalid data (HTTP 400).
@@ -8,32 +8,24 @@ import { BaseFieldException, type FieldError } from './base-field.exception';
  * // Simple message
  * throw new BadRequestException('Invalid request data');
  *
- * // Field-specific error
- * throw new BadRequestException('email', 'Invalid email format');
+ * // With field errors
+ * throw new BadRequestException({
+ *   detail: 'Validation failed',
+ *   errors: [
+ *     { field: 'email', message: 'Invalid email format' },
+ *     { field: 'password', message: 'Password too short' }
+ *   ]
+ * });
  *
- * // With detail
- * throw new BadRequestException('email', 'Invalid email format', 'Email must be in valid format');
- *
- * // Multiple field errors
- * throw new BadRequestException([
- *   { field: 'email', message: 'Invalid email' },
- *   { field: 'password', message: 'Password too short' }
- * ]);
+ * // With custom label and type
+ * throw new BadRequestException({
+ *   label: 'Invalid Form Data',
+ *   detail: 'Please check your input',
+ *   type: 'validation-error'
+ * });
  */
-export class BadRequestException extends BaseFieldException {
-  constructor(messageOrField: string | FieldError[], fieldMessageOrDetail?: string, detail?: string) {
-    if (Array.isArray(messageOrField)) {
-      // (errors: FieldError[], detail?: string)
-      super(messageOrField, HttpStatus.BAD_REQUEST, fieldMessageOrDetail);
-    } else if (detail !== undefined) {
-      // (field: string, message: string, detail: string)
-      super(messageOrField, fieldMessageOrDetail!, HttpStatus.BAD_REQUEST, detail);
-    } else if (fieldMessageOrDetail) {
-      // (field: string, message: string)
-      super(messageOrField, fieldMessageOrDetail, HttpStatus.BAD_REQUEST);
-    } else {
-      // (message: string)
-      super(messageOrField, HttpStatus.BAD_REQUEST);
-    }
+export class BadRequestException extends HttpProblemException {
+  constructor(detailOrOptions?: string | ProblemOptions) {
+    super(detailOrOptions ?? 'Bad Request', HttpStatus.BAD_REQUEST);
   }
 }

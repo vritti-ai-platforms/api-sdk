@@ -4,39 +4,57 @@ import type { FieldError } from '../types/error-response.types';
 // Re-export FieldError for backwards compatibility
 export type { FieldError } from '../types/error-response.types';
 
-export abstract class BaseFieldException extends HttpException {
-  constructor(
-    statusOrMessageOrErrors: HttpStatus | string | FieldError[],
-    messageOrStatus?: string | HttpStatus,
-    statusOrDetail?: HttpStatus | string,
-    detail?: string,
-  ) {
-    let errors: FieldError[];
-    let httpStatus: HttpStatus;
-    let finalDetail: string | undefined;
+/**
+ * Options for creating RFC 9457 Problem Details exceptions.
+ *
+ * @example
+ * throw new UnauthorizedException({
+ *   label: 'Invalid Credentials',
+ *   detail: 'The email or password is incorrect',
+ * });
+ *
+ * @example
+ * throw new BadRequestException({
+ *   detail: 'Validation failed',
+ *   errors: [
+ *     { field: 'email', message: 'Invalid email format' },
+ *     { field: 'password', message: 'Password too short' },
+ *   ],
+ * });
+ */
+export interface ProblemOptions {
+  /** Problem type URI (default: "about:blank") */
+  type?: string;
+  /** Root error heading (maps to AlertTitle in frontend) */
+  label?: string;
+  /** Root error description (maps to AlertDescription in frontend) */
+  detail?: string;
+  /** Field-specific errors only (field is required) */
+  errors?: FieldError[];
+}
 
-    if (Array.isArray(statusOrMessageOrErrors)) {
-      // (errors: FieldError[], httpStatus: HttpStatus, detail?: string)
-      errors = statusOrMessageOrErrors;
-      httpStatus = (messageOrStatus as HttpStatus) || HttpStatus.BAD_REQUEST;
-      finalDetail = typeof statusOrDetail === 'string' ? statusOrDetail : undefined;
-    } else if (typeof statusOrMessageOrErrors === 'string' && typeof messageOrStatus === 'string') {
-      // (field: string, message: string, httpStatus: HttpStatus, detail?: string)
-      errors = [{ field: statusOrMessageOrErrors, message: messageOrStatus }];
-      httpStatus = statusOrDetail as HttpStatus;
-      finalDetail = detail;
-    } else if (typeof statusOrMessageOrErrors === 'string') {
-      // (message: string, httpStatus: HttpStatus, detail?: string)
-      errors = [{ message: statusOrMessageOrErrors }];
-      httpStatus = messageOrStatus as HttpStatus;
-      finalDetail = typeof statusOrDetail === 'string' ? statusOrDetail : undefined;
-    } else {
-      errors = [{ message: 'An error occurred' }];
-      httpStatus = statusOrMessageOrErrors;
-      finalDetail = undefined;
-    }
+/**
+ * Base exception class that follows RFC 9457 Problem Details format.
+ *
+ * Provides a clean interface for creating HTTP exceptions with:
+ * - RFC 9457 standard fields (type, title, status, detail, instance)
+ * - Extension members (label for root error heading, errors for field-specific errors)
+ *
+ * The `title` field is always set to the HTTP status phrase (e.g., "Unauthorized")
+ * by the HttpExceptionFilter, not by this class.
+ */
+export abstract class HttpProblemException extends HttpException {
+  constructor(detailOrOptions: string | ProblemOptions, httpStatus: HttpStatus) {
+    const options = typeof detailOrOptions === 'string' ? { detail: detailOrOptions } : detailOrOptions;
 
-    const response = finalDetail !== undefined ? { errors, detail: finalDetail } : { errors };
-    super(response, httpStatus);
+    super(
+      {
+        type: options.type ?? 'about:blank',
+        label: options.label,
+        detail: options.detail,
+        errors: options.errors ?? [],
+      },
+      httpStatus,
+    );
   }
 }

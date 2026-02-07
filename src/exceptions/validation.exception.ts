@@ -1,25 +1,41 @@
 import { HttpStatus } from '@nestjs/common';
-import { BaseFieldException, type FieldError } from './base-field.exception';
+import { HttpProblemException, type ProblemOptions } from './base-field.exception';
 
 /**
  * Exception thrown when request validation fails (HTTP 400).
  * Typically used for form validation or DTO validation errors.
  *
  * @example
- * // Multiple validation errors
- * throw new ValidationException([
- *   { field: 'email', message: 'Invalid email format' },
- *   { field: 'password', message: 'Password must be at least 8 characters' }
- * ]);
+ * // Simple message
+ * throw new ValidationException('Validation failed');
  *
- * // With detail
- * throw new ValidationException(
- *   [{ field: 'email', message: 'Invalid format' }],
- *   'Please correct the errors and try again'
- * );
+ * // With custom label and detail
+ * throw new ValidationException({
+ *   label: 'Invalid Input',
+ *   detail: 'The provided data is invalid',
+ * });
+ *
+ * // With field-specific errors
+ * throw new ValidationException({
+ *   detail: 'Please correct the highlighted fields',
+ *   errors: [
+ *     { field: 'email', message: 'Invalid email format' },
+ *     { field: 'password', message: 'Password must be at least 8 characters' }
+ *   ],
+ * });
+ *
+ * // With custom label and field errors
+ * throw new ValidationException({
+ *   label: 'Form Validation Failed',
+ *   detail: 'Please correct the highlighted fields',
+ *   errors: [
+ *     { field: 'email', message: 'Invalid email format' },
+ *     { field: 'password', message: 'Password too weak' }
+ *   ],
+ * });
  */
-export class ValidationException extends BaseFieldException {
-  constructor(errors: FieldError[], detail?: string) {
-    super(errors, HttpStatus.BAD_REQUEST, detail);
+export class ValidationException extends HttpProblemException {
+  constructor(detailOrOptions?: string | ProblemOptions) {
+    super(detailOrOptions ?? 'Validation Failed', HttpStatus.BAD_REQUEST);
   }
 }

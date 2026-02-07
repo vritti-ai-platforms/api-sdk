@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { BaseFieldException, type FieldError } from './base-field.exception';
+import { HttpProblemException, type ProblemOptions } from './base-field.exception';
 
 /**
  * Exception thrown when request payload exceeds size limits (HTTP 413).
@@ -9,31 +9,21 @@ import { BaseFieldException, type FieldError } from './base-field.exception';
  * // Simple message
  * throw new PayloadTooLargeException('Request payload too large');
  *
- * // Field-specific error
- * throw new PayloadTooLargeException('file', 'File size exceeds maximum allowed');
- *
  * // With detail
- * throw new PayloadTooLargeException('file', 'File too large', 'Maximum size is 10MB');
+ * throw new PayloadTooLargeException({
+ *   detail: 'Request payload too large',
+ *   instance: '/api/upload',
+ * });
  *
- * // Multiple field errors
- * throw new PayloadTooLargeException([
- *   { field: 'upload', message: 'File exceeds 10MB limit' }
- * ]);
+ * // With custom title
+ * throw new PayloadTooLargeException({
+ *   title: 'File Size Limit Exceeded',
+ *   detail: 'The uploaded file is too large. Maximum size is 10MB',
+ *   instance: '/api/files/upload',
+ * });
  */
-export class PayloadTooLargeException extends BaseFieldException {
-  constructor(messageOrField: string | FieldError[], fieldMessageOrDetail?: string, detail?: string) {
-    if (Array.isArray(messageOrField)) {
-      // (errors: FieldError[], detail?: string)
-      super(messageOrField, HttpStatus.PAYLOAD_TOO_LARGE, fieldMessageOrDetail);
-    } else if (detail !== undefined) {
-      // (field: string, message: string, detail: string)
-      super(messageOrField, fieldMessageOrDetail!, HttpStatus.PAYLOAD_TOO_LARGE, detail);
-    } else if (fieldMessageOrDetail) {
-      // (field: string, message: string)
-      super(messageOrField, fieldMessageOrDetail, HttpStatus.PAYLOAD_TOO_LARGE);
-    } else {
-      // (message: string)
-      super(messageOrField, HttpStatus.PAYLOAD_TOO_LARGE);
-    }
+export class PayloadTooLargeException extends HttpProblemException {
+  constructor(detailOrOptions?: string | ProblemOptions) {
+    super(detailOrOptions ?? 'Payload Too Large', HttpStatus.PAYLOAD_TOO_LARGE);
   }
 }

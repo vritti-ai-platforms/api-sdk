@@ -1,6 +1,10 @@
+// Export the new base class and types
+
+// Export all concrete exception classes
 export * from './bad-gateway.exception';
 export * from './bad-request.exception';
-export * from './base-field.exception';
+export type { FieldError, ProblemOptions } from './base-field.exception';
+export { HttpProblemException } from './base-field.exception';
 export * from './conflict.exception';
 export * from './forbidden.exception';
 export * from './gone.exception';
