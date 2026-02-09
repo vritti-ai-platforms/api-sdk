@@ -4,6 +4,7 @@
 export { AuthConfigModule } from './auth/auth-config.module';
 export { Onboarding } from './auth/decorators/onboarding.decorator';
 export { Public } from './auth/decorators/public.decorator';
+export { RefreshTokenCookie } from './auth/decorators/refresh-token-cookie.decorator';
 export { UserId } from './auth/decorators/user-id.decorator';
 // Guards
 export { VrittiAuthGuard } from './auth/guards/vritti-auth.guard';
