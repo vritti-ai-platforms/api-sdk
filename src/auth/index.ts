@@ -1,4 +1,5 @@
 export * from './auth-config.module';
+export * from './decorators/access-token.decorator';
 export * from './decorators/onboarding.decorator';
 export * from './decorators/public.decorator';
 export * from './decorators/refresh-token-cookie.decorator';

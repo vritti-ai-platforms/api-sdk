@@ -2,6 +2,7 @@
 
 // Core modules
 export { AuthConfigModule } from './auth/auth-config.module';
+export { AccessToken } from './auth/decorators/access-token.decorator';
 export { Onboarding } from './auth/decorators/onboarding.decorator';
 export { Public } from './auth/decorators/public.decorator';
 export { RefreshTokenCookie } from './auth/decorators/refresh-token-cookie.decorator';
