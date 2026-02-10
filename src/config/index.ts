@@ -16,7 +16,6 @@
  *   jwt: {
  *     accessTokenExpiry: '15m',
  *     refreshTokenExpiry: '30d',
- *     validateTokenBinding: true,
  *   },
  *   guard: {
  *     tenantHeaderName: 'x-tenant-id',
@@ -89,11 +88,6 @@ export interface JwtConfig {
    */
   onboardingTokenExpiry: string;
 
-  /**
-   * Whether to validate refresh token binding (hash in access token)
-   * @default true
-   */
-  validateTokenBinding: boolean;
 }
 
 /**
@@ -164,7 +158,6 @@ const defaultConfig: FullConfig = {
     accessTokenExpiry: '15m',
     refreshTokenExpiry: '30d',
     onboardingTokenExpiry: '24h',
-    validateTokenBinding: true,
   },
   guard: {
     tenantHeaderName: 'x-tenant-id',

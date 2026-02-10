@@ -61,7 +61,7 @@ import { VrittiAuthGuard } from './guards/vritti-auth.guard';
  * @Onboarding()
  * @Post('onboarding/verify-email')
  * async verifyEmail(@Request() req) {
- *   const userId = req.user.id; // Available from guard
+ *   const userId = req.sessionInfo.userId; // Available from guard
  *   ...
  * }
  */

@@ -1,37 +1,16 @@
 import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 
-/**
- * Parameter decorator to extract user ID from authenticated request
- *
- * This decorator retrieves the user ID from the request object,
- * which is set by authentication guards (JwtAuthGuard, VrittiAuthGuard).
- *
- * @returns The user's ID as a string (UUID)
- *
- * @example
- * @Post('verify-email')
- * @Onboarding()
- * async verifyEmail(@UserId() userId: string) {
- *   await this.service.verify(userId);
- * }
- *
- * @example
- * @Post('logout-all')
- * @UseGuards(JwtAuthGuard)
- * async logoutAll(@UserId() userId: string) {
- *   await this.authService.logoutAll(userId);
- * }
- */
+// Extracts userId from request.sessionInfo (set by VrittiAuthGuard)
 export const UserId = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): string => {
     const request = ctx.switchToHttp().getRequest<FastifyRequest>();
-    const user = (request as any).user;
+    const sessionInfo = (request as any).sessionInfo;
 
-    if (!user?.id) {
+    if (!sessionInfo?.userId) {
       throw new Error('User ID not found on request. Ensure route is protected by auth guard.');
     }
 
-    return user.id;
+    return sessionInfo.userId;
   },
 );

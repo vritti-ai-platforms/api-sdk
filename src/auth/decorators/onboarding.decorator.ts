@@ -22,7 +22,7 @@ import { SetMetadata } from '@nestjs/common';
  * @Post('verify-email')
  * @Onboarding()
  * async verifyEmail(@Request() req, @Body() dto: VerifyEmailDto) {
- *   const userId = req.user.id; // Available from VrittiAuthGuard
+ *   const userId = req.sessionInfo.userId; // Available from VrittiAuthGuard
  *   return this.service.verifyEmail(userId, dto.otp);
  * }
  *

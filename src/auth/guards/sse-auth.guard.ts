@@ -98,8 +98,12 @@ export class SseAuthGuard implements CanActivate {
       const validatedToken = this.jwtService.verify<DecodedToken>(token);
       this.logger.debug(`SSE token validated for user: ${validatedToken.userId}`);
 
-      // Step 6: Attach user data to request
-      (request as any).user = { id: validatedToken.userId };
+      // Step 6: Attach session info to request
+      (request as any).sessionInfo = {
+        userId: validatedToken.userId,
+        sessionId: validatedToken.sessionId,
+        sessionType: validatedToken.sessionType,
+      };
 
       return true;
     } catch (error) {
