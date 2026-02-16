@@ -80,6 +80,21 @@ export function getHttpStatusTitle(status: number): string {
  * - Standard NestJS HTTP exceptions
  * - Unknown errors
  */
+/**
+ * Duck-type check for HttpException to handle cross-package instanceof failures.
+ * When @vritti/api-sdk is symlinked, the consumer's @nestjs/common may be a different
+ * instance, causing instanceof HttpException to return false.
+ */
+function isHttpException(exception: unknown): exception is HttpException {
+  return (
+    exception instanceof HttpException ||
+    (typeof exception === 'object' &&
+      exception !== null &&
+      typeof (exception as any).getStatus === 'function' &&
+      typeof (exception as any).getResponse === 'function')
+  );
+}
+
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
@@ -95,7 +110,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let detail = 'Internal server error';
     let errors: FieldError[] = [];
 
-    if (exception instanceof HttpException) {
+    if (isHttpException(exception)) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
 

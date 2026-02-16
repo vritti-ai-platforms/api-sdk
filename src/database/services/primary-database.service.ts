@@ -6,7 +6,7 @@ import {
   type OnModuleDestroy,
   type OnModuleInit,
 } from '@nestjs/common';
-import { eq, or } from 'drizzle-orm';
+import { eq, or, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { DATABASE_MODULE_OPTIONS } from '../constants';
@@ -218,7 +218,7 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
         .select()
         .from(tenants)
         .leftJoin(tenantDatabaseConfigs, eq(tenants.id, tenantDatabaseConfigs.tenantId))
-        .where(or(eq(tenants.id, tenantIdentifier), eq(tenants.subdomain, tenantIdentifier)))
+        .where(or(sql`${tenants.id}::text = ${tenantIdentifier}`, eq(tenants.subdomain, tenantIdentifier)))
         .limit(1);
 
       if (!result.length) {

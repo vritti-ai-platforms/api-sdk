@@ -108,10 +108,11 @@ export class VrittiAuthGuard implements CanActivate {
         throw new UnauthorizedException('Tenant identifier not found');
       }
 
+      // TODO: Re-enable once tenant-specific login is implemented
       // Skip DB validation for platform admin
-      if (tenantIdentifier === 'cloud') {
-        return true;
-      }
+      // if (tenantIdentifier === 'cloud') {
+      //   return true;
+      // }
 
       // Validate tenant exists and is active
       const tenantInfo = await this.primaryDatabase.getTenantInfo(tenantIdentifier);

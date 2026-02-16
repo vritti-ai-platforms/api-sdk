@@ -84,11 +84,12 @@ export class TenantContextInterceptor implements NestInterceptor {
 
       this.logger.debug(`Tenant identifier extracted: ${tenantIdentifier}`);
 
+      // TODO: Re-enable once tenant-specific login is implemented
       // Special case: cloud.vritti.com (platform admin)
-      if (tenantIdentifier === 'cloud') {
-        this.logger.log('Cloud platform access detected, skipping tenant context setup');
-        return next.handle();
-      }
+      // if (tenantIdentifier === 'cloud') {
+      //   this.logger.log('Cloud platform access detected, skipping tenant context setup');
+      //   return next.handle();
+      // }
 
       // Query primary database for tenant configuration
       const tenantInfo = await this.primaryDatabase.getTenantInfo(tenantIdentifier);

@@ -1,12 +1,12 @@
 import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
 import type { TenantInfo } from '../interfaces';
-import { TenantContextService } from '../services/tenant-context.service';
 
 /**
  * Parameter decorator that injects tenant metadata into controller method
  *
  * This decorator retrieves tenant information (ID, slug, type, etc.)
- * from the REQUEST-SCOPED TenantContextService.
+ * directly from the request object, where it is set by
+ * TenantContextInterceptor (via `request.tenant`).
  *
  * Useful for:
  * - Logging tenant-specific information
@@ -50,13 +50,13 @@ import { TenantContextService } from '../services/tenant-context.service';
  */
 export const Tenant = createParamDecorator((_data: unknown, ctx: ExecutionContext): TenantInfo => {
   const request = ctx.switchToHttp().getRequest();
+  const tenant = request.tenant;
 
-  // Get from TenantContextService
-  const tenantContext = request.app?.get?.(TenantContextService);
-
-  if (!tenantContext) {
-    throw new Error('TenantContextService not found.');
+  if (!tenant) {
+    throw new Error(
+      'Tenant context not found. Ensure TenantContextInterceptor is registered via DatabaseModule.forServer().',
+    );
   }
 
-  return tenantContext.getTenant();
+  return tenant;
 });
