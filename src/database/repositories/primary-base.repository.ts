@@ -1,8 +1,9 @@
 import { Logger } from '@nestjs/common';
-import { eq, getTableName, type InferInsertModel, type InferSelectModel, type SQL, sql } from 'drizzle-orm';
+import { and, asc, eq, getTableName, ilike, inArray, type InferInsertModel, type InferSelectModel, notInArray, type SQL, sql } from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
 import type { TypedDrizzleClient } from '../schema.registry';
 import { PrimaryDatabaseService } from '../services/primary-database.service';
+import type { FindForSelectConfig, SelectQueryResult } from '../types';
 
 /**
  * Convert snake_case string to camelCase
@@ -445,5 +446,130 @@ export abstract class PrimaryBaseRepository<
   async exists(where: SQL): Promise<boolean> {
     const count = await this.count(where);
     return count > 0;
+  }
+
+  // Finds records formatted as select dropdown options with optional search, pagination, and grouping
+  async findForSelect(config: FindForSelectConfig): Promise<SelectQueryResult> {
+    this.logger.debug('Finding records for select dropdown');
+
+    // Parse values from CSV string or use array as-is
+    const parsedValues =
+      typeof config.values === 'string'
+        ? config.values.split(',').map((v) => v.trim()).filter(Boolean)
+        : config.values;
+
+    // Parse excludeIds from CSV string or use array as-is
+    const parsedExcludeIds =
+      typeof config.excludeIds === 'string'
+        ? config.excludeIds.split(',').map((v) => v.trim()).filter(Boolean)
+        : config.excludeIds ?? [];
+
+    const valueCol = (this.table as any)[config.value];
+    const labelCol = (this.table as any)[config.label];
+
+    // When values are provided, fetch those specific options by value (skip search/pagination)
+    if (parsedValues && parsedValues.length > 0) {
+      const selectCols: Record<string, any> = { value: valueCol, label: labelCol };
+      if (config.groupId) selectCols.groupId = (this.table as any)[config.groupId];
+
+      const rows = await this.db.select(selectCols).from(this.table as any).where(inArray(valueCol, parsedValues));
+
+      return {
+        options: rows.map((row: any) => ({
+          value: row.value as string | number | boolean,
+          label: String(row.label),
+          ...(config.groupId && row.groupId != null ? { groupId: row.groupId as string | number } : {}),
+        })),
+        hasMore: false,
+        ...(config.groups ? { groups: config.groups } : {}),
+      };
+    }
+
+    // Use SQL builder for count(*) over() window function support
+    const selectFields: Record<string, any> = {
+      value: valueCol,
+      label: labelCol,
+      totalCount: sql<number>`count(*) over()`.mapWith(Number),
+    };
+    if (config.groupId) {
+      selectFields.groupId = (this.table as any)[config.groupId];
+    }
+
+    const conditions: SQL[] = [];
+    if (config.search) {
+      conditions.push(ilike(labelCol, `%${config.search}%`));
+    }
+    if (parsedExcludeIds.length > 0) {
+      conditions.push(notInArray(valueCol, parsedExcludeIds));
+    }
+    if (config.where) {
+      for (const [field, val] of Object.entries(config.where)) {
+        const column = (this.table as any)[field];
+        if (column) {
+          conditions.push(eq(column, val));
+        }
+      }
+    }
+
+    const orderByKey = config.orderBy ? Object.keys(config.orderBy)[0] : undefined;
+    const orderByCol = orderByKey ? (this.table as any)[orderByKey] : labelCol;
+    const limit = Number(config.limit) || 20;
+    const offset = Number(config.offset) || 0;
+
+    let query = this.db
+      .select(selectFields)
+      .from(this.table as any)
+      .$dynamic();
+
+    if (conditions.length > 0) {
+      query = query.where(conditions.length === 1 ? conditions[0] : and(...conditions)!);
+    }
+
+    const orderClauses: SQL[] = [];
+    if (config.groupId) {
+      const groupIdCol = (this.table as any)[config.groupId];
+      if (groupIdCol) orderClauses.push(asc(groupIdCol));
+    }
+    orderClauses.push(asc(orderByCol));
+
+    query = query
+      .orderBy(...orderClauses)
+      .limit(limit)
+      .offset(offset);
+
+    const rows = await query;
+
+    const totalCount = rows.length > 0 ? (rows[0] as any).totalCount : 0;
+
+    const options = rows.map((row: any) => ({
+      value: row.value as string | number | boolean,
+      label: String(row.label),
+      ...(config.groupId && row.groupId != null ? { groupId: row.groupId as string | number } : {}),
+    }));
+
+    // Auto-resolve groups from groupTable when provided
+    let resolvedGroups = config.groups;
+
+    if (config.groupTable && config.groupId) {
+      const groupIdCol = (config.groupTable as any)[config.groupIdKey ?? 'id'];
+      const groupNameCol = (config.groupTable as any)[config.groupLabelKey ?? 'name'];
+
+      const groupRows = await this.db
+        .select({ id: groupIdCol, name: groupNameCol })
+        .from(config.groupTable as any)
+        .orderBy(asc(groupNameCol));
+
+      resolvedGroups = groupRows.map((r: any) => ({
+        id: r.id as string | number,
+        name: String(r.name),
+      }));
+    }
+
+    return {
+      options,
+      hasMore: offset + limit < totalCount,
+      totalCount,
+      ...(resolvedGroups ? { groups: resolvedGroups } : {}),
+    };
   }
 }

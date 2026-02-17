@@ -73,9 +73,23 @@
     "@nestjs/config": "^3.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/jwt": "^10.0.0",
+    "@nestjs/swagger": "^8.0.0",
+    "class-transformer": "^0.5.0",
+    "class-validator": "^0.14.0",
     "fastify": "5.7.4",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0"
+  },
+  "peerDependenciesMeta": {
+    "@nestjs/swagger": {
+      "optional": true
+    },
+    "class-transformer": {
+      "optional": true
+    },
+    "class-validator": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.3",
@@ -83,10 +97,13 @@
     "@nestjs/config": "^3.2.3",
     "@nestjs/core": "^11.0.1",
     "@nestjs/jwt": "^10.2.0",
+    "@nestjs/swagger": "^8.0.0",
     "@swc/core": "^1.13.5",
     "@types/jsonwebtoken": "^9.0.8",
     "@types/node": "^24.9.2",
     "@types/pg": "^8.16.0",
+    "class-transformer": "^0.5.0",
+    "class-validator": "^0.14.0",
     "fastify": "5.7.4",
     "jsonwebtoken": "^9.0.2",
     "reflect-metadata": "^0.2.2",

@@ -29,6 +29,15 @@ export { DatabaseModule } from './database/database.module';
 export { Tenant } from './database/decorators/tenant.decorator';
 // Interfaces
 export * from './database/interfaces';
+// Database types
+export type {
+  FindForSelectConfig,
+  SelectQueryGroup,
+  SelectQueryOption,
+  SelectQueryResult,
+} from './database/types';
+// Database DTOs
+export { SelectOptionsQueryDto } from './database/dto/select-options-query.dto';
 // Repositories
 export { PrimaryBaseRepository } from './database/repositories/primary-base.repository';
 export { TenantBaseRepository } from './database/repositories/tenant-base.repository';
