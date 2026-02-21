@@ -65,16 +65,17 @@ export class TenantContextInterceptor implements NestInterceptor {
 
     this.logger.debug(`Processing request: ${request.method} ${request.url}`);
 
-    // Check if endpoint is marked as @Public()
+    // Check if endpoint is marked as @Public() or @Onboarding()
     const isPublic = this.reflector.getAllAndOverride<boolean>('isPublic', [context.getHandler(), context.getClass()]);
+    const isOnboarding = this.reflector.getAllAndOverride<boolean>('isOnboarding', [context.getHandler(), context.getClass()]);
 
     try {
       // Extract tenant identifier using RequestService (no code duplication)
       const tenantIdentifier = this.requestService.getTenantIdentifier();
 
-      // Skip tenant context for public endpoints without tenant info
-      if (isPublic && !tenantIdentifier) {
-        this.logger.debug('Public endpoint without tenant identifier, skipping tenant context setup');
+      // Skip tenant context for public or onboarding endpoints without tenant info
+      if ((isPublic || isOnboarding) && !tenantIdentifier) {
+        this.logger.debug('Public/onboarding endpoint without tenant identifier, skipping tenant context setup');
         return next.handle();
       }
 

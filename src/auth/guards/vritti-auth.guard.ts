@@ -7,11 +7,11 @@ import {
   Scope,
   UnauthorizedException,
 } from '@nestjs/common';
+import { SSE_METADATA } from '@nestjs/common/constants';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { PrimaryDatabaseService } from '../../database/services/primary-database.service';
 import { RequestService } from '../../request/services/request.service';
 import { SKIP_CSRF_KEY } from '../decorators/skip-csrf.decorator';
 import { verifyTokenHash } from '../utils/token-hash.util';
@@ -34,7 +34,6 @@ export class VrittiAuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     readonly _configService: ConfigService,
     private readonly jwtService: JwtService,
-    private readonly primaryDatabase: PrimaryDatabaseService,
     private readonly requestService: RequestService,
   ) {}
 
@@ -62,6 +61,12 @@ export class VrittiAuthGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
+
+    // SSE endpoints authenticate via refresh token cookie (EventSource cannot send Authorization headers)
+    const isSseEndpoint = this.reflector.get<boolean>(SSE_METADATA, context.getHandler());
+    if (isSseEndpoint) {
+      return this.handleSseAuth(request, isOnboarding);
+    }
 
     try {
       const accessToken = this.requestService.getAccessToken();
@@ -96,31 +101,6 @@ export class VrittiAuthGuard implements CanActivate {
         sessionId: decodedAccessToken.sessionId,
         sessionType: decodedAccessToken.sessionType,
       };
-
-      // Skip tenant validation for @Onboarding endpoints
-      if (isOnboarding) {
-        return true;
-      }
-
-      // Extract and validate tenant
-      const tenantIdentifier = this.requestService.getTenantIdentifier();
-      if (!tenantIdentifier) {
-        throw new UnauthorizedException('Tenant identifier not found');
-      }
-
-      // Skip DB validation for platform admin
-      if (tenantIdentifier === 'cloud') {
-        return true;
-      }
-
-      // Validate tenant exists and is active
-      const tenantInfo = await this.primaryDatabase.getTenantInfo(tenantIdentifier);
-      if (!tenantInfo) {
-        throw new UnauthorizedException('Invalid tenant');
-      }
-      if (tenantInfo.status !== 'ACTIVE') {
-        throw new UnauthorizedException(`Tenant is ${tenantInfo.status}`);
-      }
 
       return true;
     } catch (error) {
@@ -169,6 +149,37 @@ export class VrittiAuthGuard implements CanActivate {
     if (!verifyTokenHash(refreshToken, decodedAccessToken.refreshTokenHash)) {
       throw new UnauthorizedException('Session validation failed');
     }
+  }
+
+  // Authenticates SSE connections using the refresh token httpOnly cookie
+  private handleSseAuth(request: FastifyRequest, isOnboarding: boolean): boolean {
+    const refreshToken = this.requestService.getRefreshToken();
+    if (!refreshToken) {
+      throw new UnauthorizedException('Authentication required');
+    }
+
+    let decoded: { userId: string; sessionId: string; sessionType: string; tokenType: string };
+    try {
+      decoded = this.jwtService.verify(refreshToken) as any;
+    } catch {
+      throw new UnauthorizedException('Invalid or expired session');
+    }
+
+    if (decoded.tokenType !== 'refresh') {
+      throw new UnauthorizedException('Invalid token type');
+    }
+
+    if (isOnboarding && decoded.sessionType !== 'ONBOARDING') {
+      throw new UnauthorizedException('This endpoint requires an onboarding session');
+    }
+
+    (request as any).sessionInfo = {
+      userId: decoded.userId,
+      sessionId: decoded.sessionId,
+      sessionType: decoded.sessionType,
+    };
+
+    return true;
   }
 
   // Validates CSRF token for state-changing requests

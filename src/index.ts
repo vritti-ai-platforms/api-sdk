@@ -9,7 +9,6 @@ export { RefreshTokenCookie } from './auth/decorators/refresh-token-cookie.decor
 export { UserId } from './auth/decorators/user-id.decorator';
 // Guards
 export { VrittiAuthGuard } from './auth/guards/vritti-auth.guard';
-export { SseAuthGuard } from './auth/guards/sse-auth.guard';
 // Token hash utilities
 export { hashToken, verifyTokenHash } from './auth/utils/token-hash.util';
 export {
