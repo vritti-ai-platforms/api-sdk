@@ -1,42 +1,28 @@
 // Config system
 
-// Core modules
-export { AuthConfigModule } from './auth/auth-config.module';
-export { AccessToken } from './auth/decorators/access-token.decorator';
-export { Onboarding } from './auth/decorators/onboarding.decorator';
-export { Public } from './auth/decorators/public.decorator';
-export { RefreshTokenCookie } from './auth/decorators/refresh-token-cookie.decorator';
-export { UserId } from './auth/decorators/user-id.decorator';
-// Guards
-export { VrittiAuthGuard } from './auth/guards/vritti-auth.guard';
-// Token hash utilities
-export { hashToken, verifyTokenHash } from './auth/utils/token-hash.util';
+// Auth (decorators, guards, token utilities)
+export * from './auth';
+// Auth decorators (SkipCsrf for webhook endpoints)
+export { SKIP_CSRF_KEY, SkipCsrf } from './auth/decorators/skip-csrf.decorator';
 export {
   type ApiSdkConfig,
   type CookieConfig,
   configureApiSdk,
   defineConfig,
-  type GuardConfig,
   getConfig,
   getJwtExpiry,
   getRefreshCookieOptions,
+  type GuardConfig,
   type JwtConfig,
   resetConfig,
 } from './config';
 export { DatabaseModule } from './database/database.module';
 // Decorators
 export { Tenant } from './database/decorators/tenant.decorator';
-// Interfaces
-export * from './database/interfaces';
-// Database types
-export type {
-  FindForSelectConfig,
-  SelectQueryGroup,
-  SelectQueryOption,
-  SelectQueryResult,
-} from './database/types';
 // Database DTOs
 export { SelectOptionsQueryDto } from './database/dto/select-options-query.dto';
+// Interfaces
+export * from './database/interfaces';
 // Repositories
 export { PrimaryBaseRepository } from './database/repositories/primary-base.repository';
 export { TenantBaseRepository } from './database/repositories/tenant-base.repository';
@@ -49,15 +35,20 @@ export { PrimaryDatabaseService } from './database/services/primary-database.ser
 // Services
 export { TenantContextService } from './database/services/tenant-context.service';
 export { TenantDatabaseService } from './database/services/tenant-database.service';
+// Database types
+export type {
+  FindForSelectConfig,
+  SelectQueryGroup,
+  SelectQueryOption,
+  SelectQueryResult,
+} from './database/types';
 // Exceptions
 export * from './exceptions';
 // RFC 7807 Filters (includes HttpExceptionFilter)
 export * from './filters';
-// Auth decorators (SkipCsrf for webhook endpoints)
-export { SkipCsrf, SKIP_CSRF_KEY } from './auth/decorators/skip-csrf.decorator';
-// Phone utilities
-export { extractCountryFromPhone, normalizePhoneNumber } from './utils/phone.utils';
 // Logger utilities
 export * from './logger';
 // RFC 7807 Types (using named exports to avoid conflicts)
 export type { ApiErrorResponse, ProblemDetails } from './types';
+// Phone utilities
+export { extractCountryFromPhone, normalizePhoneNumber } from './utils/phone.utils';
