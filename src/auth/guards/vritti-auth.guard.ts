@@ -13,6 +13,7 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { RequestService } from '../../request/services/request.service';
+import { RESET_KEY } from '../decorators/reset.decorator';
 import { SKIP_CSRF_KEY } from '../decorators/skip-csrf.decorator';
 import { verifyTokenHash } from '../utils/token-hash.util';
 
@@ -62,6 +63,12 @@ export class VrittiAuthGuard implements CanActivate {
       context.getClass(),
     ]);
 
+    // @Reset() endpoints require RESET session type
+    const isReset = this.reflector.getAllAndOverride<boolean>(RESET_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
     // SSE endpoints authenticate via refresh token cookie (EventSource cannot send Authorization headers)
     const isSseEndpoint = this.reflector.get<boolean>(SSE_METADATA, context.getHandler());
     if (isSseEndpoint) {
@@ -90,9 +97,14 @@ export class VrittiAuthGuard implements CanActivate {
         throw new UnauthorizedException('This endpoint requires an onboarding session');
       }
 
-      // Regular endpoints reject ONBOARDING sessions
-      if (!isOnboarding && decodedAccessToken.sessionType === 'ONBOARDING') {
-        throw new UnauthorizedException('Onboarding sessions cannot access this endpoint');
+      // @Reset endpoints require RESET session type
+      if (isReset && decodedAccessToken.sessionType !== 'RESET') {
+        throw new UnauthorizedException('This endpoint requires a reset session');
+      }
+
+      // Regular endpoints reject ONBOARDING and RESET sessions
+      if (!isOnboarding && !isReset && (decodedAccessToken.sessionType === 'ONBOARDING' || decodedAccessToken.sessionType === 'RESET')) {
+        throw new UnauthorizedException(`${decodedAccessToken.sessionType} sessions cannot access this endpoint`);
       }
 
       // Attach session info to request
