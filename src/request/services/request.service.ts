@@ -7,11 +7,7 @@ import { getConfig } from '../../config';
 export class RequestService {
   constructor(@Inject(REQUEST) private readonly request: FastifyRequest) {}
 
-  /**
-   * Extract tenant identifier from request headers
-   * Priority: x-tenant-id > x-subdomain
-   * @returns Tenant identifier or null if not found
-   */
+  // Extracts tenant identifier from x-tenant-id or x-subdomain request header
   getTenantIdentifier(): string | null {
     const getHeader = (key: string) => {
       const value = this.request.headers?.[key];
@@ -21,11 +17,7 @@ export class RequestService {
     return getHeader('x-tenant-id') || getHeader('x-subdomain') || null;
   }
 
-  /**
-   * Extract access token from Authorization header
-   * Format: "Bearer <token>"
-   * @returns Access token or null if not found
-   */
+  // Extracts the bearer access token from the Authorization header
   getAccessToken(): string | null {
     const authHeader = this.request.headers?.authorization;
     if (!authHeader) {
@@ -35,11 +27,7 @@ export class RequestService {
     return type === 'Bearer' && token ? token : null;
   }
 
-  /**
-   * Extract refresh token from httpOnly cookie
-   * Cookie name is configurable via api-sdk config
-   * @returns Refresh token or null if not found
-   */
+  // Extracts the refresh token from the configured httpOnly cookie
   getRefreshToken(): string | null {
     try {
       const cookies = (this.request as unknown as { cookies?: Record<string, string> }).cookies;
@@ -56,19 +44,12 @@ export class RequestService {
     }
   }
 
-  /**
-   * Get a specific header value
-   * @param key Header key
-   * @returns Header value (string, array, or undefined)
-   */
+  // Returns the value of a specific request header by key
   getHeader(key: string): string | string[] | undefined {
     return this.request.headers?.[key];
   }
 
-  /**
-   * Get all headers
-   * @returns Record of all headers
-   */
+  // Returns all request headers
   getAllHeaders(): FastifyRequest['headers'] {
     return this.request.headers || {};
   }

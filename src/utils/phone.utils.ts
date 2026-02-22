@@ -1,7 +1,3 @@
-/**
- * Mapping of country calling codes to ISO 3166-1 alpha-2 country codes
- * Covers ~200 countries with calling codes ranging from 1-3 digits
- */
 const CALLING_CODE_TO_COUNTRY: Record<string, string> = {
   // 3-digit codes
   '355': 'AL', '213': 'DZ', '376': 'AD', '244': 'AO', '672': 'AQ',
@@ -49,11 +45,7 @@ const CALLING_CODE_TO_COUNTRY: Record<string, string> = {
   '7': 'RU', // Also KZ, but default to RU
 };
 
-/**
- * Extract ISO country code from E.164 phone number
- * @param phone Phone number in E.164 format (e.g., +919876543210)
- * @returns ISO 3166-1 alpha-2 country code (e.g., "IN") or undefined
- */
+// Extracts ISO 3166-1 alpha-2 country code from an E.164 phone number
 export function extractCountryFromPhone(phone: string): string | undefined {
   // Remove + prefix if present
   const digits = phone.startsWith('+') ? phone.slice(1) : phone;
@@ -69,11 +61,7 @@ export function extractCountryFromPhone(phone: string): string | undefined {
   return undefined;
 }
 
-/**
- * Normalize phone number to E.164 format with + prefix
- * @param phone Phone number (with or without + prefix)
- * @returns Phone number in E.164 format
- */
+// Normalizes a phone number to E.164 format by ensuring a + prefix
 export function normalizePhoneNumber(phone: string): string {
   return phone.startsWith('+') ? phone : `+${phone}`;
 }

@@ -31,6 +31,10 @@
     "enabled": true,
     "rules": {
       "recommended": true,
+      "style": {
+        "noNonNullAssertion": "warn",
+        "useImportType": "off"
+      },
       "complexity": {
         "noStaticOnlyClass": "off"
       },

@@ -1,32 +1,11 @@
-/**
- * Unified Logger Service
- *
- * Single service that provides both default NestJS Logger and Winston logger implementations.
- * Automatically delegates to the configured provider (default or winston).
- * @module logger/logger.service
- */
-
 import { Injectable, type Logger, type LoggerService as NestLoggerService, Optional } from '@nestjs/common';
 import { createLogger, format, transports, type Logger as WinstonLogger } from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
 import type { LoggerModuleOptions, LogLevel, LogMetadata } from '../types';
 import { getCorrelationContext } from '../utils';
 
-/**
- * Type for log message parameter.
- * NestJS LoggerService interface uses `any` for compatibility,
- * but this type documents the expected message shapes.
- *
- * @remarks
- * The public interface methods use `any` to maintain compatibility with
- * NestJS's LoggerService interface. This type is for documentation purposes.
- */
 export type LogMessage = string | Error | object;
 
-/**
- * Unified logger service implementing NestJS LoggerService interface.
- * Supports both default NestJS Logger and Winston implementations via facade pattern.
- */
 @Injectable()
 export class LoggerService implements NestLoggerService {
   private readonly activeLogger: NestLoggerService | WinstonLogger;
@@ -50,10 +29,7 @@ export class LoggerService implements NestLoggerService {
     }
   }
 
-  /**
-   * Creates a Winston logger instance with inline configuration.
-   * Consolidates winston-config.factory.ts logic.
-   */
+  // Creates a Winston logger instance with inline transports and format configuration
   private createWinstonLogger(opts: LoggerModuleOptions): WinstonLogger {
     const level = opts.level ?? 'debug';
     const logFormat = opts.format ?? 'text';
@@ -165,9 +141,7 @@ export class LoggerService implements NestLoggerService {
     this.context = context;
   }
 
-  /**
-   * Unified internal logging method that handles both Winston and NestJS Logger.
-   */
+  // Dispatches a log entry to either the Winston or NestJS logger implementation
   private _log(level: LogLevel, message: any, context?: string, trace?: string): void {
     const ctx = context ?? this.context;
 
@@ -197,9 +171,7 @@ export class LoggerService implements NestLoggerService {
     }
   }
 
-  /**
-   * Logs with custom metadata (Winston only).
-   */
+  // Logs a message with custom metadata fields (Winston only)
   logWithMetadata(level: LogLevel, message: any, metadata?: LogMetadata, context?: string): void {
     const ctx = context ?? this.context;
 
@@ -229,10 +201,7 @@ export class LoggerService implements NestLoggerService {
     return String(message);
   }
 
-  /**
-   * Enriches metadata with correlation context from AsyncLocalStorage.
-   * Inline from winston-logger.service.ts
-   */
+  // Enriches metadata with correlation context from AsyncLocalStorage
   private enrichMetadata(metadata: LogMetadata = {}, context?: string, trace?: string): LogMetadata {
     const enriched: LogMetadata = { ...metadata };
 

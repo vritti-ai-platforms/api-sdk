@@ -64,10 +64,7 @@ export class VrittiAuthGuard implements CanActivate {
     ]);
 
     // @Reset() endpoints require RESET session type
-    const isReset = this.reflector.getAllAndOverride<boolean>(RESET_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const isReset = this.reflector.getAllAndOverride<boolean>(RESET_KEY, [context.getHandler(), context.getClass()]);
 
     // SSE endpoints authenticate via refresh token cookie (EventSource cannot send Authorization headers)
     const isSseEndpoint = this.reflector.get<boolean>(SSE_METADATA, context.getHandler());
@@ -103,7 +100,11 @@ export class VrittiAuthGuard implements CanActivate {
       }
 
       // Regular endpoints reject ONBOARDING and RESET sessions
-      if (!isOnboarding && !isReset && (decodedAccessToken.sessionType === 'ONBOARDING' || decodedAccessToken.sessionType === 'RESET')) {
+      if (
+        !isOnboarding &&
+        !isReset &&
+        (decodedAccessToken.sessionType === 'ONBOARDING' || decodedAccessToken.sessionType === 'RESET')
+      ) {
         throw new UnauthorizedException(`${decodedAccessToken.sessionType} sessions cannot access this endpoint`);
       }
 
@@ -206,7 +207,16 @@ export class VrittiAuthGuard implements CanActivate {
       }
 
       await new Promise<void>((resolve, reject) => {
+        // Intercept reply.send to prevent the plugin from bypassing NestJS error handling
+        const originalSend = reply.send.bind(reply);
+        (reply as any).send = () => {
+          (reply as any).send = originalSend;
+          reject(new Error('CSRF validation failed'));
+          return reply;
+        };
+
         fastifyInstance.csrfProtection(request, reply, (err?: Error) => {
+          (reply as any).send = originalSend;
           if (err) reject(err);
           else resolve();
         });

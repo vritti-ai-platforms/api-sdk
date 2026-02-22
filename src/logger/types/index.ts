@@ -1,18 +1,9 @@
 import type { ModuleMetadata, Type } from '@nestjs/common';
 
-/**
- * Supported log levels for the logging system.
- */
 export type LogLevel = 'error' | 'warn' | 'log' | 'debug' | 'verbose';
 
-/**
- * Supported log output formats.
- */
 export type LogFormat = 'json' | 'text';
 
-/**
- * Metadata that can be attached to log entries.
- */
 export interface LogMetadata {
   correlationId?: string;
   method?: string;
@@ -24,9 +15,6 @@ export interface LogMetadata {
   [key: string]: unknown;
 }
 
-/**
- * Configuration options for the logger module.
- */
 export interface LoggerModuleOptions {
   provider?: 'default' | 'winston';
   level?: LogLevel;
@@ -42,16 +30,10 @@ export interface LoggerModuleOptions {
   defaultMeta?: Record<string, unknown>;
 }
 
-/**
- * Factory function for creating logger options asynchronously.
- */
 export interface LoggerOptionsFactory {
   createLoggerOptions(): Promise<LoggerModuleOptions> | LoggerModuleOptions;
 }
 
-/**
- * Async configuration options for the logger module.
- */
 export interface LoggerModuleAsyncOptions extends Pick<ModuleMetadata, 'imports'> {
   useExisting?: Type<LoggerOptionsFactory>;
   useClass?: Type<LoggerOptionsFactory>;
@@ -59,17 +41,11 @@ export interface LoggerModuleAsyncOptions extends Pick<ModuleMetadata, 'imports'
   inject?: unknown[];
 }
 
-/**
- * Context object for correlation tracking across async operations.
- */
 export interface CorrelationContext {
   correlationId: string;
   [key: string]: unknown;
 }
 
-/**
- * Configuration options for HTTP request/response logger interceptor.
- */
 export interface HttpLoggerOptions {
   enableRequestLog?: boolean;
   enableResponseLog?: boolean;

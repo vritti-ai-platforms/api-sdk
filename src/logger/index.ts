@@ -1,15 +1,3 @@
-/**
- * Logger Module
- *
- * Provides a comprehensive logging infrastructure for NestJS applications with:
- * - Environment presets (development, staging, production, test)
- * - Correlation ID tracking across async operations
- * - HTTP request/response logging
- * - Winston integration with file and console logging
- *
- * @module logger
- */
-
 export { HttpLoggerInterceptor } from './interceptors/http-logger.interceptor';
 // ============================================================================
 // Main Module (Import this in your AppModule)

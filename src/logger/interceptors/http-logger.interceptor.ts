@@ -1,10 +1,3 @@
-/**
- * HTTP Logger Interceptor
- *
- * Automatically logs HTTP requests and responses with correlation tracking.
- * @module logger/http-logger.interceptor
- */
-
 import { type CallHandler, type ExecutionContext, Injectable, type NestInterceptor, Optional } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Observable } from 'rxjs';
@@ -13,12 +6,6 @@ import { LoggerService } from '../services/logger.service';
 import type { HttpLoggerOptions, LogMetadata } from '../types';
 import { getCorrelationContext } from '../utils';
 
-/**
- * HTTP Logger Interceptor for NestJS applications.
- *
- * Logs all HTTP requests and responses with metadata including
- * correlation IDs, performance metrics, and error details.
- */
 @Injectable()
 export class HttpLoggerInterceptor implements NestInterceptor {
   private readonly enableRequestLog: boolean;

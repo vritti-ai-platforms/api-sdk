@@ -1,11 +1,3 @@
-/**
- * Correlation ID Middleware
- *
- * Generates unique correlation IDs for request tracking across async operations.
- * Stores correlation ID in AsyncLocalStorage for access throughout the request lifecycle.
- * @module logger/correlation-id.middleware
- */
-
 import { Injectable, type NestMiddleware } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import {
@@ -16,30 +8,11 @@ import {
   runWithCorrelationContext,
 } from '../utils';
 
-/**
- * Configuration options for the Correlation ID middleware.
- */
 export interface CorrelationIdMiddlewareOptions {
-  /**
-   * If true, adds the correlation ID to response headers.
-   * @default true
-   */
   includeInResponse?: boolean;
-
-  /**
-   * The header name to use when adding correlation ID to response.
-   * @default 'x-correlation-id'
-   */
   responseHeader?: string;
 }
 
-/**
- * Correlation ID Middleware for Fastify/NestJS applications.
- *
- * Generates a unique correlation ID for each request,
- * stores it in AsyncLocalStorage for access throughout the request lifecycle,
- * and optionally adds it to response headers.
- */
 @Injectable()
 export class CorrelationIdMiddleware implements NestMiddleware {
   private readonly includeInResponse: boolean;
@@ -50,9 +23,7 @@ export class CorrelationIdMiddleware implements NestMiddleware {
     this.responseHeader = options.responseHeader ?? DEFAULT_CORRELATION_HEADER;
   }
 
-  /**
-   * Middleware handler for processing requests.
-   */
+  // Generates and stores a correlation ID for the incoming request
   use(_req: FastifyRequest, reply: FastifyReply, next: () => void): void {
     // Generate new correlation ID for this request
     const correlationId = generateCorrelationId();
@@ -68,11 +39,7 @@ export class CorrelationIdMiddleware implements NestMiddleware {
     });
   }
 
-  /**
-   * Fastify hook handler for onRequest.
-   * This is an async function that returns a Promise, ensuring the AsyncLocalStorage
-   * context persists throughout the entire request lifecycle.
-   */
+  // Fastify onRequest hook that initializes correlation context in AsyncLocalStorage
   async onRequest(_req: FastifyRequest, reply: FastifyReply): Promise<void> {
     // Generate new correlation ID for this request
     const correlationId = generateCorrelationId();

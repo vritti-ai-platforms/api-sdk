@@ -13,15 +13,6 @@ import { DATABASE_MODULE_OPTIONS } from '../constants';
 import type { DatabaseModuleOptions, TenantInfo } from '../interfaces';
 import type { TypedDrizzleClient } from '../schema.registry';
 
-/**
- * Schema tables required for tenant resolution.
- *
- * @remarks
- * This service requires the schema to include `tenants` and `tenantDatabaseConfigs` tables.
- * Due to Drizzle's complex type system with generic tables and columns,
- * we use explicit casts when accessing these tables. The result types
- * (TenantRow, TenantDatabaseConfigRow) are properly typed for type safety.
- */
 interface TenantSchemaRequirement {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tenants: any;
@@ -29,18 +20,11 @@ interface TenantSchemaRequirement {
   tenantDatabaseConfigs: any;
 }
 
-/**
- * Type for the raw join result row from tenant query.
- * Uses string keys since Drizzle returns tables with their snake_case names.
- */
 interface TenantJoinResultRow {
   tenants: TenantRow;
   tenant_database_configs: TenantDatabaseConfigRow | null;
 }
 
-/**
- * Expected shape of a tenant row from the tenants table.
- */
 interface TenantRow {
   id: string;
   subdomain: string;
@@ -48,9 +32,6 @@ interface TenantRow {
   status: string;
 }
 
-/**
- * Expected shape of a tenant database config row.
- */
 interface TenantDatabaseConfigRow {
   tenantId: string;
   dbSchema: string | null;
@@ -63,34 +44,13 @@ interface TenantDatabaseConfigRow {
   connectionPoolSize: number | null;
 }
 
-/**
- * Service responsible for querying the primary database to resolve tenant configurations
- *
- * This service:
- * - Connects to the primary database (tenant registry)
- * - Queries tenant metadata (database location, credentials, etc.)
- * - Caches tenant configs in memory to reduce database load
- * - Only used in GATEWAY MODE (microservices receive tenant config from messages)
- *
- * @example
- * // In API Gateway
- * const config = await primaryDatabase.getTenantConfig('acme');
- * // Returns: { id, slug, type, databaseHost, databaseName, ... }
- */
 @Injectable()
 export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrimaryDatabaseService.name);
 
-  /** PostgreSQL connection pool */
   private pool: Pool | null = null;
-
-  /** Drizzle database instance */
   private db: TypedDrizzleClient | null = null;
-
-  /** In-memory cache: Map<tenantIdentifier, TenantConfig> */
   private readonly tenantConfigCache = new Map<string, TenantInfo>();
-
-  /** Cache TTL in milliseconds */
   private readonly cacheTTL: number;
 
   constructor(
@@ -107,9 +67,7 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /**
-   * Initialize connection to primary database using Drizzle
-   */
+  // Initializes connection to primary database using Drizzle
   private async initializeDrizzleClient(): Promise<void> {
     try {
       const databaseUrl = this.buildPrimaryDbUrl();
@@ -141,9 +99,7 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /**
-   * Build connection URL from primary database properties
-   */
+  // Builds the PostgreSQL connection URL from primary database config properties
   private buildPrimaryDbUrl(): string {
     if (!this.options.primaryDb) {
       throw new Error('Primary database configuration not provided');
@@ -179,19 +135,12 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
     return url;
   }
 
-  /**
-   * Mask password in connection URL for logging
-   */
+  // Masks password in connection URL for safe logging
   private maskPassword(url: string): string {
     return url.replace(/:([^@]+)@/, ':****@');
   }
 
-  /**
-   * Get tenant configuration by identifier (ID or subdomain)
-   *
-   * @param tenantIdentifier Tenant ID or subdomain
-   * @returns Tenant configuration or null if not found
-   */
+  // Retrieves tenant configuration by ID or subdomain, with in-memory caching
   async getTenantInfo(tenantIdentifier: string): Promise<TenantInfo | null> {
     // Check cache first
     const cached = this.tenantConfigCache.get(tenantIdentifier);
@@ -265,9 +214,7 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /**
-   * Cache tenant information with TTL
-   */
+  // Caches tenant info by both ID and subdomain with TTL expiration
   private cacheInfo(info: TenantInfo): void {
     this.tenantConfigCache.set(info.id, info);
     this.tenantConfigCache.set(info.subdomain, info);
@@ -280,13 +227,7 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
     }, this.cacheTTL);
   }
 
-  /**
-   * Clear cached tenant information
-   *
-   * Useful when tenant settings are updated and cache needs to be invalidated
-   *
-   * @param tenantIdentifier Tenant ID or subdomain
-   */
+  // Clears cached tenant info for the given ID or subdomain
   clearTenantCache(tenantIdentifier: string): void {
     const config = this.tenantConfigCache.get(tenantIdentifier);
     if (config) {
@@ -296,22 +237,14 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /**
-   * Clear all cached tenant configurations
-   */
+  // Clears all cached tenant configurations
   clearAllCaches(): void {
     const size = this.tenantConfigCache.size;
     this.tenantConfigCache.clear();
     this.logger.log(`Cleared ${size} cached tenant configs`);
   }
 
-  /**
-   * Get the Drizzle database instance for the primary database.
-   * This is a synchronous property that returns the initialized Drizzle client.
-   *
-   * @returns Primary database Drizzle instance
-   * @throws Error if primary database client is not initialized
-   */
+  // Returns the initialized Drizzle client, throwing if not yet initialized
   get drizzleClient(): TypedDrizzleClient {
     if (!this.db) {
       throw new Error('Primary database client not initialized');
@@ -319,21 +252,12 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
     return this.db;
   }
 
-  /**
-   * Get the Drizzle schema
-   */
+  // Returns the Drizzle schema passed in module options
   get schema(): typeof this.options.drizzleSchema {
     return this.options.drizzleSchema;
   }
 
-  /**
-   * Decrypt database credentials
-   *
-   * Override this method to implement your encryption strategy
-   *
-   * @param encrypted Encrypted value
-   * @returns Decrypted value
-   */
+  // Decrypts a database credential value (placeholder for actual decryption)
   private decrypt(encrypted: string): string {
     // TODO: Implement actual decryption using this.options.encryptionKey
     // For now, return as-is (assumes unencrypted or encryption happens elsewhere)

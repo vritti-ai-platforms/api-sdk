@@ -11,37 +11,6 @@ import { tap } from 'rxjs/operators';
 import type { TenantInfo } from '../interfaces';
 import { TenantContextService } from '../services/tenant-context.service';
 
-/**
- * Interceptor that extracts tenant context from RabbitMQ messages (Microservice Mode)
- *
- * This interceptor:
- * 1. Extracts tenant info from RabbitMQ message payload
- * 2. Sets it in REQUEST-SCOPED TenantContextService
- * 3. Cleans up after message is processed
- *
- * Expected message format:
- * {
- *   dto: { ... },
- *   tenant: {
- *     tenantId: 'abc-123',
- *     tenantSlug: 'acme',
- *     tenantType: 'ENTERPRISE',
- *     databaseHost: 'enterprise-1.aws.com',
- *     databaseName: 'acme_db',
- *     ...
- *   }
- * }
- *
- * @example
- * // Automatically registered by DatabaseModule.forMicroservice()
- * // No manual registration needed
- * DatabaseModule.forMicroservice({
- *   inject: [ConfigService],
- *   useFactory: (config: ConfigService) => ({
- *     prismaClientConstructor: PrismaClient,
- *   }),
- * })
- */
 @Injectable({ scope: Scope.REQUEST })
 export class MessageTenantContextInterceptor implements NestInterceptor {
   private readonly logger = new Logger(MessageTenantContextInterceptor.name);
@@ -89,9 +58,7 @@ export class MessageTenantContextInterceptor implements NestInterceptor {
     );
   }
 
-  /**
-   * Clean up tenant context after message is processed
-   */
+  // Clears tenant context after a message has been processed
   private cleanupContext(): void {
     if (this.tenantContext.hasTenant()) {
       const tenant = this.tenantContext.getTenantIdSafe();

@@ -2,9 +2,6 @@ import { type ArgumentsHost, Catch, type ExceptionFilter, HttpException, HttpSta
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { ApiErrorResponse, FieldError } from '../types/error-response.types';
 
-/**
- * Shape of exception response from custom HttpProblemException.
- */
 interface ProblemExceptionResponse {
   type?: string;
   label?: string;
@@ -12,39 +9,19 @@ interface ProblemExceptionResponse {
   errors?: FieldError[];
 }
 
-/**
- * Shape of exception response from class-validator validation errors.
- */
 interface ValidationExceptionResponse {
   message: Array<string | { property: string; constraints: Record<string, string> }>;
   error?: string;
 }
 
-/**
- * Shape of standard NestJS exception response.
- */
 interface StandardExceptionResponse {
   message: string | string[];
   error?: string;
 }
 
-/**
- * Union type for all possible exception response shapes.
- */
 type ExceptionResponseObject = ProblemExceptionResponse | ValidationExceptionResponse | StandardExceptionResponse;
 
-/**
- * Converts an HTTP status code to its corresponding title string.
- * Uses the HttpStatus enum to map status codes to human-readable titles.
- *
- * @param status - The HTTP status code
- * @returns The human-readable title for the status code
- *
- * @example
- * getHttpStatusTitle(400) // Returns: "Bad Request"
- * getHttpStatusTitle(404) // Returns: "Not Found"
- * getHttpStatusTitle(500) // Returns: "Internal Server Error"
- */
+// Converts an HTTP status code to its title string (e.g., 400 → "Bad Request")
 export function getHttpStatusTitle(status: number): string {
   // Find the enum key for the given status code
   const enumKey = Object.entries(HttpStatus).find(([key, value]) => value === status && Number.isNaN(Number(key)))?.[0];
@@ -60,26 +37,6 @@ export function getHttpStatusTitle(status: number): string {
     .join(' ');
 }
 
-/**
- * Global HTTP Exception Filter implementing RFC 9457 Problem Details
- *
- * Transforms all exceptions into a standardized RFC 9457 format:
- * {
- *   type: string,         // Problem type URI (default: "about:blank")
- *   title: string,        // HTTP status phrase (e.g., "Unauthorized")
- *   status: number,       // HTTP status code
- *   label?: string,       // Root error heading (maps to AlertTitle)
- *   detail: string,       // Root error description (maps to AlertDescription)
- *   instance: string,     // Request path
- *   errors: FieldError[]  // Field-specific errors (field is required)
- * }
- *
- * Handles:
- * - Custom HttpProblemException from @vritti/api-sdk
- * - Class-validator DTO validation errors
- * - Standard NestJS HTTP exceptions
- * - Unknown errors
- */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);

@@ -6,40 +6,17 @@ import type { DatabaseModuleOptions, TenantInfo } from '../interfaces';
 import type { TypedDrizzleClient } from '../schema.registry';
 import { TenantContextService } from './tenant-context.service';
 
-/**
- * Tenant connection wrapper containing both pool and Drizzle instance
- */
 interface TenantConnection {
   pool: Pool;
   db: TypedDrizzleClient;
 }
 
-/**
- * Service responsible for managing tenant-scoped database connections
- *
- * This service:
- * - Maintains a connection pool (Map<cacheKey, TenantConnection>)
- * - Creates new connections dynamically based on tenant context
- * - Reuses existing connections for the same tenant
- * - Supports both cloud schemas and enterprise databases
- * - Automatically cleans up idle connections
- *
- * @example
- * // In a controller or service
- * const db = this.tenantDatabase.drizzleClient;
- * const users = await db.select().from(usersTable);
- */
 @Injectable()
 export class TenantDatabaseService implements OnModuleDestroy {
   private readonly logger = new Logger(TenantDatabaseService.name);
 
-  /** Connection pool: Map<cacheKey, TenantConnection> */
   private readonly clients = new Map<string, TenantConnection>();
-
-  /** Track last usage time for idle connection cleanup */
   private readonly clientLastUsed = new Map<string, number>();
-
-  /** Cleanup interval timer */
   private cleanupInterval?: NodeJS.Timeout;
 
   constructor(
@@ -50,37 +27,17 @@ export class TenantDatabaseService implements OnModuleDestroy {
     this.startConnectionCleaner();
   }
 
-  /**
-   * Get the Drizzle client for the current tenant's database.
-   * This returns the tenant-scoped database client.
-   *
-   * @returns Tenant-scoped Drizzle database instance
-   * @throws UnauthorizedException if tenant context not set
-   * @throws InternalServerErrorException if connection fails
-   */
+  // Returns the Drizzle client scoped to the current tenant's database
   get drizzleClient(): TypedDrizzleClient {
     return this.getDbClient();
   }
 
-  /**
-   * Get the Drizzle schema
-   */
+  // Returns the Drizzle schema passed in module options
   get schema(): Record<string, unknown> {
     return this.options.drizzleSchema;
   }
 
-  /**
-   * Get tenant-scoped database client for the current request/message
-   *
-   * This method:
-   * 1. Gets tenant info from TenantContextService
-   * 2. Builds a connection URL based on tenant type
-   * 3. Returns cached client if exists, otherwise creates new one
-   *
-   * @returns Drizzle database instance
-   * @throws UnauthorizedException if tenant context not set
-   * @throws InternalServerErrorException if connection fails
-   */
+  // Returns a cached or new Drizzle client for the current tenant context
   private getDbClient(): TypedDrizzleClient {
     const tenant = this.tenantContext.getTenant();
     const cacheKey = this.buildCacheKey(tenant);
@@ -102,9 +59,7 @@ export class TenantDatabaseService implements OnModuleDestroy {
     return connection.db;
   }
 
-  /**
-   * Create a new database client for the given tenant (synchronous)
-   */
+  // Creates a new pool and Drizzle client for the given tenant
   private createDbClientSync(tenant: TenantInfo): TenantConnection {
     try {
       // Build tenant-specific database URL
@@ -131,9 +86,7 @@ export class TenantDatabaseService implements OnModuleDestroy {
     }
   }
 
-  /**
-   * Build connection URL for tenant (dedicated database)
-   */
+  // Builds the PostgreSQL connection URL for a dedicated tenant database
   private buildTenantDbUrl(tenant: TenantInfo): string {
     const { databaseHost, databasePort, databaseName, databaseUsername, databasePassword, databaseSslMode } = tenant;
 
@@ -150,16 +103,12 @@ export class TenantDatabaseService implements OnModuleDestroy {
     return connectionUrl;
   }
 
-  /**
-   * Build cache key for connection pooling
-   */
+  // Builds a cache key for connection pooling from tenant database coordinates
   private buildCacheKey(tenant: TenantInfo): string {
     return `${tenant.type}:${tenant.databaseName}@${tenant.databaseHost}`;
   }
 
-  /**
-   * Start periodic cleanup of idle connections
-   */
+  // Starts a periodic interval to close idle database connections
   private startConnectionCleaner(): void {
     const interval = this.options.connectionCacheTTL || 300000; // 5 minutes
 
@@ -170,9 +119,7 @@ export class TenantDatabaseService implements OnModuleDestroy {
     this.logger.log(`Connection cleanup scheduled every ${interval / 1000} seconds`);
   }
 
-  /**
-   * Clean up idle connections that haven't been used recently
-   */
+  // Closes and removes connections that have been idle beyond the TTL
   private async cleanupIdleConnections(): Promise<void> {
     const now = Date.now();
     const maxIdle = this.options.connectionCacheTTL || 300000;
@@ -202,9 +149,7 @@ export class TenantDatabaseService implements OnModuleDestroy {
     }
   }
 
-  /**
-   * Get current connection pool statistics
-   */
+  // Returns the current number of active pooled connections and their tenant keys
   getPoolStats(): {
     activeConnections: number;
     tenants: string[];
@@ -215,9 +160,7 @@ export class TenantDatabaseService implements OnModuleDestroy {
     };
   }
 
-  /**
-   * Mask password in connection URL for logging
-   */
+  // Masks password in connection URL for safe logging
   private maskPassword(url: string): string {
     return url.replace(/:([^@]+)@/, ':****@');
   }
