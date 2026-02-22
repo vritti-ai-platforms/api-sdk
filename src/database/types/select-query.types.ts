@@ -1,3 +1,5 @@
+import type { PgTable } from 'drizzle-orm/pg-core';
+
 export interface SelectQueryOption {
   value: string | number | boolean;
   label: string;
@@ -28,7 +30,7 @@ export interface FindForSelectConfig {
   groups?: SelectQueryGroup[];
   values?: string | (string | number | boolean)[];
   excludeIds?: string | (string | number | boolean)[];
-  groupTable?: any;
+  groupTable?: PgTable;
   groupLabelKey?: string;
   groupIdKey?: string;
 }

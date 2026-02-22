@@ -1,5 +1,5 @@
 import { Injectable, type Logger, type LoggerService as NestLoggerService, Optional } from '@nestjs/common';
-import { createLogger, format, transports, type Logger as WinstonLogger } from 'winston';
+import { createLogger, format, type LoggerOptions, transports, type Logger as WinstonLogger } from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
 import type { LoggerModuleOptions, LogLevel, LogMetadata } from '../types';
 import { getCorrelationContext } from '../utils';
@@ -72,7 +72,7 @@ export class LoggerService implements NestLoggerService {
             ),
           });
 
-    const winstonTransports: any[] = [consoleTransport];
+    const winstonTransports: (InstanceType<typeof transports.Console> | DailyRotateFile)[] = [consoleTransport];
 
     // File transports
     if (opts.enableFileLogger) {
@@ -99,7 +99,7 @@ export class LoggerService implements NestLoggerService {
       );
     }
 
-    const config: any = {
+    const config: LoggerOptions = {
       level,
       transports: winstonTransports,
       exitOnError: false,
@@ -117,23 +117,23 @@ export class LoggerService implements NestLoggerService {
   }
 
   // NestJS LoggerService interface methods
-  log(message: any, context?: string): void {
+  log(message: LogMessage, context?: string): void {
     this._log('log', message, context);
   }
 
-  error(message: any, trace?: string, context?: string): void {
+  error(message: LogMessage, trace?: string, context?: string): void {
     this._log('error', message, context, trace);
   }
 
-  warn(message: any, context?: string): void {
+  warn(message: LogMessage, context?: string): void {
     this._log('warn', message, context);
   }
 
-  debug(message: any, context?: string): void {
+  debug(message: LogMessage, context?: string): void {
     this._log('debug', message, context);
   }
 
-  verbose(message: any, context?: string): void {
+  verbose(message: LogMessage, context?: string): void {
     this._log('verbose', message, context);
   }
 
@@ -142,7 +142,7 @@ export class LoggerService implements NestLoggerService {
   }
 
   // Dispatches a log entry to either the Winston or NestJS logger implementation
-  private _log(level: LogLevel, message: any, context?: string, trace?: string): void {
+  private _log(level: LogLevel, message: LogMessage, context?: string, trace?: string): void {
     const ctx = context ?? this.context;
 
     // Check if Winston logger by duck typing
@@ -172,7 +172,7 @@ export class LoggerService implements NestLoggerService {
   }
 
   // Logs a message with custom metadata fields (Winston only)
-  logWithMetadata(level: LogLevel, message: any, metadata?: LogMetadata, context?: string): void {
+  logWithMetadata(level: LogLevel, message: LogMessage, metadata?: LogMetadata, context?: string): void {
     const ctx = context ?? this.context;
 
     // Check if Winston logger by duck typing
@@ -189,7 +189,7 @@ export class LoggerService implements NestLoggerService {
     }
   }
 
-  private formatMessage(message: any): string {
+  private formatMessage(message: LogMessage): string {
     if (message instanceof Error) return message.message;
     if (typeof message === 'object' && message !== null) {
       try {

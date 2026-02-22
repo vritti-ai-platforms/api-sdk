@@ -12,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import '../../types/fastify-augmentation';
 import { RequestService } from '../../request/services/request.service';
 import { RESET_KEY } from '../decorators/reset.decorator';
 import { SKIP_CSRF_KEY } from '../decorators/skip-csrf.decorator';
@@ -109,7 +110,7 @@ export class VrittiAuthGuard implements CanActivate {
       }
 
       // Attach session info to request
-      (request as any).sessionInfo = {
+      request.sessionInfo = {
         userId: decodedAccessToken.userId,
         sessionId: decodedAccessToken.sessionId,
         sessionType: decodedAccessToken.sessionType,
@@ -173,7 +174,7 @@ export class VrittiAuthGuard implements CanActivate {
 
     let decoded: { userId: string; sessionId: string; sessionType: string; tokenType: string };
     try {
-      decoded = this.jwtService.verify(refreshToken) as any;
+      decoded = this.jwtService.verify<{ userId: string; sessionId: string; sessionType: string; tokenType: string }>(refreshToken);
     } catch {
       throw new UnauthorizedException('Invalid or expired session');
     }
@@ -186,7 +187,7 @@ export class VrittiAuthGuard implements CanActivate {
       throw new UnauthorizedException('This endpoint requires an onboarding session');
     }
 
-    (request as any).sessionInfo = {
+    request.sessionInfo = {
       userId: decoded.userId,
       sessionId: decoded.sessionId,
       sessionType: decoded.sessionType,

@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import {
   and,
   asc,
+  type Column,
   eq,
   getTableName,
   type InferInsertModel,
@@ -51,19 +52,22 @@ export abstract class TenantBaseRepository<
   async create(data: TInsert): Promise<TSelect> {
     this.logger.log('Creating record');
     const results = (await this.db
-      .insert(this.table as any)
-      .values(data as any)
+      .insert(this.table as PgTable)
+      .values(data as Record<string, unknown>)
       .returning()) as TSelect[];
-    return results[0]!;
+    const record = results[0];
+    if (!record) throw new Error(`${this.tableName}: database operation returned no record`);
+    return record;
   }
 
   // Finds a single record by primary key ID
   async findById(id: string): Promise<TSelect | null> {
     this.logger.debug(`Finding record by ID: ${id}`);
-    const idColumn = (this.table as any).id;
+    const idColumn = (this.table as unknown as Record<string, Column>).id;
+    if (!idColumn) throw new Error(`Table '${this.tableName}' has no 'id' column`);
     const results = await this.db
       .select()
-      .from(this.table as any)
+      .from(this.table as PgTable)
       .where(eq(idColumn, id))
       .limit(1);
     return (results[0] as TSelect) ?? null;
@@ -74,7 +78,7 @@ export abstract class TenantBaseRepository<
     this.logger.debug('Finding record with custom query');
     const results = await this.db
       .select()
-      .from(this.table as any)
+      .from(this.table as PgTable)
       .where(where)
       .limit(1);
     return (results[0] as TSelect) ?? null;
@@ -86,7 +90,7 @@ export abstract class TenantBaseRepository<
 
     let query = this.db
       .select()
-      .from(this.table as any)
+      .from(this.table as PgTable)
       .$dynamic();
 
     if (options?.where) {
@@ -108,21 +112,24 @@ export abstract class TenantBaseRepository<
   // Updates a record by ID and returns the updated record
   async update(id: string, data: Partial<TInsert>): Promise<TSelect> {
     this.logger.log(`Updating record with ID: ${id}`);
-    const idColumn = (this.table as any).id;
+    const idColumn = (this.table as unknown as Record<string, Column>).id;
+    if (!idColumn) throw new Error(`Table '${this.tableName}' has no 'id' column`);
     const results = (await this.db
-      .update(this.table as any)
-      .set(data as any)
+      .update(this.table as PgTable)
+      .set(data as Record<string, unknown>)
       .where(eq(idColumn, id))
       .returning()) as TSelect[];
-    return results[0]!;
+    const record = results[0];
+    if (!record) throw new Error(`${this.tableName}: database operation returned no record`);
+    return record;
   }
 
   // Updates all records matching the SQL condition and returns the affected count
   async updateMany(where: SQL, data: Partial<TInsert>): Promise<{ count: number }> {
     this.logger.log('Updating multiple records');
     const result = await this.db
-      .update(this.table as any)
-      .set(data as any)
+      .update(this.table as PgTable)
+      .set(data as Record<string, unknown>)
       .where(where);
     return { count: result.rowCount ?? 0 };
   }
@@ -130,18 +137,21 @@ export abstract class TenantBaseRepository<
   // Deletes a record by ID and returns the deleted record
   async delete(id: string): Promise<TSelect> {
     this.logger.log(`Deleting record with ID: ${id}`);
-    const idColumn = (this.table as any).id;
+    const idColumn = (this.table as unknown as Record<string, Column>).id;
+    if (!idColumn) throw new Error(`Table '${this.tableName}' has no 'id' column`);
     const results = (await this.db
-      .delete(this.table as any)
+      .delete(this.table as PgTable)
       .where(eq(idColumn, id))
       .returning()) as TSelect[];
-    return results[0]!;
+    const record = results[0];
+    if (!record) throw new Error(`${this.tableName}: database operation returned no record`);
+    return record;
   }
 
   // Deletes all records matching the SQL condition and returns the affected count
   async deleteMany(where: SQL): Promise<{ count: number }> {
     this.logger.log('Deleting multiple records');
-    const result = await this.db.delete(this.table as any).where(where);
+    const result = await this.db.delete(this.table as PgTable).where(where);
     return { count: result.rowCount ?? 0 };
   }
 
@@ -151,7 +161,7 @@ export abstract class TenantBaseRepository<
 
     let query = this.db
       .select({ count: sql<number>`count(*)::int` })
-      .from(this.table as any)
+      .from(this.table as PgTable)
       .$dynamic();
 
     if (where) {
@@ -172,6 +182,15 @@ export abstract class TenantBaseRepository<
   async findForSelect(config: FindForSelectConfig): Promise<SelectQueryResult> {
     this.logger.debug('Finding records for select dropdown');
 
+    interface SelectRow {
+      value: string | number | boolean;
+      label: string;
+      groupId?: string | number;
+    }
+    interface SelectRowWithCount extends SelectRow {
+      totalCount: number;
+    }
+
     // Parse values from CSV string or use array as-is
     const parsedValues =
       typeof config.values === 'string'
@@ -187,37 +206,44 @@ export abstract class TenantBaseRepository<
         ? config.excludeIds.split(',').map((v) => v.trim()).filter(Boolean)
         : config.excludeIds ?? [];
 
-    const valueCol = (this.table as any)[config.value];
-    const labelCol = (this.table as any)[config.label];
+    const tableColumns = this.table as unknown as Record<string, Column>;
+    const valueCol = tableColumns[config.value];
+    if (!valueCol) throw new Error(`Column '${config.value}' not found in table '${this.tableName}'`);
+    const labelCol = tableColumns[config.label];
+    if (!labelCol) throw new Error(`Column '${config.label}' not found in table '${this.tableName}'`);
 
     // When values are provided, fetch those specific options by value (skip search/pagination)
     if (parsedValues && parsedValues.length > 0) {
-      const selectCols: Record<string, any> = { value: valueCol, label: labelCol };
-      if (config.groupId) selectCols.groupId = (this.table as any)[config.groupId];
+      const selectCols: Record<string, Column | SQL> = { value: valueCol, label: labelCol };
+      if (config.groupId) {
+        const groupIdCol = tableColumns[config.groupId];
+        if (groupIdCol) selectCols.groupId = groupIdCol;
+      }
 
       const rows = await this.db
         .select(selectCols)
-        .from(this.table as any)
+        .from(this.table as PgTable)
         .where(inArray(valueCol, parsedValues));
 
       return {
-        options: rows.map((row: any) => ({
-          value: row.value as string | number | boolean,
+        options: (rows as unknown as SelectRow[]).map((row) => ({
+          value: row.value,
           label: String(row.label),
-          ...(config.groupId && row.groupId != null ? { groupId: row.groupId as string | number } : {}),
+          ...(config.groupId && row.groupId != null ? { groupId: row.groupId } : {}),
         })),
         hasMore: false,
         ...(config.groups ? { groups: config.groups } : {}),
       };
     }
 
-    const selectFields: Record<string, any> = {
+    const selectFields: Record<string, Column | SQL> = {
       value: valueCol,
       label: labelCol,
       totalCount: sql<number>`count(*) over()`.mapWith(Number),
     };
     if (config.groupId) {
-      selectFields.groupId = (this.table as any)[config.groupId];
+      const groupIdCol = tableColumns[config.groupId];
+      if (groupIdCol) selectFields.groupId = groupIdCol;
     }
 
     const conditions: SQL[] = [];
@@ -229,7 +255,7 @@ export abstract class TenantBaseRepository<
     }
     if (config.where) {
       for (const [field, val] of Object.entries(config.where)) {
-        const column = (this.table as any)[field];
+        const column = tableColumns[field];
         if (column) {
           conditions.push(eq(column, val));
         }
@@ -237,22 +263,22 @@ export abstract class TenantBaseRepository<
     }
 
     const orderByKey = config.orderBy ? Object.keys(config.orderBy)[0] : undefined;
-    const orderByCol = orderByKey ? (this.table as any)[orderByKey] : labelCol;
+    const orderByCol = orderByKey ? (tableColumns[orderByKey] ?? labelCol) : labelCol;
     const limit = Number(config.limit) || 20;
     const offset = Number(config.offset) || 0;
 
     let query = this.db
       .select(selectFields)
-      .from(this.table as any)
+      .from(this.table as PgTable)
       .$dynamic();
 
     if (conditions.length > 0) {
-      query = query.where(conditions.length === 1 ? conditions[0] : and(...conditions)!);
+      query = query.where(conditions.length === 1 ? conditions[0] : and(...conditions) as SQL);
     }
 
     const orderClauses: SQL[] = [];
     if (config.groupId) {
-      const groupIdCol = (this.table as any)[config.groupId];
+      const groupIdCol = tableColumns[config.groupId];
       if (groupIdCol) orderClauses.push(asc(groupIdCol));
     }
     orderClauses.push(asc(orderByCol));
@@ -264,28 +290,33 @@ export abstract class TenantBaseRepository<
 
     const rows = await query;
 
-    const totalCount = rows.length > 0 ? (rows[0] as any).totalCount : 0;
+    const totalCount = rows.length > 0 ? (rows[0] as unknown as SelectRowWithCount).totalCount : 0;
 
-    const options = rows.map((row: any) => ({
-      value: row.value as string | number | boolean,
+    const options = (rows as unknown as SelectRow[]).map((row) => ({
+      value: row.value,
       label: String(row.label),
-      ...(config.groupId && row.groupId != null ? { groupId: row.groupId as string | number } : {}),
+      ...(config.groupId && row.groupId != null ? { groupId: row.groupId } : {}),
     }));
 
     // Auto-resolve groups from groupTable when provided
     let resolvedGroups = config.groups;
 
     if (config.groupTable && config.groupId) {
-      const groupIdCol = (config.groupTable as any)[config.groupIdKey ?? 'id'];
-      const groupNameCol = (config.groupTable as any)[config.groupLabelKey ?? 'name'];
+      const groupTableColumns = config.groupTable as unknown as Record<string, Column>;
+      const groupIdKey = config.groupIdKey ?? 'id';
+      const groupNameKey = config.groupLabelKey ?? 'name';
+      const groupIdCol = groupTableColumns[groupIdKey];
+      if (!groupIdCol) throw new Error(`Column '${groupIdKey}' not found in group table`);
+      const groupNameCol = groupTableColumns[groupNameKey];
+      if (!groupNameCol) throw new Error(`Column '${groupNameKey}' not found in group table`);
 
       const groupRows = await this.db
         .select({ id: groupIdCol, name: groupNameCol })
-        .from(config.groupTable as any)
+        .from(config.groupTable)
         .orderBy(asc(groupNameCol));
 
-      resolvedGroups = groupRows.map((r: any) => ({
-        id: r.id as string | number,
+      resolvedGroups = (groupRows as unknown as Array<{ id: string | number; name: string }>).map((r) => ({
+        id: r.id,
         name: String(r.name),
       }));
     }

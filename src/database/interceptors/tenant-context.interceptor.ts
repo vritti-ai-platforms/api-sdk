@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { FastifyRequest } from 'fastify';
+import '../../types/fastify-augmentation';
 import type { Observable } from 'rxjs';
 import { RequestService } from '../../request';
 import { PrimaryDatabaseService } from '../services/primary-database.service';
@@ -78,7 +79,7 @@ export class TenantContextInterceptor implements NestInterceptor {
       this.tenantContext.setTenant(tenantInfo);
 
       // Also attach to request object for easy access
-      (request as any).tenant = tenantInfo;
+      request.tenant = tenantInfo;
 
       this.logger.log(`Tenant context set: ${tenantInfo.subdomain}`);
     } catch (error) {
