@@ -17,7 +17,7 @@ export class MessageTenantContextInterceptor implements NestInterceptor {
 
   constructor(private readonly tenantContext: TenantContextService) {}
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const contextType = context.getType();
 
     // Only handle RabbitMQ/microservice messages

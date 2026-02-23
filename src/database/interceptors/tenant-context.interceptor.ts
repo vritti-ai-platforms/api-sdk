@@ -26,7 +26,7 @@ export class TenantContextInterceptor implements NestInterceptor {
     private readonly requestService: RequestService,
   ) {}
 
-  async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<any>> {
+  async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<unknown>> {
     const request = context.switchToHttp().getRequest<FastifyRequest>();
 
     this.logger.debug(`Processing request: ${request.method} ${request.url}`);

@@ -1,4 +1,4 @@
-import { type DynamicModule, Global, Module, type Provider } from '@nestjs/common';
+import { type DynamicModule, Global, type InjectionToken, Module, type Provider } from '@nestjs/common';
 import { APP_INTERCEPTOR, Reflector } from '@nestjs/core';
 import { RequestModule } from '../request/request.module';
 import { DATABASE_MODULE_OPTIONS } from './constants';
@@ -15,16 +15,16 @@ import { TenantDatabaseService } from './services/tenant-database.service';
 export class DatabaseModule {
   // Configures the module for gateway/HTTP mode with TenantContextInterceptor
   static forServer(options: {
-    useFactory: (...args: any[]) => Promise<DatabaseModuleOptions> | DatabaseModuleOptions;
-    inject?: any[];
+    useFactory: (...args: unknown[]) => Promise<DatabaseModuleOptions> | DatabaseModuleOptions;
+    inject?: InjectionToken[];
   }): DynamicModule {
     return DatabaseModule.createDynamicModule(options, 'server');
   }
 
   // Configures the module for microservice mode with MessageTenantContextInterceptor
   static forMicroservice(options: {
-    useFactory: (...args: any[]) => Promise<DatabaseModuleOptions> | DatabaseModuleOptions;
-    inject?: any[];
+    useFactory: (...args: unknown[]) => Promise<DatabaseModuleOptions> | DatabaseModuleOptions;
+    inject?: InjectionToken[];
   }): DynamicModule {
     return DatabaseModule.createDynamicModule(options, 'microservice');
   }
@@ -32,8 +32,8 @@ export class DatabaseModule {
   // Creates the dynamic module configuration with the appropriate interceptor for the given mode
   private static createDynamicModule(
     options: {
-      useFactory: (...args: any[]) => Promise<DatabaseModuleOptions> | DatabaseModuleOptions;
-      inject?: any[];
+      useFactory: (...args: unknown[]) => Promise<DatabaseModuleOptions> | DatabaseModuleOptions;
+      inject?: InjectionToken[];
     },
     mode: 'server' | 'microservice',
   ): DynamicModule {

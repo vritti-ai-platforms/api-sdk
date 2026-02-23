@@ -1,6 +1,7 @@
 import {
   type DynamicModule,
   Global,
+  type InjectionToken,
   Logger,
   type MiddlewareConsumer,
   Module,
@@ -127,9 +128,9 @@ function createDefaultLoggerProvider(options: LoggerModuleOptions): Provider {
       const logger = new Logger();
 
       // Set log levels if specified and method exists
-      if (options.level && typeof (logger as any).setLogLevels === 'function') {
+      if (options.level) {
         const levels = getLevelsUpTo(options.level);
-        (logger as any).setLogLevels(levels);
+        (logger as { setLogLevels?: (levels: NestLogLevel[]) => void }).setLogLevels?.(levels);
       }
 
       return logger;
@@ -243,9 +244,9 @@ export class LoggerModule implements NestModule {
           useFactory: (opts: LoggerModuleOptions) => {
             if (opts.provider === 'default') {
               const logger = new Logger();
-              if (opts.level && typeof (logger as any).setLogLevels === 'function') {
+              if (opts.level) {
                 const levels = getLevelsUpTo(opts.level);
-                (logger as any).setLogLevels(levels);
+                (logger as { setLogLevels?: (levels: NestLogLevel[]) => void }).setLogLevels?.(levels);
               }
               return logger;
             }
@@ -318,11 +319,11 @@ export class LoggerModule implements NestModule {
     if (options.useFactory) {
       return {
         provide: LOGGER_MODULE_OPTIONS,
-        useFactory: async (...args: any[]) => {
+        useFactory: async (...args: unknown[]) => {
           const userOptions = await options.useFactory?.(...args);
           return mergeWithDefaults(userOptions);
         },
-        inject: (options.inject || []) as any[],
+        inject: (options.inject || []) as InjectionToken[],
       };
     }
 

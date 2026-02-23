@@ -201,23 +201,29 @@ export class VrittiAuthGuard implements CanActivate {
     const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
     if (safeMethods.includes(request.method)) return;
 
+    interface FastifyInstanceWithCsrf {
+      csrfProtection?: (req: FastifyRequest, reply: FastifyReply, next: (err?: Error) => void) => void;
+    }
+    type PatchableReply = { send: (...args: unknown[]) => unknown };
+
     try {
-      const fastifyInstance = request.server as any;
-      if (!fastifyInstance.csrfProtection) {
+      const fastifyInstance = request.server as unknown as FastifyInstanceWithCsrf;
+      const csrfProtection = fastifyInstance.csrfProtection;
+      if (!csrfProtection) {
         throw new ForbiddenException('CSRF protection not configured');
       }
 
       await new Promise<void>((resolve, reject) => {
         // Intercept reply.send to prevent the plugin from bypassing NestJS error handling
         const originalSend = reply.send.bind(reply);
-        (reply as any).send = () => {
-          (reply as any).send = originalSend;
+        (reply as PatchableReply).send = () => {
+          (reply as PatchableReply).send = originalSend as PatchableReply['send'];
           reject(new Error('CSRF validation failed'));
           return reply;
         };
 
-        fastifyInstance.csrfProtection(request, reply, (err?: Error) => {
-          (reply as any).send = originalSend;
+        csrfProtection(request, reply, (err?: Error) => {
+          (reply as PatchableReply).send = originalSend as PatchableReply['send'];
           if (err) reject(err);
           else resolve();
         });

@@ -1,8 +1,26 @@
 import { strict as assert } from 'node:assert';
 import { beforeEach, describe, it } from 'node:test';
-import { HttpStatus } from '@nestjs/common';
+import { type ArgumentsHost, HttpStatus } from '@nestjs/common';
 import { getHttpStatusTitle, HttpExceptionFilter } from '../filters/http-exception.filter';
-import type { ApiErrorResponse } from '../types/error-response.types';
+import type { ApiErrorResponse, FieldError } from '../types/error-response.types';
+
+interface ExceptionResponse {
+  type: string;
+  label?: string;
+  detail?: string;
+  errors: FieldError[];
+}
+
+interface MockResponse {
+  header: (name: string, value: string) => MockResponse;
+  status: (code: number) => MockResponse;
+  send: (body: ApiErrorResponse) => MockResponse;
+}
+
+interface MockRequest {
+  url: string;
+}
+
 import {
   BadGatewayException,
   BadRequestException,
@@ -29,7 +47,7 @@ describe('RFC 9457 Problem Details Format - Exception Classes', () => {
     describe('Constructor Signatures', () => {
       it('should support simple string constructor', () => {
         const exception = new BadRequestException('Invalid input');
-        const response = exception.getResponse() as any;
+        const response = exception.getResponse() as ExceptionResponse;
 
         assert.equal(exception.getStatus(), HttpStatus.BAD_REQUEST);
         assert.deepEqual(response, {
@@ -45,7 +63,7 @@ describe('RFC 9457 Problem Details Format - Exception Classes', () => {
           label: 'Validation Error',
           detail: 'Please check your input',
         });
-        const response = exception.getResponse() as any;
+        const response = exception.getResponse() as ExceptionResponse;
 
         assert.equal(exception.getStatus(), HttpStatus.BAD_REQUEST);
         assert.equal(response.type, 'about:blank');
@@ -62,7 +80,7 @@ describe('RFC 9457 Problem Details Format - Exception Classes', () => {
             { field: 'password', message: 'Password too short' },
           ],
         });
-        const response = exception.getResponse() as any;
+        const response = exception.getResponse() as ExceptionResponse;
 
         assert.equal(exception.getStatus(), HttpStatus.BAD_REQUEST);
         assert.equal(response.errors.length, 2);
@@ -76,7 +94,7 @@ describe('RFC 9457 Problem Details Format - Exception Classes', () => {
           type: 'https://api.example.com/errors/validation-error',
           detail: 'Custom validation error',
         });
-        const response = exception.getResponse() as any;
+        const response = exception.getResponse() as ExceptionResponse;
 
         assert.equal(response.type, 'https://api.example.com/errors/validation-error');
         assert.equal(response.detail, 'Custom validation error');
@@ -84,7 +102,7 @@ describe('RFC 9457 Problem Details Format - Exception Classes', () => {
 
       it('should use default detail when no argument provided', () => {
         const exception = new BadRequestException();
-        const response = exception.getResponse() as any;
+        const response = exception.getResponse() as ExceptionResponse;
 
         assert.equal(exception.getStatus(), HttpStatus.BAD_REQUEST);
         assert.equal(response.detail, 'Bad Request');
@@ -97,7 +115,7 @@ describe('RFC 9457 Problem Details Format - Exception Classes', () => {
   describe('UnauthorizedException', () => {
     it('should support simple string constructor', () => {
       const exception = new UnauthorizedException('Authentication required');
-      const response = exception.getResponse() as any;
+      const response = exception.getResponse() as ExceptionResponse;
 
       assert.equal(exception.getStatus(), HttpStatus.UNAUTHORIZED);
       assert.equal(response.detail, 'Authentication required');
@@ -109,7 +127,7 @@ describe('RFC 9457 Problem Details Format - Exception Classes', () => {
         label: 'Invalid Credentials',
         detail: 'The email or password is incorrect',
       });
-      const response = exception.getResponse() as any;
+      const response = exception.getResponse() as ExceptionResponse;
 
       assert.equal(response.label, 'Invalid Credentials');
       assert.equal(response.detail, 'The email or password is incorrect');
@@ -117,7 +135,7 @@ describe('RFC 9457 Problem Details Format - Exception Classes', () => {
 
     it('should use default detail when no argument provided', () => {
       const exception = new UnauthorizedException();
-      const response = exception.getResponse() as any;
+      const response = exception.getResponse() as ExceptionResponse;
 
       assert.equal(response.detail, 'Unauthorized');
     });
@@ -129,7 +147,7 @@ describe('RFC 9457 Problem Details Format - Exception Classes', () => {
         detail: 'Resource not found',
         errors: [{ field: 'userId', message: 'User does not exist' }],
       });
-      const response = exception.getResponse() as any;
+      const response = exception.getResponse() as ExceptionResponse;
 
       assert.equal(exception.getStatus(), HttpStatus.NOT_FOUND);
       assert.equal(response.errors.length, 1);
@@ -144,7 +162,7 @@ describe('RFC 9457 Problem Details Format - Exception Classes', () => {
         detail: 'Email already exists',
         errors: [{ field: 'email', message: 'This email is already registered' }],
       });
-      const response = exception.getResponse() as any;
+      const response = exception.getResponse() as ExceptionResponse;
 
       assert.equal(exception.getStatus(), HttpStatus.CONFLICT);
       assert.equal(response.type, 'resource-conflict');
@@ -154,7 +172,7 @@ describe('RFC 9457 Problem Details Format - Exception Classes', () => {
   describe('InternalServerErrorException', () => {
     it('should support simple string constructor', () => {
       const exception = new InternalServerErrorException('Database connection failed');
-      const response = exception.getResponse() as any;
+      const response = exception.getResponse() as ExceptionResponse;
 
       assert.equal(exception.getStatus(), HttpStatus.INTERNAL_SERVER_ERROR);
       assert.equal(response.detail, 'Database connection failed');
@@ -170,7 +188,7 @@ describe('RFC 9457 Problem Details Format - Exception Classes', () => {
           { field: 'age', message: 'Must be at least 18' },
         ],
       });
-      const response = exception.getResponse() as any;
+      const response = exception.getResponse() as ExceptionResponse;
 
       assert.equal(exception.getStatus(), HttpStatus.BAD_REQUEST);
       assert.equal(response.errors.length, 2);
@@ -202,7 +220,7 @@ describe('RFC 9457 Problem Details Format - Exception Classes', () => {
       ];
 
       for (const exception of exceptions) {
-        const response = exception.getResponse() as any;
+        const response = exception.getResponse() as ExceptionResponse;
         assert.ok('type' in response, 'Response should have type property');
         assert.ok('detail' in response, 'Response should have detail property');
         assert.ok('errors' in response, 'Response should have errors property');
@@ -214,15 +232,17 @@ describe('RFC 9457 Problem Details Format - Exception Classes', () => {
 
 describe('RFC 9457 Problem Details Format - HttpExceptionFilter', () => {
   let filter: HttpExceptionFilter;
-  let mockResponse: any;
-  let mockRequest: any;
-  let mockArgumentsHost: any;
-  let sentResponse: any;
+  let mockResponse: MockResponse;
+  let mockRequest: MockRequest;
+  let mockArgumentsHost: ArgumentsHost;
+  let sentResponse: ApiErrorResponse;
   let responseHeaders: Record<string, string>;
   let responseStatus: number;
 
+  const emptyResponse: ApiErrorResponse = { type: '', title: '', status: 0, detail: '', errors: [] };
+
   beforeEach(() => {
-    sentResponse = null;
+    sentResponse = emptyResponse;
     responseHeaders = {};
     responseStatus = 0;
 
@@ -235,7 +255,7 @@ describe('RFC 9457 Problem Details Format - HttpExceptionFilter', () => {
         responseStatus = code;
         return mockResponse;
       },
-      send: (body: any) => {
+      send: (body: ApiErrorResponse) => {
         sentResponse = body;
         return mockResponse;
       },
@@ -246,11 +266,17 @@ describe('RFC 9457 Problem Details Format - HttpExceptionFilter', () => {
     };
 
     mockArgumentsHost = {
+      getArgs: () => [],
+      getArgByIndex: () => undefined,
+      switchToRpc: () => ({ getData: () => undefined, getContext: () => undefined }),
+      switchToWs: () => ({ getData: () => undefined, getClient: () => undefined }),
+      getType: () => 'http',
       switchToHttp: () => ({
         getResponse: () => mockResponse,
         getRequest: () => mockRequest,
+        getNext: () => undefined,
       }),
-    };
+    } as unknown as ArgumentsHost;
 
     filter = new HttpExceptionFilter();
   });
@@ -324,7 +350,7 @@ describe('RFC 9457 Problem Details Format - HttpExceptionFilter', () => {
       ];
 
       for (const { exception, expectedTitle } of testCases) {
-        sentResponse = null;
+        sentResponse = emptyResponse;
         filter.catch(exception, mockArgumentsHost);
         assert.equal(sentResponse.title, expectedTitle);
       }
@@ -532,18 +558,20 @@ describe('getHttpStatusTitle Utility', () => {
 
 describe('Complete Integration Tests', () => {
   let filter: HttpExceptionFilter;
-  let mockResponse: any;
-  let mockRequest: any;
-  let mockArgumentsHost: any;
+  let mockResponse: MockResponse;
+  let mockRequest: MockRequest;
+  let mockArgumentsHost: ArgumentsHost;
   let sentResponse: ApiErrorResponse;
 
+  const emptyResponse: ApiErrorResponse = { type: '', title: '', status: 0, detail: '', errors: [] };
+
   beforeEach(() => {
-    sentResponse = null as any;
+    sentResponse = emptyResponse;
 
     mockResponse = {
       header: () => mockResponse,
       status: () => mockResponse,
-      send: (body: any) => {
+      send: (body: ApiErrorResponse) => {
         sentResponse = body;
         return mockResponse;
       },
@@ -552,11 +580,17 @@ describe('Complete Integration Tests', () => {
     mockRequest = { url: '/api/test' };
 
     mockArgumentsHost = {
+      getArgs: () => [],
+      getArgByIndex: () => undefined,
+      switchToRpc: () => ({ getData: () => undefined, getContext: () => undefined }),
+      switchToWs: () => ({ getData: () => undefined, getClient: () => undefined }),
+      getType: () => 'http',
       switchToHttp: () => ({
         getResponse: () => mockResponse,
         getRequest: () => mockRequest,
+        getNext: () => undefined,
       }),
-    };
+    } as unknown as ArgumentsHost;
 
     filter = new HttpExceptionFilter();
   });
@@ -620,7 +654,7 @@ describe('Complete Integration Tests', () => {
     ];
 
     for (const { exception, status, title } of testCases) {
-      sentResponse = null as any;
+      sentResponse = emptyResponse;
       filter.catch(exception, mockArgumentsHost);
 
       assert.equal(sentResponse.status, status);

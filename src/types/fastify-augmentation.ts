@@ -8,6 +8,7 @@ declare module 'fastify' {
       sessionType: string;
     };
     tenant?: TenantInfo;
+    cookies?: Record<string, string>;
   }
 }
 

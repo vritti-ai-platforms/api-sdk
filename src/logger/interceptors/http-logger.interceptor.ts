@@ -21,7 +21,7 @@ export class HttpLoggerInterceptor implements NestInterceptor {
     this.slowRequestThreshold = options?.slowRequestThreshold ?? 3000; // 3 seconds
   }
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     if (context.getType() !== 'http') {
       return next.handle();
     }
@@ -103,10 +103,11 @@ export class HttpLoggerInterceptor implements NestInterceptor {
     }
   }
 
-  private logError(request: FastifyRequest, response: FastifyReply, duration: number, error: any): void {
+  private logError(request: FastifyRequest, response: FastifyReply, duration: number, error: unknown): void {
     try {
       const correlationContext = getCorrelationContext();
       const statusCode = response.statusCode || 500;
+      const err = error as { name?: string; message?: string; stack?: string; response?: unknown };
 
       const metadata: LogMetadata = {
         type: 'http_error',
@@ -115,19 +116,19 @@ export class HttpLoggerInterceptor implements NestInterceptor {
         statusCode,
         duration,
         correlationId: correlationContext?.correlationId,
-        errorName: error?.name || 'Error',
-        errorMessage: error?.message || 'Unknown error',
+        errorName: err.name || 'Error',
+        errorMessage: err.message || 'Unknown error',
       };
 
-      if (error?.stack) {
-        metadata.trace = error.stack;
+      if (err.stack) {
+        metadata.trace = err.stack;
       }
 
-      if (error?.response) {
-        metadata.errorDetails = error.response;
+      if (err.response) {
+        metadata.errorDetails = err.response;
       }
 
-      const message = `ERROR ${request.method} ${request.url} ${statusCode} - ${error?.message || 'Unknown error'}`;
+      const message = `ERROR ${request.method} ${request.url} ${statusCode} - ${err.message || 'Unknown error'}`;
       this.logger.logWithMetadata('error', message, metadata);
     } catch (loggingError) {
       this.logger.error('Failed to log HTTP error', (loggingError as Error).stack);

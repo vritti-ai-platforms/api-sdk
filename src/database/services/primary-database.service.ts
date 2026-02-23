@@ -8,16 +8,25 @@ import {
 } from '@nestjs/common';
 import { eq, or } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
+import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
 import { Pool } from 'pg';
 import { DATABASE_MODULE_OPTIONS } from '../constants';
 import type { DatabaseModuleOptions, TenantInfo } from '../interfaces';
 import type { TypedDrizzleClient } from '../schema.registry';
 
 interface TenantSchemaRequirement {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  tenants: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  tenantDatabaseConfigs: any;
+  tenants: PgTable & { id: PgColumn; subdomain: PgColumn; dbType: PgColumn; status: PgColumn };
+  tenantDatabaseConfigs: PgTable & {
+    tenantId: PgColumn;
+    dbSchema: PgColumn;
+    dbName: PgColumn;
+    dbHost: PgColumn;
+    dbPort: PgColumn;
+    dbUsername: PgColumn;
+    dbPassword: PgColumn;
+    dbSslMode: PgColumn;
+    connectionPoolSize: PgColumn;
+  };
 }
 
 interface TenantJoinResultRow {
