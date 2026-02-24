@@ -60,28 +60,20 @@ export class TenantContextInterceptor implements NestInterceptor {
         return next.handle();
       }
 
-      // Query primary database for tenant configuration
-      const tenantInfo = await this.primaryDatabase.getTenantInfo(tenantIdentifier);
-
-      if (!tenantInfo) {
-        this.logger.warn(`Invalid tenant: ${tenantIdentifier}`);
-        throw new UnauthorizedException('Invalid tenant');
-      }
-
-      if (tenantInfo.status !== 'ACTIVE') {
-        this.logger.warn(`Tenant ${tenantIdentifier} has status: ${tenantInfo.status}`);
-        throw new UnauthorizedException(`Tenant is ${tenantInfo.status}`);
-      }
-
-      this.logger.debug(`Tenant config loaded: ${tenantInfo.subdomain} (${tenantInfo.type})`);
-
-      // Store in REQUEST-SCOPED context
-      this.tenantContext.setTenant(tenantInfo);
-
-      // Also attach to request object for easy access
-      request.tenant = tenantInfo;
-
-      this.logger.log(`Tenant context set: ${tenantInfo.subdomain}`);
+      // Temporarily disabled — tenant database routing not yet in use
+      // const tenantInfo = await this.primaryDatabase.getTenantInfo(tenantIdentifier);
+      // if (!tenantInfo) {
+      //   this.logger.warn(`Invalid tenant: ${tenantIdentifier}`);
+      //   throw new UnauthorizedException('Invalid tenant');
+      // }
+      // if (tenantInfo.status !== 'ACTIVE') {
+      //   this.logger.warn(`Tenant ${tenantIdentifier} has status: ${tenantInfo.status}`);
+      //   throw new UnauthorizedException(`Tenant is ${tenantInfo.status}`);
+      // }
+      // this.logger.debug(`Tenant config loaded: ${tenantInfo.subdomain} (${tenantInfo.type})`);
+      // this.tenantContext.setTenant(tenantInfo);
+      // request.tenant = tenantInfo;
+      // this.logger.log(`Tenant context set: ${tenantInfo.subdomain}`);
     } catch (error) {
       this.logger.error('Failed to set tenant context', error);
       throw error;

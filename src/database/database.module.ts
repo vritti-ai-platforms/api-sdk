@@ -1,9 +1,7 @@
 import { type DynamicModule, Global, type InjectionToken, Module, type Provider } from '@nestjs/common';
-import { APP_INTERCEPTOR, Reflector } from '@nestjs/core';
+import { Reflector } from '@nestjs/core';
 import { RequestModule } from '../request/request.module';
 import { DATABASE_MODULE_OPTIONS } from './constants';
-import { MessageTenantContextInterceptor } from './interceptors/message-tenant-context.interceptor';
-import { TenantContextInterceptor } from './interceptors/tenant-context.interceptor';
 
 import type { DatabaseModuleOptions } from './interfaces';
 import { PrimaryDatabaseService } from './services/primary-database.service';
@@ -55,18 +53,18 @@ export class DatabaseModule {
       TenantDatabaseService,
     ];
 
-    // Conditionally add interceptor based on mode
-    if (mode === 'server') {
-      providers.push({
-        provide: APP_INTERCEPTOR,
-        useClass: TenantContextInterceptor,
-      });
-    } else {
-      providers.push({
-        provide: APP_INTERCEPTOR,
-        useClass: MessageTenantContextInterceptor,
-      });
-    }
+    // Temporarily disabled — tenant database routing not yet in use
+    // if (mode === 'server') {
+    //   providers.push({
+    //     provide: APP_INTERCEPTOR,
+    //     useClass: TenantContextInterceptor,
+    //   });
+    // } else {
+    //   providers.push({
+    //     provide: APP_INTERCEPTOR,
+    //     useClass: MessageTenantContextInterceptor,
+    //   });
+    // }
 
     return {
       module: DatabaseModule,
