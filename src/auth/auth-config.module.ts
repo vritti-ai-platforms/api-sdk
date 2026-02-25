@@ -4,6 +4,7 @@ import { APP_GUARD, Reflector } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { RequestModule } from '../request/request.module';
 import { VrittiAuthGuard } from './guards/vritti-auth.guard';
+import { JwtAuthService } from './services/jwt-auth.service';
 
 @Global()
 @Module({})
@@ -36,9 +37,11 @@ export class AuthConfigModule {
           provide: APP_GUARD,
           useClass: VrittiAuthGuard,
         },
+        JwtAuthService,
       ],
       exports: [
         JwtModule, // Export for use in other modules (e.g., generating tokens)
+        JwtAuthService,
       ],
     };
   }

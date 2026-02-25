@@ -9,5 +9,18 @@ export { SessionData } from './decorators/session-data.decorator';
 export * from './decorators/user-id.decorator';
 export * from './guards/vritti-auth.guard';
 
+// JWT config utilities
+export {
+  getTokenExpiry,
+  jwtConfigFactory,
+  type AccessTokenPayload,
+  type RefreshTokenPayload,
+  type TokenExpiry,
+  TokenType,
+} from './jwt.config';
+
+// JWT auth service
+export { JwtAuthService } from './services/jwt-auth.service';
+
 // Token hash utilities
 export { hashToken, verifyTokenHash } from './utils/token-hash.util';

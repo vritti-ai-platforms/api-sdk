@@ -1,7 +1,7 @@
 {
   "name": "@vritti/api-sdk",
   "type": "module",
-  "version": "0.1.8",
+  "version": "0.2.0",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -63,6 +63,7 @@
     "prepublishOnly": "npm run type-check && npm run test && npm run build"
   },
   "dependencies": {
+    "@getbrevo/brevo": "^4.0.1",
     "drizzle-orm": "^1.0.0-beta.3-36e9b9e",
     "pg": "^8.16.0",
     "winston": "^3.11.0",
@@ -72,7 +73,7 @@
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^3.0.0",
     "@nestjs/core": "^11.0.0",
-    "@nestjs/jwt": "^10.0.0",
+    "@nestjs/jwt": "^11.0.0",
     "@nestjs/swagger": "^8.0.0",
     "class-transformer": "^0.5.0",
     "class-validator": "^0.14.0",
@@ -96,7 +97,7 @@
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^3.2.3",
     "@nestjs/core": "^11.0.1",
-    "@nestjs/jwt": "^10.2.0",
+    "@nestjs/jwt": "^11.0.1",
     "@nestjs/swagger": "^8.0.0",
     "@swc/core": "^1.13.5",
     "@types/jsonwebtoken": "^9.0.8",

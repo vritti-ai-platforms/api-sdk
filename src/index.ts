@@ -6,6 +6,17 @@ import './types/fastify-augmentation';
 export * from './auth';
 // Auth decorators (SkipCsrf for webhook endpoints)
 export { SKIP_CSRF_KEY, SkipCsrf } from './auth/decorators/skip-csrf.decorator';
+// JWT config utilities
+export {
+  getTokenExpiry,
+  jwtConfigFactory,
+  type AccessTokenPayload,
+  type RefreshTokenPayload,
+  type TokenExpiry,
+  TokenType,
+} from './auth/jwt.config';
+// JWT auth service
+export { JwtAuthService } from './auth/services/jwt-auth.service';
 export {
   type ApiSdkConfig,
   type CookieConfig,
@@ -44,13 +55,20 @@ export type {
   SelectQueryOption,
   SelectQueryResult,
 } from './database/types';
+// Email module
+export { EmailModule } from './email/email.module';
+export { EmailService } from './email/email.service';
 // Exceptions
 export * from './exceptions';
 // RFC 7807 Filters (includes HttpExceptionFilter)
 export * from './filters';
 // Logger utilities
 export * from './logger';
+// Root module (health check + CSRF)
+export { RootModule } from './root/root.module';
 // RFC 7807 Types (using named exports to avoid conflicts)
 export type { ApiErrorResponse, ProblemDetails } from './types';
 // Phone utilities
 export { extractCountryFromPhone, normalizePhoneNumber } from './utils/phone.utils';
+// Time utilities
+export { parseExpiryToMs } from './utils/time.utils';
