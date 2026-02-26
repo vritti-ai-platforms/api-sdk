@@ -118,6 +118,42 @@ export abstract class PrimaryBaseRepository<
     return this.model.findMany(options);
   }
 
+  // Builds a select query with optional custom fields, join, filter, and pagination
+  private buildSelectQuery(options?: {
+    select?: Record<string, unknown>;
+    where?: SQL;
+    limit?: number;
+    offset?: number;
+    leftJoin?: { table: PgTable; on: SQL };
+  }) {
+    const base = options?.select
+      ? this.db.select(options.select as Record<string, Column | SQL>).from(this.table as PgTable)
+      : this.db.select().from(this.table as PgTable);
+
+    const joined = options?.leftJoin
+      ? base.leftJoin(options.leftJoin.table, options.leftJoin.on)
+      : base;
+
+    const filtered = options?.where ? joined.where(options.where) : joined;
+    const limited = options?.limit ? filtered.limit(options.limit) : filtered;
+    return options?.offset ? limited.offset(options.offset) : limited;
+  }
+
+  // Returns paginated result and total count, with optional custom select and LEFT JOIN
+  async findAllAndCount<TResult = TSelect>(options?: {
+    select?: Record<string, unknown>;
+    where?: SQL;
+    limit?: number;
+    offset?: number;
+    leftJoin?: { table: PgTable; on: SQL };
+  }): Promise<{ result: TResult[]; count: number }> {
+    const [count, result] = await Promise.all([
+      this.count(options?.where),
+      this.buildSelectQuery(options) as Promise<TResult[]>,
+    ]);
+    return { result, count };
+  }
+
   // Updates a record by ID and returns the updated record
   async update(id: string, data: Partial<TInsert>): Promise<TSelect> {
     this.logger.log(`Updating record with ID: ${id}`);
