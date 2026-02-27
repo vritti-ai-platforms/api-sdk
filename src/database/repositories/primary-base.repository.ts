@@ -261,8 +261,17 @@ export abstract class PrimaryBaseRepository<
     const labelCol = tableColumns[config.label];
     if (!labelCol) throw new Error(`Column '${config.label}' not found in table '${this.tableName}'`);
 
-    // Resolve optional description column
-    const descriptionCol = config.description ? tableColumns[config.description] : undefined;
+    // Resolve optional description column (checks main table first, then joined tables)
+    let descriptionCol = config.description ? tableColumns[config.description] : undefined;
+    if (!descriptionCol && config.description && config.joins) {
+      for (const join of config.joins) {
+        const joinCols = join.table as unknown as Record<string, Column>;
+        if (joinCols[config.description]) {
+          descriptionCol = joinCols[config.description];
+          break;
+        }
+      }
+    }
 
     // When values are provided, fetch those specific options by value (skip search/pagination)
     if (parsedValues && parsedValues.length > 0) {
@@ -273,10 +282,22 @@ export abstract class PrimaryBaseRepository<
         if (groupIdCol) selectCols.groupId = groupIdCol;
       }
 
-      const rows = await this.db
+      let valuesQuery = this.db
         .select(selectCols)
         .from(this.table as PgTable)
-        .where(inArray(valueCol, parsedValues));
+        .$dynamic();
+
+      if (config.joins) {
+        for (const join of config.joins) {
+          if (join.type === 'inner') {
+            valuesQuery = valuesQuery.innerJoin(join.table, join.on);
+          } else {
+            valuesQuery = valuesQuery.leftJoin(join.table, join.on);
+          }
+        }
+      }
+
+      const rows = await valuesQuery.where(inArray(valueCol, parsedValues));
 
       return {
         options: (rows as unknown as SelectRow[]).map((row) => ({
