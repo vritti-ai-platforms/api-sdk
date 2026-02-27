@@ -317,6 +317,10 @@ export abstract class PrimaryBaseRepository<
         }
       }
     }
+    // Append raw SQL conditions (e.g. for joined table columns)
+    if (config.conditions) {
+      conditions.push(...config.conditions);
+    }
 
     const orderByKey = config.orderBy ? Object.keys(config.orderBy)[0] : undefined;
     const orderByCol = orderByKey ? (tableColumns[orderByKey] ?? labelCol) : labelCol;
@@ -327,6 +331,17 @@ export abstract class PrimaryBaseRepository<
       .select(selectFields)
       .from(this.table as PgTable)
       .$dynamic();
+
+    // Apply optional JOINs
+    if (config.joins) {
+      for (const join of config.joins) {
+        if (join.type === 'inner') {
+          query = query.innerJoin(join.table, join.on);
+        } else {
+          query = query.leftJoin(join.table, join.on);
+        }
+      }
+    }
 
     if (conditions.length > 0) {
       query = query.where(conditions.length === 1 ? conditions[0] : and(...conditions) as SQL);

@@ -91,6 +91,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
       } else if (typeof exceptionResponse === 'string') {
         detail = exceptionResponse;
       }
+    } else if (this.isAxiosError(exception)) {
+      // Outgoing HTTP call failures (e.g., service-to-service calls)
+      const axiosStatus = exception.response?.status;
+      const axiosDetail = exception.response?.data?.message || exception.response?.data?.detail || exception.message;
+      const url = exception.config?.url;
+      status = HttpStatus.BAD_GATEWAY;
+      detail = `Upstream service error${axiosStatus ? ` (${axiosStatus})` : ''}: ${axiosDetail}`;
+      this.logger.error(`Upstream API error [${axiosStatus}]: ${axiosDetail} — URL: ${url}`, exception.stack);
     } else {
       // Unknown errors
       const errorMessage = exception instanceof Error ? exception.message : 'Unknown error';
@@ -113,5 +121,16 @@ export class HttpExceptionFilter implements ExceptionFilter {
       .header('Content-Type', 'application/problem+json')
       .status(status)
       .send(problemDetails);
+  }
+
+  // Duck-type check for AxiosError without importing axios
+  private isAxiosError(
+    error: unknown,
+  ): error is Error & {
+    isAxiosError: true;
+    response?: { status?: number; data?: Record<string, unknown> };
+    config?: { url?: string };
+  } {
+    return error instanceof Error && (error as { isAxiosError?: boolean }).isAxiosError === true;
   }
 }

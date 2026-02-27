@@ -51,6 +51,7 @@ export { TenantDatabaseService } from './database/services/tenant-database.servi
 // Database types
 export type {
   FindForSelectConfig,
+  FindForSelectJoin,
   SelectQueryGroup,
   SelectQueryOption,
   SelectQueryResult,

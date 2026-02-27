@@ -1,3 +1,4 @@
+import type { SQL } from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
 
 export interface SelectQueryOption {
@@ -19,6 +20,12 @@ export interface SelectQueryResult {
   totalCount?: number;
 }
 
+export interface FindForSelectJoin {
+  table: PgTable;
+  on: SQL;
+  type?: 'left' | 'inner';
+}
+
 export interface FindForSelectConfig {
   value: string;
   label: string;
@@ -35,4 +42,8 @@ export interface FindForSelectConfig {
   groupTable?: PgTable;
   groupLabelKey?: string;
   groupIdKey?: string;
+  // Optional JOINs on the base table
+  joins?: FindForSelectJoin[];
+  // Additional raw SQL conditions (for joined table columns)
+  conditions?: SQL[];
 }
