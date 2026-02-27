@@ -3,6 +3,7 @@ import type { PgTable } from 'drizzle-orm/pg-core';
 export interface SelectQueryOption {
   value: string | number | boolean;
   label: string;
+  description?: string;
   groupId?: string | number;
 }
 
@@ -21,6 +22,7 @@ export interface SelectQueryResult {
 export interface FindForSelectConfig {
   value: string;
   label: string;
+  description?: string;
   groupId?: string;
   search?: string;
   limit?: number;

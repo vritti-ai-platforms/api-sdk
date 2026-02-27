@@ -230,6 +230,7 @@ export abstract class PrimaryBaseRepository<
     interface SelectRow {
       value: string | number | boolean;
       label: string;
+      description?: string;
       groupId?: string | number;
     }
     interface SelectRowWithCount extends SelectRow {
@@ -260,9 +261,13 @@ export abstract class PrimaryBaseRepository<
     const labelCol = tableColumns[config.label];
     if (!labelCol) throw new Error(`Column '${config.label}' not found in table '${this.tableName}'`);
 
+    // Resolve optional description column
+    const descriptionCol = config.description ? tableColumns[config.description] : undefined;
+
     // When values are provided, fetch those specific options by value (skip search/pagination)
     if (parsedValues && parsedValues.length > 0) {
       const selectCols: Record<string, Column | SQL> = { value: valueCol, label: labelCol };
+      if (descriptionCol) selectCols.description = descriptionCol;
       if (config.groupId) {
         const groupIdCol = tableColumns[config.groupId];
         if (groupIdCol) selectCols.groupId = groupIdCol;
@@ -277,6 +282,7 @@ export abstract class PrimaryBaseRepository<
         options: (rows as unknown as SelectRow[]).map((row) => ({
           value: row.value,
           label: String(row.label),
+          ...(descriptionCol && row.description != null ? { description: row.description } : {}),
           ...(config.groupId && row.groupId != null ? { groupId: row.groupId } : {}),
         })),
         hasMore: false,
@@ -290,6 +296,7 @@ export abstract class PrimaryBaseRepository<
       label: labelCol,
       totalCount: sql<number>`count(*) over()`.mapWith(Number),
     };
+    if (descriptionCol) selectFields.description = descriptionCol;
     if (config.groupId) {
       const groupIdCol = tableColumns[config.groupId];
       if (groupIdCol) selectFields.groupId = groupIdCol;
@@ -344,6 +351,7 @@ export abstract class PrimaryBaseRepository<
     const options = (rows as unknown as SelectRow[]).map((row) => ({
       value: row.value,
       label: String(row.label),
+      ...(descriptionCol && row.description != null ? { description: row.description } : {}),
       ...(config.groupId && row.groupId != null ? { groupId: row.groupId } : {}),
     }));
 

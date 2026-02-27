@@ -43,6 +43,11 @@ export class SelectOptionsQueryDto {
   @IsString()
   labelKey?: string;
 
+  @ApiPropertyOptional({ description: 'Column name for option description', example: 'description' })
+  @IsOptional()
+  @IsString()
+  descriptionKey?: string;
+
   @ApiPropertyOptional({ description: 'Column name for group ID', example: 'regionId' })
   @IsOptional()
   @IsString()
