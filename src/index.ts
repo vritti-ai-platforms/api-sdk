@@ -32,6 +32,9 @@ export {
 export { DatabaseModule } from './database/database.module';
 // Decorators
 export { Tenant } from './database/decorators/tenant.decorator';
+// Filter processor
+export { FilterProcessor, type FieldDefinition, type FieldMap } from './database/filter/filter.processor';
+export { type FilterCondition, type FilterOperator, type SortCondition, type TableViewState } from './database/filter/filter.types';
 // Database DTOs
 export { SelectOptionsQueryDto } from './database/dto/select-options-query.dto';
 // Interfaces
