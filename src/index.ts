@@ -70,6 +70,9 @@ export * from './filters';
 export * from './logger';
 // Root module (health check + CSRF)
 export { RootModule } from './root/root.module';
+// Cache module (Redis provider + ICacheProvider contract)
+export { CacheModule, CACHE_PROVIDER, CacheService, RedisCacheProvider } from './cache';
+export type { ICacheProvider } from './cache';
 // RFC 7807 Types (using named exports to avoid conflicts)
 export type { ApiErrorResponse, ProblemDetails } from './types';
 // Phone utilities

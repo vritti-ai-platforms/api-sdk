@@ -65,6 +65,7 @@
   "dependencies": {
     "@getbrevo/brevo": "^4.0.1",
     "drizzle-orm": "^1.0.0-beta.3-36e9b9e",
+    "ioredis": "^5.4.1",
     "pg": "^8.16.0",
     "winston": "^3.11.0",
     "winston-daily-rotate-file": "^5.0.0"
