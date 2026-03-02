@@ -1,9 +1,9 @@
 // Contract that every cache provider must implement
 export interface ICacheProvider {
-  // Serializes value to JSON, compresses with gzip, stores with mandatory TTL
+  // Serializes value to JSON and stores with a mandatory TTL
   set<T>(key: string, value: T, ttlSeconds: number): Promise<void>;
 
-  // Returns the stored value decompressed and parsed, or null on cache miss
+  // Returns the parsed value, or null on cache miss
   get<T>(key: string): Promise<T | null>;
 
   // Deletes one or more keys

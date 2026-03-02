@@ -1,12 +1,7 @@
-import { promisify } from 'node:util';
-import { gunzip as gunzipCb, gzip as gzipCb } from 'node:zlib';
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import type { ICacheProvider } from '../interfaces/cache-provider.interface';
-
-const gzip = promisify(gzipCb);
-const gunzip = promisify(gunzipCb);
 
 @Injectable()
 export class RedisCacheProvider implements ICacheProvider, OnModuleInit, OnModuleDestroy {
@@ -32,19 +27,17 @@ export class RedisCacheProvider implements ICacheProvider, OnModuleInit, OnModul
     this.logger.log('Redis disconnected');
   }
 
-  // Serializes value to JSON, compresses with gzip, and stores with a mandatory TTL
+  // Serializes value to JSON and stores with a mandatory TTL
   async set<T>(key: string, value: T, ttlSeconds: number): Promise<void> {
     const json = JSON.stringify(value);
-    const compressed = await gzip(Buffer.from(json, 'utf8'));
-    await this.client.setex(key, ttlSeconds, compressed);
+    await this.client.setex(key, ttlSeconds, json);
   }
 
-  // Reads compressed value, decompresses, and parses back to the original type
+  // Reads the stored JSON string and parses back to the original type
   async get<T>(key: string): Promise<T | null> {
-    const compressed = await this.client.getBuffer(key);
-    if (!compressed) return null;
-    const json = await gunzip(compressed);
-    return JSON.parse(json.toString('utf8')) as T;
+    const json = await this.client.get(key);
+    if (!json) return null;
+    return JSON.parse(json) as T;
   }
 
   // Deletes one or more keys in a single command
