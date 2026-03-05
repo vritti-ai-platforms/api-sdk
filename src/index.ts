@@ -8,35 +8,45 @@ export * from './auth';
 export { SKIP_CSRF_KEY, SkipCsrf } from './auth/decorators/skip-csrf.decorator';
 // JWT config utilities
 export {
+  type AccessTokenPayload,
   getTokenExpiry,
   jwtConfigFactory,
-  type AccessTokenPayload,
   type RefreshTokenPayload,
   type TokenExpiry,
   TokenType,
 } from './auth/jwt.config';
 // JWT auth service
 export { JwtAuthService } from './auth/services/jwt-auth.service';
+export type { ICacheProvider } from './cache';
+// Cache module (Redis provider + ICacheProvider contract)
+export { CACHE_PROVIDER, CacheModule, CacheService, RedisCacheProvider } from './cache';
 export {
   type ApiSdkConfig,
   type CookieConfig,
   configureApiSdk,
   defineConfig,
+  type GuardConfig,
   getConfig,
   getJwtExpiry,
   getRefreshCookieOptions,
-  type GuardConfig,
   type JwtConfig,
   resetConfig,
 } from './config';
 export { DatabaseModule } from './database/database.module';
 // Decorators
 export { Tenant } from './database/decorators/tenant.decorator';
-// Filter processor
-export { FilterProcessor, type FieldDefinition, type FieldMap } from './database/filter/filter.processor';
-export { type FilterCondition, type FilterOperator, type SortCondition, type TableViewState } from './database/filter/filter.types';
 // Database DTOs
 export { SelectOptionsQueryDto } from './database/dto/select-options-query.dto';
+// Filter processor
+export { type FieldDefinition, type FieldMap, FilterProcessor } from './database/filter/filter.processor';
+export {
+  type ColumnPinning,
+  type DensityType,
+  type FilterCondition,
+  type FilterOperator,
+  type SortCondition,
+  type TableViewState,
+} from './database/filter/filter.types';
 // Interfaces
 export * from './database/interfaces';
 // Repositories
@@ -70,9 +80,6 @@ export * from './filters';
 export * from './logger';
 // Root module (health check + CSRF)
 export { RootModule } from './root/root.module';
-// Cache module (Redis provider + ICacheProvider contract)
-export { CacheModule, CACHE_PROVIDER, CacheService, RedisCacheProvider } from './cache';
-export type { ICacheProvider } from './cache';
 // RFC 7807 Types (using named exports to avoid conflicts)
 export type { ApiErrorResponse, ProblemDetails } from './types';
 // Phone utilities
