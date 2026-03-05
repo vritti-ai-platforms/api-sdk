@@ -37,6 +37,7 @@ export { DatabaseModule } from './database/database.module';
 export { Tenant } from './database/decorators/tenant.decorator';
 // Database DTOs
 export { SelectOptionsQueryDto } from './database/dto/select-options-query.dto';
+export { SuccessResponseDto } from './database/dto/success-response.dto';
 // Filter processor
 export { type FieldDefinition, type FieldMap, FilterProcessor } from './database/filter/filter.processor';
 export type {
