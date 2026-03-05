@@ -39,13 +39,13 @@ export { Tenant } from './database/decorators/tenant.decorator';
 export { SelectOptionsQueryDto } from './database/dto/select-options-query.dto';
 // Filter processor
 export { type FieldDefinition, type FieldMap, FilterProcessor } from './database/filter/filter.processor';
-export {
-  type ColumnPinning,
-  type DensityType,
-  type FilterCondition,
-  type FilterOperator,
-  type SortCondition,
-  type TableViewState,
+export type {
+  ColumnPinning,
+  DensityType,
+  FilterCondition,
+  FilterOperator,
+  SortCondition,
+  TableViewState,
 } from './database/filter/filter.types';
 // Interfaces
 export * from './database/interfaces';
