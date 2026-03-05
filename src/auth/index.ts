@@ -1,7 +1,9 @@
 export * from './auth-config.module';
 export * from './decorators/access-token.decorator';
+export * from './decorators/cookie-domain.decorator';
 export * from './decorators/onboarding.decorator';
 export * from './decorators/public.decorator';
+export * from './decorators/refresh-cookie-options.decorator';
 export * from './decorators/refresh-token-cookie.decorator';
 export * from './decorators/reset.decorator';
 export type { SessionInfo } from './decorators/session-data.decorator';

@@ -1,3 +1,5 @@
+import { UnauthorizedException } from '../exceptions';
+
 export interface CookieConfig {
   refreshCookieName: string;
   refreshCookieMaxAge: number;
@@ -5,6 +7,15 @@ export interface CookieConfig {
   refreshCookieSecure: boolean;
   refreshCookieSameSite: 'strict' | 'lax' | 'none';
   refreshCookieDomain?: string;
+}
+
+export interface CookieSerializeOptions {
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite: 'strict' | 'lax' | 'none';
+  path: string;
+  maxAge: number;
+  domain: string;
 }
 
 export interface JwtConfig {
@@ -89,21 +100,37 @@ export function resetConfig(): void {
 }
 
 // Returns refresh cookie options built from the current configuration
-export function getRefreshCookieOptions() {
-  const options: Record<string, unknown> = {
+export function getRefreshCookieOptions(): Omit<CookieSerializeOptions, 'domain'> & { domain?: string } {
+  return {
     httpOnly: true,
     secure: currentConfig.cookie.refreshCookieSecure,
     sameSite: currentConfig.cookie.refreshCookieSameSite,
     path: currentConfig.cookie.refreshCookiePath,
     maxAge: currentConfig.cookie.refreshCookieMaxAge,
+    ...(currentConfig.cookie.refreshCookieDomain && { domain: currentConfig.cookie.refreshCookieDomain }),
   };
+}
 
-  // Only add domain if specified (needed for cross-subdomain auth like cloud.localhost)
-  if (currentConfig.cookie.refreshCookieDomain) {
-    options.domain = currentConfig.cookie.refreshCookieDomain;
+// Returns refresh cookie options with domain set to the request hostname, validated against the configured base domain
+export function getRefreshCookieOptionsForHost(hostname: string): CookieSerializeOptions {
+  const baseDomain = currentConfig.cookie.refreshCookieDomain;
+
+  if (!baseDomain) {
+    throw new Error('refreshCookieDomain must be configured before using getRefreshCookieOptionsForHost');
   }
 
-  return options;
+  if (!hostname.endsWith(`.${baseDomain}`)) {
+    throw new UnauthorizedException('Invalid request host.');
+  }
+
+  return {
+    httpOnly: true,
+    secure: currentConfig.cookie.refreshCookieSecure,
+    sameSite: currentConfig.cookie.refreshCookieSameSite,
+    path: currentConfig.cookie.refreshCookiePath,
+    maxAge: currentConfig.cookie.refreshCookieMaxAge,
+    domain: hostname,
+  };
 }
 
 // Returns JWT expiry settings for access, refresh, and onboarding tokens

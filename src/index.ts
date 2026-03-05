@@ -23,12 +23,14 @@ export { CACHE_PROVIDER, CacheModule, CacheService, RedisCacheProvider } from '.
 export {
   type ApiSdkConfig,
   type CookieConfig,
+  type CookieSerializeOptions,
   configureApiSdk,
   defineConfig,
   type GuardConfig,
   getConfig,
   getJwtExpiry,
   getRefreshCookieOptions,
+  getRefreshCookieOptionsForHost,
   type JwtConfig,
   resetConfig,
 } from './config';
