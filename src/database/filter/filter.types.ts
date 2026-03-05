@@ -35,4 +35,5 @@ export interface TableViewState {
   filterOrder: string[];
   filterVisibility: Record<string, boolean>;
   search?: SearchState | null;
+  pagination?: { pageIndex: number; pageSize: number };
 }

@@ -16,7 +16,7 @@ import {
 } from 'drizzle-orm';
 import type { FilterCondition, SearchState, SortCondition } from './filter.types';
 
-export type FieldDefinition = { column: Column; type: 'string' | 'number' };
+export type FieldDefinition = { column: Column; type: 'string' | 'number' | 'boolean' };
 export type FieldMap = Record<string, FieldDefinition>;
 
 export class FilterProcessor {
@@ -29,8 +29,10 @@ export class FilterProcessor {
       const val = f.value;
       switch (f.operator) {
         case 'equals':
+          if (def.type === 'boolean') return [eq(col, val === 'true' || val === 1)];
           return [eq(col, val)];
         case 'notEquals':
+          if (def.type === 'boolean') return [ne(col, val === 'true' || val === 1)];
           return [ne(col, val)];
         case 'contains':
           return [ilike(col, `%${val}%`)];
