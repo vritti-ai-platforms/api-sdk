@@ -4,6 +4,7 @@ export type {
   DensityType,
   FilterCondition,
   FilterOperator,
+  SearchState,
   SortCondition,
   TableViewState,
 } from './filter.types';

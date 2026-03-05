@@ -18,6 +18,11 @@ export interface ColumnPinning {
   right: string[];
 }
 
+export interface SearchState {
+  columnId: string;
+  value: string;
+}
+
 export interface TableViewState {
   filters: FilterCondition[];
   sort: SortCondition[];
@@ -29,4 +34,5 @@ export interface TableViewState {
   density: DensityType;
   filterOrder: string[];
   filterVisibility: Record<string, boolean>;
+  search?: SearchState | null;
 }

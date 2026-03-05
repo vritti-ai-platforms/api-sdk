@@ -11,9 +11,10 @@ import {
   lte,
   ne,
   notIlike,
+  or,
   type SQL,
 } from 'drizzle-orm';
-import type { FilterCondition, SortCondition } from './filter.types';
+import type { FilterCondition, SearchState, SortCondition } from './filter.types';
 
 export type FieldDefinition = { column: Column; type: 'string' | 'number' };
 export type FieldMap = Record<string, FieldDefinition>;
@@ -48,6 +49,22 @@ export class FilterProcessor {
       }
     });
     return conditions.length ? and(...conditions) : undefined;
+  }
+
+  // Builds a search WHERE — OR across all string fields when columnId is 'all', otherwise a single ilike
+  static buildSearch(search: SearchState | null | undefined, fieldMap: FieldMap): SQL | undefined {
+    if (!search?.value) return undefined;
+
+    if (search.columnId === 'all') {
+      const conditions = Object.values(fieldMap)
+        .filter((def) => def.type === 'string')
+        .map((def) => ilike(def.column, `%${search.value}%`));
+      return conditions.length ? or(...conditions) : undefined;
+    }
+
+    const def = fieldMap[search.columnId];
+    if (!def) return undefined;
+    return ilike(def.column, `%${search.value}%`);
   }
 
   // Maps each SortCondition to an asc/desc SQL expression
