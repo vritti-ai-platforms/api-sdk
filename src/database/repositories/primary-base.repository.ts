@@ -118,10 +118,11 @@ export abstract class PrimaryBaseRepository<
     return this.model.findMany(options);
   }
 
-  // Builds a select query with optional custom fields, join, filter, and pagination
+  // Builds a select query with optional custom fields, join, filter, ordering, and pagination
   private buildSelectQuery(options?: {
     select?: Record<string, unknown>;
     where?: SQL;
+    orderBy?: SQL[];
     limit?: number;
     offset?: number;
     leftJoin?: { table: PgTable; on: SQL };
@@ -135,14 +136,16 @@ export abstract class PrimaryBaseRepository<
       : base;
 
     const filtered = options?.where ? joined.where(options.where) : joined;
-    const limited = options?.limit ? filtered.limit(options.limit) : filtered;
+    const ordered = options?.orderBy?.length ? filtered.orderBy(...options.orderBy) : filtered;
+    const limited = options?.limit ? ordered.limit(options.limit) : ordered;
     return options?.offset ? limited.offset(options.offset) : limited;
   }
 
-  // Returns paginated result and total count, with optional custom select and LEFT JOIN
+  // Returns paginated result and total count, with optional custom select, LEFT JOIN, and ordering
   async findAllAndCount<TResult = TSelect>(options?: {
     select?: Record<string, unknown>;
     where?: SQL;
+    orderBy?: SQL[];
     limit?: number;
     offset?: number;
     leftJoin?: { table: PgTable; on: SQL };

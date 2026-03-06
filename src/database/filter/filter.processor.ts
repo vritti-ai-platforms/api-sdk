@@ -16,7 +16,9 @@ import {
 } from 'drizzle-orm';
 import type { FilterCondition, SearchState, SortCondition } from './filter.types';
 
-export type FieldDefinition = { column: Column; type: 'string' | 'number' | 'boolean' };
+export type FieldDefinition =
+  | { column: Column; type: 'string' | 'number' | 'boolean' }
+  | { expression: (value: string | number) => SQL; type: 'string' | 'number' | 'boolean' };
 export type FieldMap = Record<string, FieldDefinition>;
 
 export class FilterProcessor {
@@ -25,6 +27,8 @@ export class FilterProcessor {
     const conditions = filters.flatMap((f) => {
       const def = fieldMap[f.field];
       if (!def) return []; // unknown field — skip (security whitelist)
+      // Expression field — delegate SQL generation to the caller-supplied factory
+      if ('expression' in def) return [def.expression(f.value)];
       const { column: col } = def;
       const val = f.value;
       switch (f.operator) {
@@ -59,13 +63,13 @@ export class FilterProcessor {
 
     if (search.columnId === 'all') {
       const conditions = Object.values(fieldMap)
-        .filter((def) => def.type === 'string')
+        .filter((def): def is { column: Column; type: 'string' | 'number' | 'boolean' } => 'column' in def && def.type === 'string')
         .map((def) => ilike(def.column, `%${search.value}%`));
       return conditions.length ? or(...conditions) : undefined;
     }
 
     const def = fieldMap[search.columnId];
-    if (!def) return undefined;
+    if (!def || !('column' in def)) return undefined;
     return ilike(def.column, `%${search.value}%`);
   }
 
@@ -73,7 +77,7 @@ export class FilterProcessor {
   static buildOrderBy(sort: SortCondition[] = [], fieldMap: FieldMap): SQL[] {
     return sort.flatMap((s) => {
       const def = fieldMap[s.field];
-      if (!def) return [];
+      if (!def || !('column' in def)) return [];
       return [s.direction === 'asc' ? asc(def.column) : desc(def.column)];
     });
   }
