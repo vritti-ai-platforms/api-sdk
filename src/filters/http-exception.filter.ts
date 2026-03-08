@@ -100,10 +100,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       detail = `Upstream service error${axiosStatus ? ` (${axiosStatus})` : ''}: ${axiosDetail}`;
       this.logger.error(`Upstream API error [${axiosStatus}]: ${axiosDetail} — URL: ${url}`, exception.stack);
     } else {
-      // Unknown errors
-      const errorMessage = exception instanceof Error ? exception.message : 'Unknown error';
-      const stack = exception instanceof Error ? exception.stack : undefined;
-      this.logger.error(`Unexpected error: ${errorMessage}`, stack);
+      // Unknown errors — logged by HttpLoggerInterceptor, no need to log again here
       detail = 'An unexpected error occurred';
     }
 
