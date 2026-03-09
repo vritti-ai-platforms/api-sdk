@@ -1,4 +1,4 @@
-import { type ArgumentsHost, Catch, type ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { type ArgumentsHost, Catch, type ExceptionFilter, type HttpException, HttpStatus, Logger } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { ApiErrorResponse, FieldError } from '../types/error-response.types';
 
@@ -52,7 +52,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let detail = 'Internal server error';
     let errors: FieldError[] = [];
 
-    if (exception instanceof HttpException) {
+    if (this.isHttpException(exception)) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
 
@@ -69,18 +69,20 @@ export class HttpExceptionFilter implements ExceptionFilter {
         }
         // Handle class-validator DTO validation errors
         else if ('message' in responseObj && Array.isArray(responseObj.message)) {
-          errors = responseObj.message.map((msg) => {
-            if (typeof msg === 'object' && 'property' in msg && 'constraints' in msg) {
-              const constraintValues = Object.values(msg.constraints);
-              return {
-                field: msg.property,
-                message: constraintValues[0] ?? 'Validation failed',
-              };
-            }
-            // Non-field-specific validation messages are ignored
-            // They should be handled as detail at the response level
-            return null;
-          }).filter((error): error is FieldError => error !== null);
+          errors = responseObj.message
+            .map((msg) => {
+              if (typeof msg === 'object' && 'property' in msg && 'constraints' in msg) {
+                const constraintValues = Object.values(msg.constraints);
+                return {
+                  field: msg.property,
+                  message: constraintValues[0] ?? 'Validation failed',
+                };
+              }
+              // Non-field-specific validation messages are ignored
+              // They should be handled as detail at the response level
+              return null;
+            })
+            .filter((error): error is FieldError => error !== null);
           detail = 'Validation failed';
         }
         // Handle standard NestJS exceptions
@@ -114,16 +116,20 @@ export class HttpExceptionFilter implements ExceptionFilter {
       errors,
     };
 
-    response
-      .header('Content-Type', 'application/problem+json')
-      .status(status)
-      .send(problemDetails);
+    response.header('Content-Type', 'application/problem+json').status(status).send(problemDetails);
+  }
+
+  // Duck-type check for HttpException — avoids instanceof failing across pnpm package instances
+  private isHttpException(error: unknown): error is HttpException {
+    return (
+      error instanceof Error &&
+      typeof (error as { getStatus?: unknown }).getStatus === 'function' &&
+      typeof (error as { getResponse?: unknown }).getResponse === 'function'
+    );
   }
 
   // Duck-type check for AxiosError without importing axios
-  private isAxiosError(
-    error: unknown,
-  ): error is Error & {
+  private isAxiosError(error: unknown): error is Error & {
     isAxiosError: true;
     response?: { status?: number; data?: Record<string, unknown> };
     config?: { url?: string };
