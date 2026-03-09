@@ -1,0 +1,1 @@
+export const DATA_TABLE_VIEWS_TABLE = Symbol('DATA_TABLE_VIEWS_TABLE');

@@ -92,15 +92,14 @@ export { extractCountryFromPhone, normalizePhoneNumber } from './utils/phone.uti
 export { parseExpiryToMs } from './utils/time.utils';
 
 // Data table module (views + ephemeral state)
-export { DataTableModule } from './data-table/data-table.module';
+export { DATA_TABLE_VIEWS_TABLE, DataTableModule, type DataTableModuleOptions } from './data-table/data-table.module';
 export { DataTableViewsService } from './data-table/views/services/data-table-views.service';
 export { DataTableStateService } from './data-table/state/services/data-table-state.service';
 export {
-  dataTableViews,
   dataTableViewsColumns,
   dataTableViewsIndexes,
-  type DataTableView,
-  type NewDataTableView,
+  type DataTableViewRecord,
+  type NewDataTableViewRecord,
 } from './data-table/schema/data-table-views.table';
 export { DataTableViewDto } from './data-table/views/dto/entity/data-table-view.dto';
 export { CreateDataTableViewDto } from './data-table/views/dto/request/create-data-table-view.dto';

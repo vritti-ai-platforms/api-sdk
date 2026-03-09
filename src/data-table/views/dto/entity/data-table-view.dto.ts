@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import type { DataTableView } from '../../../schema/data-table-views.table';
+import type { DataTableViewRecord } from '../../../schema/data-table-views.table';
 import type { TableViewState } from '../../../../database/filter/filter.types';
 
 export class DataTableViewDto {
@@ -28,7 +28,7 @@ export class DataTableViewDto {
   updatedAt!: Date | null;
 
   // Creates a response DTO from a DataTableView entity, computing isOwn by comparing userId
-  static from(view: DataTableView, userId: string): DataTableViewDto {
+  static from(view: DataTableViewRecord, userId: string): DataTableViewDto {
     const dto = new DataTableViewDto();
     dto.id = view.id;
     dto.name = view.name ?? null;

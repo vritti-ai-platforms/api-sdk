@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { BadRequestException, ConflictException, NotFoundException } from '../../../exceptions';
 import { CacheService } from '../../../cache/cache.service';
-import type { DataTableView } from '../../schema/data-table-views.table';
+import { BadRequestException, ConflictException, NotFoundException } from '../../../exceptions';
+import type { DataTableViewRecord } from '../../schema/data-table-views.table';
 import { DataTableViewDto } from '../dto/entity/data-table-view.dto';
 import type { CreateDataTableViewDto } from '../dto/request/create-data-table-view.dto';
 import type { UpdateDataTableViewDto } from '../dto/request/update-data-table-view.dto';
@@ -40,9 +40,9 @@ export class DataTableViewsService {
   }
 
   // Fetches personal views from cache; falls back to DB and warms cache on miss
-  private async getOrCachePersonalViews(userId: string, tableSlug: string): Promise<DataTableView[]> {
+  private async getOrCachePersonalViews(userId: string, tableSlug: string): Promise<DataTableViewRecord[]> {
     const key = this.personalViewsKey(userId, tableSlug);
-    const cached = await this.cacheService.get<DataTableView[]>(key);
+    const cached = await this.cacheService.get<DataTableViewRecord[]>(key);
     if (cached) {
       this.logger.debug(`Cache hit for personal views: user=${userId}, table=${tableSlug}`);
       return cached;
@@ -53,9 +53,9 @@ export class DataTableViewsService {
   }
 
   // Fetches shared views from cache; falls back to DB and warms cache on miss
-  private async getOrCacheSharedViews(tableSlug: string): Promise<DataTableView[]> {
+  private async getOrCacheSharedViews(tableSlug: string): Promise<DataTableViewRecord[]> {
     const key = this.sharedViewsKey(tableSlug);
-    const cached = await this.cacheService.get<DataTableView[]>(key);
+    const cached = await this.cacheService.get<DataTableViewRecord[]>(key);
     if (cached) {
       this.logger.debug(`Cache hit for shared views: table=${tableSlug}`);
       return cached;
@@ -140,7 +140,12 @@ export class DataTableViewsService {
     if (view.userId !== userId) throw new BadRequestException('You do not have permission to rename this view.');
 
     // Check for duplicate name within the same user+table
-    const existing = await this.dataTableViewsRepository.findOne({ userId, tableSlug: view.tableSlug, name, isShared: false });
+    const existing = await this.dataTableViewsRepository.findOne({
+      userId,
+      tableSlug: view.tableSlug,
+      name,
+      isShared: false,
+    });
     if (existing && existing.id !== id) {
       throw new ConflictException({
         label: 'Name Already Taken',

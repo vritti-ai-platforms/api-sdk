@@ -79,11 +79,18 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
   // Initializes connection to primary database using Drizzle
   private async initializeDrizzleClient(): Promise<void> {
     try {
-      const databaseUrl = this.buildPrimaryDbUrl();
+      const { host, port = 5432, username, password, database, schema, sslMode = 'require' } = this.options.primaryDb!;
 
       this.pool = new Pool({
-        connectionString: databaseUrl,
+        host,
+        port,
+        user: username,
+        password,
+        database,
         max: this.options.maxConnections || 10,
+        ssl: sslMode === 'disable' ? false : { rejectUnauthorized: sslMode !== 'no-verify' },
+        // Pass schema as a PostgreSQL startup option — recognized by node-postgres, unlike the ?schema= URL param
+        ...(schema && { options: `-csearch_path=${schema}` }),
       });
 
       // Initialize Drizzle with the schema provided (v2 API)
@@ -101,52 +108,11 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
 
       // Test connection
       await this.pool.query('SELECT 1');
-      this.logger.log('Connected to primary database (tenant registry)');
+      this.logger.log(`Connected to primary database (schema: ${schema ?? 'public'})`);
     } catch (error) {
       this.logger.error('Failed to connect to primary database', error);
       throw new InternalServerErrorException('Failed to initialize tenant registry');
     }
-  }
-
-  // Builds the PostgreSQL connection URL from primary database config properties
-  private buildPrimaryDbUrl(): string {
-    if (!this.options.primaryDb) {
-      throw new Error('Primary database configuration not provided');
-    }
-
-    const {
-      host,
-      port = 5432,
-      username,
-      password,
-      database,
-      schema = 'public',
-      sslMode = 'require',
-    } = this.options.primaryDb;
-
-    // Build base URL
-    let url = `postgresql://${username}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
-
-    // Add query parameters
-    const params = new URLSearchParams();
-    if (schema) {
-      params.set('schema', schema);
-    }
-    params.set('sslmode', sslMode);
-
-    const queryString = params.toString();
-    if (queryString) {
-      url += `?${queryString}`;
-    }
-
-    this.logger.debug(`Primary DB connection URL: ${this.maskPassword(url)}`);
-
-    return url;
-  }
-
-  // Masks password in connection URL for safe logging
-  private maskPassword(url: string): string {
-    return url.replace(/:([^@]+)@/, ':****@');
   }
 
   // Retrieves tenant configuration by ID or subdomain, with in-memory caching

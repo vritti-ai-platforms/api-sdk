@@ -1,5 +1,5 @@
 import type { TableViewState } from '../../database/filter/filter.types';
-import { boolean, index, jsonb, pgTable, timestamp, uniqueIndex, uuid, varchar } from '../../drizzle-pg-core';
+import { boolean, index, jsonb, timestamp, uniqueIndex, uuid, varchar } from '../../drizzle-pg-core';
 
 // Returns a fresh set of column builder instances — call once per table declaration
 export function dataTableViewsColumns() {
@@ -30,8 +30,23 @@ export function dataTableViewsIndexes(table: any) {
   ];
 }
 
-// Named view snapshots — live state is stored in Redis only, not here
-export const dataTableViews = pgTable('table_views', dataTableViewsColumns(), dataTableViewsIndexes);
+// Shape of a persisted table view record — used across service, repository, and DTO layers
+export interface DataTableViewRecord {
+  id: string;
+  userId: string;
+  tableSlug: string;
+  name: string;
+  state: TableViewState;
+  isShared: boolean;
+  createdAt: Date;
+  updatedAt: Date | null | undefined;
+}
 
-export type DataTableView = typeof dataTableViews.$inferSelect;
-export type NewDataTableView = typeof dataTableViews.$inferInsert;
+// Shape of a new table view record for insertion — server-generated fields omitted
+export interface NewDataTableViewRecord {
+  userId: string;
+  tableSlug: string;
+  name: string;
+  state: TableViewState;
+  isShared?: boolean;
+}
