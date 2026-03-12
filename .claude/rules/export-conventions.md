@@ -1,6 +1,7 @@
 ---
 description: Export style conventions for functions, components, and values
-globs: "**/*.{ts,tsx}"
+paths:
+  - "**/*.{ts,tsx}"
 ---
 
 # Export Conventions

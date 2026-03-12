@@ -1,6 +1,7 @@
 ---
 description: Comment style for all TypeScript files (frontend and backend)
-globs: auth-microfrontend/src/**/*.{ts,tsx}, cloud-microfrontend/src/**/*.{ts,tsx}, web-nexus/src/**/*.{ts,tsx}, api-nexus/src/**/*.ts
+paths:
+  - "src/**/*.{ts,tsx}"
 ---
 
 # Comment Style

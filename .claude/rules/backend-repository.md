@@ -1,6 +1,7 @@
 ---
 description: Backend repository layer conventions
-globs: api-nexus/src/**/*.repository.ts
+paths:
+  - "src/**/*.repository.ts"
 ---
 
 # Backend Repository Files

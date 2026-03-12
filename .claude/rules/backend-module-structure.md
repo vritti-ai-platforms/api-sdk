@@ -1,6 +1,7 @@
 ---
 description: Backend module folder structure and conventions
-globs: api-nexus/src/modules/**/*.ts
+paths:
+  - "src/modules/**/*.ts"
 ---
 
 # Backend Module Structure

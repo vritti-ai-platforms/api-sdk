@@ -1,6 +1,7 @@
 ---
 description: Auth system architecture facts and constraints
-globs: api-nexus/src/modules/cloud-api/auth/**/*.ts
+paths:
+  - "src/**/auth/**/*.ts"
 ---
 
 # Auth Architecture

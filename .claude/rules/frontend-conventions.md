@@ -1,6 +1,7 @@
 ---
 description: Frontend patterns for Vritti microfrontends
-globs: auth-microfrontend/src/**/*.{ts,tsx}, cloud-microfrontend/src/**/*.{ts,tsx}, web-nexus/src/**/*.{ts,tsx}
+paths:
+  - "src/**/*.{ts,tsx}"
 ---
 
 # Frontend Conventions

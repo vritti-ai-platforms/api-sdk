@@ -1,6 +1,7 @@
 ---
 description: RFC 9457 error handling patterns for API exceptions
-globs: api-nexus/src/**/*.ts
+paths:
+  - "src/**/*.ts"
 ---
 
 # Error Handling — RFC 9457 Problem Details

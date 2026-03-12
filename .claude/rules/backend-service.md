@@ -1,6 +1,7 @@
 ---
 description: Backend service layer conventions
-globs: api-nexus/src/**/*.service.ts
+paths:
+  - "src/**/*.service.ts"
 ---
 
 # Backend Service Files

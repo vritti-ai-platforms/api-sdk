@@ -1,6 +1,8 @@
 ---
 description: Frontend hook file conventions
-globs: auth-microfrontend/src/hooks/**/*.ts, cloud-microfrontend/src/hooks/**/*.ts, cloud-microfrontend/src/features/**/hooks/**/*.ts, web-nexus/src/hooks/**/*.ts
+paths:
+  - "src/hooks/**/*.ts"
+  - "src/features/**/hooks/**/*.ts"
 ---
 
 # Frontend Hook Files

@@ -1,6 +1,8 @@
 ---
 description: Swagger/OpenAPI documentation pattern for API controllers
-globs: api-nexus/src/**/*.controller.ts, api-nexus/src/**/docs/*.docs.ts
+paths:
+  - "src/**/*.controller.ts"
+  - "src/**/docs/*.docs.ts"
 ---
 
 # Swagger Documentation Pattern

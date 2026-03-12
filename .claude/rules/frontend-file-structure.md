@@ -1,6 +1,8 @@
 ---
 description: Frontend file organization — modular directories, no flat duplicates
-globs: auth-microfrontend/src/**/*.ts, cloud-microfrontend/src/**/*.ts, web-nexus/src/**/*.ts
+paths:
+  - "src/**/*.ts"
+  - "src/**/*.tsx"
 ---
 
 # Frontend File Structure

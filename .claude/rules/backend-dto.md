@@ -1,6 +1,7 @@
 ---
 description: Backend DTO conventions — request, response, and entity DTOs
-globs: api-nexus/src/**/dto/**/*.ts
+paths:
+  - "src/**/dto/**/*.ts"
 ---
 
 # Backend DTO Structure

@@ -1,6 +1,7 @@
 ---
 description: Backend controller conventions — thin HTTP layer, no business logic
-globs: api-nexus/src/**/*.controller.ts
+paths:
+  - "src/**/*.controller.ts"
 ---
 
 # Backend Controller Files

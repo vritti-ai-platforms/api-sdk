@@ -1,6 +1,7 @@
 ---
 description: Frontend service file conventions
-globs: auth-microfrontend/src/services/**/*.ts, cloud-microfrontend/src/services/**/*.ts, web-nexus/src/services/**/*.ts
+paths:
+  - "src/services/**/*.ts"
 ---
 
 # Frontend Service Files
