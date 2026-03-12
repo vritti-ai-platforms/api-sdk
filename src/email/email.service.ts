@@ -453,6 +453,95 @@ This is an automated message, please do not reply.
     this.logger.log(`Email revert confirmation sent to ${email}`);
   }
 
+  // Sends an invite email to a new portal user with their set-password link
+  async sendInviteEmail(params: { to: string; name: string; inviteUrl: string }): Promise<void> {
+    const { to, name, inviteUrl } = params;
+    const subject = 'You have been invited to Vritti AI';
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+          <table role="presentation" style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 40px 20px;">
+                <table role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                  <!-- Header -->
+                  <tr>
+                    <td style="padding: 40px 40px 20px; text-align: center; border-bottom: 1px solid #e0e0e0;">
+                      <h1 style="margin: 0; color: #1a1a1a; font-size: 24px; font-weight: 600;">You're Invited</h1>
+                    </td>
+                  </tr>
+
+                  <!-- Content -->
+                  <tr>
+                    <td style="padding: 40px;">
+                      <p style="margin: 0 0 20px; color: #333333; font-size: 16px; line-height: 1.6;">
+                        Hello <strong>${name}</strong>,
+                      </p>
+                      <p style="margin: 0 0 30px; color: #333333; font-size: 16px; line-height: 1.6;">
+                        You have been invited to join Vritti AI. Click the button below to set your password and get started.
+                      </p>
+
+                      <div style="text-align: center; margin: 30px 0;">
+                        <a href="${inviteUrl}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                          Set Your Password
+                        </a>
+                      </div>
+
+                      <p style="margin: 30px 0 0; color: #666666; font-size: 14px; line-height: 1.6;">
+                        If you did not expect this invitation, you can safely ignore this email.
+                      </p>
+                    </td>
+                  </tr>
+
+                  <!-- Footer -->
+                  <tr>
+                    <td style="padding: 30px 40px; border-top: 1px solid #e0e0e0; text-align: center;">
+                      <p style="margin: 0; color: #999999; font-size: 12px; line-height: 1.5;">
+                        Vritti AI Cloud - Cloud Management Platform
+                      </p>
+                      <p style="margin: 8px 0 0; color: #999999; font-size: 12px; line-height: 1.5;">
+                        This is an automated message, please do not reply.
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `;
+
+    const textContent = `
+Hello ${name},
+
+You have been invited to join Vritti AI. Visit the link below to set your password and get started:
+
+${inviteUrl}
+
+If you did not expect this invitation, you can safely ignore this email.
+
+---
+Vritti AI Cloud - Cloud Management Platform
+This is an automated message, please do not reply.
+    `.trim();
+
+    await this.sendEmail({
+      to: [{ email: to, name }],
+      subject,
+      htmlContent,
+      textContent,
+    });
+
+    this.logger.log(`Invite email sent to ${to}`);
+  }
+
   // Verifies Brevo API connectivity — a 400 response means the API is reachable
   async verifyConnection(): Promise<boolean> {
     try {
