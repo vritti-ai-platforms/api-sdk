@@ -82,9 +82,10 @@ export abstract class PrimaryBaseRepository<
   }
 
   // Creates a new record and returns it
-  async create(data: TInsert): Promise<TSelect> {
+  async create(data: TInsert, tx?: TypedDrizzleClient): Promise<TSelect> {
     this.logger.log('Creating record');
-    const results = (await this.db
+    const db = tx ?? this.db;
+    const results = (await db
       .insert(this.table as PgTable)
       .values(data as Record<string, unknown>)
       .returning()) as TSelect[];
@@ -158,11 +159,12 @@ export abstract class PrimaryBaseRepository<
   }
 
   // Updates a record by ID and returns the updated record
-  async update(id: string, data: Partial<TInsert>): Promise<TSelect> {
+  async update(id: string, data: Partial<TInsert>, tx?: TypedDrizzleClient): Promise<TSelect> {
     this.logger.log(`Updating record with ID: ${id}`);
+    const db = tx ?? this.db;
     const idColumn = (this.table as unknown as Record<string, Column>).id;
     if (!idColumn) throw new Error(`Table '${this.tableName}' has no 'id' column`);
-    const results = (await this.db
+    const results = (await db
       .update(this.table as PgTable)
       .set(data as Record<string, unknown>)
       .where(eq(idColumn, id))
@@ -173,9 +175,10 @@ export abstract class PrimaryBaseRepository<
   }
 
   // Updates all records matching the SQL condition and returns the affected count
-  async updateMany(where: SQL, data: Partial<TInsert>): Promise<{ count: number }> {
+  async updateMany(where: SQL, data: Partial<TInsert>, tx?: TypedDrizzleClient): Promise<{ count: number }> {
     this.logger.log('Updating multiple records');
-    const result = await this.db
+    const db = tx ?? this.db;
+    const result = await db
       .update(this.table as PgTable)
       .set(data as Record<string, unknown>)
       .where(where);
@@ -183,11 +186,12 @@ export abstract class PrimaryBaseRepository<
   }
 
   // Deletes a record by ID and returns the deleted record
-  async delete(id: string): Promise<TSelect> {
+  async delete(id: string, tx?: TypedDrizzleClient): Promise<TSelect> {
     this.logger.log(`Deleting record with ID: ${id}`);
+    const db = tx ?? this.db;
     const idColumn = (this.table as unknown as Record<string, Column>).id;
     if (!idColumn) throw new Error(`Table '${this.tableName}' has no 'id' column`);
-    const results = (await this.db
+    const results = (await db
       .delete(this.table as PgTable)
       .where(eq(idColumn, id))
       .returning()) as TSelect[];
@@ -197,9 +201,10 @@ export abstract class PrimaryBaseRepository<
   }
 
   // Deletes all records matching the SQL condition and returns the affected count
-  async deleteMany(where: SQL): Promise<{ count: number }> {
+  async deleteMany(where: SQL, tx?: TypedDrizzleClient): Promise<{ count: number }> {
     this.logger.log('Deleting multiple records');
-    const result = await this.db.delete(this.table as PgTable).where(where);
+    const db = tx ?? this.db;
+    const result = await db.delete(this.table as PgTable).where(where);
     return { count: result.rowCount ?? 0 };
   }
 
@@ -224,6 +229,11 @@ export abstract class PrimaryBaseRepository<
   async exists(where: SQL): Promise<boolean> {
     const count = await this.count(where);
     return count > 0;
+  }
+
+  // Executes the callback within a database transaction
+  async transaction<T>(callback: (tx: TypedDrizzleClient) => Promise<T>): Promise<T> {
+    return this.db.transaction(callback as Parameters<TypedDrizzleClient['transaction']>[0]) as Promise<T>;
   }
 
   // Finds records formatted as select dropdown options with optional search, pagination, and grouping
