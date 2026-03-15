@@ -48,6 +48,7 @@ export type {
   DensityType,
   FilterCondition,
   FilterOperator,
+  SearchState,
   SortCondition,
   TableViewState,
 } from './database/filter/filter.types';
