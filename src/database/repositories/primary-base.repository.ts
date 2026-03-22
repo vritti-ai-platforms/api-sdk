@@ -240,6 +240,9 @@ export abstract class PrimaryBaseRepository<
   async findForSelect(config: FindForSelectConfig): Promise<SelectQueryResult> {
     this.logger.debug('Finding records for select dropdown');
 
+    // Use selectDistinct when deduplication is needed (e.g., distinct app codes across versions)
+    const selectFn = config.distinct ? this.db.selectDistinct.bind(this.db) : this.db.select.bind(this.db);
+
     interface SelectRow {
       value: string | number | boolean;
       label: string;
@@ -295,8 +298,7 @@ export abstract class PrimaryBaseRepository<
         if (groupIdCol) selectCols.groupId = groupIdCol;
       }
 
-      let valuesQuery = this.db
-        .select(selectCols)
+      let valuesQuery = selectFn(selectCols)
         .from(this.table as PgTable)
         .$dynamic();
 
@@ -361,8 +363,7 @@ export abstract class PrimaryBaseRepository<
     const limit = Number(config.limit) || 20;
     const offset = Number(config.offset) || 0;
 
-    let query = this.db
-      .select(selectFields)
+    let query = selectFn(selectFields)
       .from(this.table as PgTable)
       .$dynamic();
 
