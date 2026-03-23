@@ -29,6 +29,7 @@ export interface GuardConfig {
   tenantHeaderName: string;
   authHeaderName: string;
   tokenPrefix: string;
+  defaultSessionTypes: string[];
 }
 
 export interface ApiSdkConfig {
@@ -61,6 +62,7 @@ const defaultConfig: FullConfig = {
     tenantHeaderName: 'x-tenant-id',
     authHeaderName: 'authorization',
     tokenPrefix: 'Bearer',
+    defaultSessionTypes: ['CLOUD'],
   },
 };
 

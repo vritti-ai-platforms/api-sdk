@@ -12,9 +12,10 @@ import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { getConfig } from '../../config';
 import '../../types/fastify-augmentation';
 import { RequestService } from '../../request/services/request.service';
-import { RESET_KEY } from '../decorators/reset.decorator';
+import { REQUIRE_SESSION_KEY } from '../decorators/require-session.decorator';
 import { SKIP_CSRF_KEY } from '../decorators/skip-csrf.decorator';
 import { verifyTokenHash } from '../utils/token-hash.util';
 
@@ -58,19 +59,16 @@ export class VrittiAuthGuard implements CanActivate {
       return true;
     }
 
-    // @Onboarding() endpoints require ONBOARDING session type
-    const isOnboarding = this.reflector.getAllAndOverride<boolean>('isOnboarding', [
+    // @RequireSession() restricts access to specific session types
+    const requiredSessionTypes = this.reflector.getAllAndOverride<string[]>(REQUIRE_SESSION_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
 
-    // @Reset() endpoints require RESET session type
-    const isReset = this.reflector.getAllAndOverride<boolean>(RESET_KEY, [context.getHandler(), context.getClass()]);
-
     // SSE endpoints authenticate via refresh token cookie (EventSource cannot send Authorization headers)
     const isSseEndpoint = this.reflector.get<boolean>(SSE_METADATA, context.getHandler());
     if (isSseEndpoint) {
-      return this.handleSseAuth(request, isOnboarding);
+      return this.handleSseAuth(request, requiredSessionTypes);
     }
 
     try {
@@ -90,23 +88,12 @@ export class VrittiAuthGuard implements CanActivate {
       // Validate refresh token binding (hash check on every request)
       this.validateRefreshTokenBinding(decodedAccessToken);
 
-      // @Onboarding endpoints require ONBOARDING session type
-      if (isOnboarding && decodedAccessToken.sessionType !== 'ONBOARDING') {
-        throw new UnauthorizedException('This endpoint requires an onboarding session');
-      }
+      // Validate session type access
+      const sessionType = decodedAccessToken.sessionType;
+      const allowed = requiredSessionTypes ?? getConfig().guard.defaultSessionTypes;
 
-      // @Reset endpoints require RESET session type
-      if (isReset && decodedAccessToken.sessionType !== 'RESET') {
-        throw new UnauthorizedException('This endpoint requires a reset session');
-      }
-
-      // Regular endpoints reject ONBOARDING and RESET sessions
-      if (
-        !isOnboarding &&
-        !isReset &&
-        (decodedAccessToken.sessionType === 'ONBOARDING' || decodedAccessToken.sessionType === 'RESET')
-      ) {
-        throw new UnauthorizedException(`${decodedAccessToken.sessionType} sessions cannot access this endpoint`);
+      if (!allowed.includes(sessionType)) {
+        throw new UnauthorizedException(`${sessionType} sessions cannot access this endpoint`);
       }
 
       // Attach session info to request
@@ -166,7 +153,7 @@ export class VrittiAuthGuard implements CanActivate {
   }
 
   // Authenticates SSE connections using the refresh token httpOnly cookie
-  private handleSseAuth(request: FastifyRequest, isOnboarding: boolean): boolean {
+  private handleSseAuth(request: FastifyRequest, requiredSessionTypes?: string[]): boolean {
     const refreshToken = this.requestService.getRefreshToken();
     if (!refreshToken) {
       throw new UnauthorizedException('Authentication required');
@@ -183,8 +170,9 @@ export class VrittiAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid token type');
     }
 
-    if (isOnboarding && decoded.sessionType !== 'ONBOARDING') {
-      throw new UnauthorizedException('This endpoint requires an onboarding session');
+    const allowed = requiredSessionTypes ?? getConfig().guard.defaultSessionTypes;
+    if (!allowed.includes(decoded.sessionType)) {
+      throw new UnauthorizedException(`${decoded.sessionType} sessions cannot access this endpoint`);
     }
 
     request.sessionInfo = {

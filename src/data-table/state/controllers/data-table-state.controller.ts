@@ -1,5 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Logger, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { RequireSession } from '../../../auth/decorators/require-session.decorator';
 import { UserId } from '../../../auth/decorators/user-id.decorator';
 import { ApiUpsertDataTableState } from '../docs/data-table-state.docs';
 import { UpsertDataTableStateDto } from '../dto/request/upsert-data-table-state.dto';
@@ -7,6 +8,7 @@ import { DataTableStateService } from '../services/data-table-state.service';
 
 @ApiTags('Table States')
 @ApiBearerAuth()
+@RequireSession('CLOUD', 'ADMIN')
 @Controller('table-states')
 export class DataTableStateController {
   private readonly logger = new Logger(DataTableStateController.name);

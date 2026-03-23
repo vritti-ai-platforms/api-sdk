@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { RequireSession } from '../../../auth/decorators/require-session.decorator';
 import { UserId } from '../../../auth/decorators/user-id.decorator';
 import { ApiCreateDataTableView, ApiDeleteDataTableView, ApiListDataTableViews, ApiRenameDataTableView, ApiToggleShareDataTableView, ApiUpdateDataTableView } from '../docs/data-table-views.docs';
 import { DataTableViewDto } from '../dto/entity/data-table-view.dto';
@@ -11,6 +12,7 @@ import { DataTableViewsService } from '../services/data-table-views.service';
 
 @ApiTags('Table Views')
 @ApiBearerAuth()
+@RequireSession('CLOUD', 'ADMIN')
 @Controller('table-views')
 export class DataTableViewsController {
   private readonly logger = new Logger(DataTableViewsController.name);
