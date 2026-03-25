@@ -38,6 +38,7 @@ export { DatabaseModule } from './database/database.module';
 // Decorators
 export { Tenant } from './database/decorators/tenant.decorator';
 // Database DTOs
+export { CreateResponseDto } from './database/dto/create-response.dto';
 export { SelectOptionsQueryDto } from './database/dto/select-options-query.dto';
 export { SuccessResponseDto } from './database/dto/success-response.dto';
 export { TableResponseDto } from './database/dto/table-response.dto';
