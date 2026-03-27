@@ -37,6 +37,7 @@ export {
 export { DatabaseModule } from './database/database.module';
 // Decorators
 export { Tenant } from './database/decorators/tenant.decorator';
+export { UploadedFile, type UploadedFileResult } from './decorators/uploaded-file.decorator';
 // Database DTOs
 export { CreateResponseDto } from './database/dto/create-response.dto';
 export { SelectOptionsQueryDto } from './database/dto/select-options-query.dto';
