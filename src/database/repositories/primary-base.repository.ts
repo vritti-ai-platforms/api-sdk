@@ -119,7 +119,7 @@ export abstract class PrimaryBaseRepository<
     return this.model.findMany(options);
   }
 
-  // Builds a select query with optional custom fields, join, filter, ordering, and pagination
+  // Builds a select query with optional custom fields, joins, filter, grouping, ordering, and pagination
   private buildSelectQuery(options?: {
     select?: Record<string, unknown>;
     where?: SQL;
@@ -127,22 +127,31 @@ export abstract class PrimaryBaseRepository<
     limit?: number;
     offset?: number;
     leftJoin?: { table: PgTable; on: SQL };
+    leftJoins?: { table: PgTable; on: SQL }[];
+    groupBy?: (Column | SQL)[];
   }) {
     const base = options?.select
       ? this.db.select(options.select as Record<string, Column | SQL>).from(this.table as PgTable)
       : this.db.select().from(this.table as PgTable);
 
-    const joined = options?.leftJoin
+    let joined = options?.leftJoin
       ? base.leftJoin(options.leftJoin.table, options.leftJoin.on)
       : base;
 
-    const filtered = options?.where ? joined.where(options.where) : joined;
-    const ordered = options?.orderBy?.length ? filtered.orderBy(...options.orderBy) : filtered;
+    if (options?.leftJoins) {
+      for (const join of options.leftJoins) {
+        joined = (joined as any).leftJoin(join.table, join.on);
+      }
+    }
+
+    const filtered = options?.where ? (joined as any).where(options.where) : joined;
+    const grouped = options?.groupBy?.length ? (filtered as any).groupBy(...options.groupBy) : filtered;
+    const ordered = options?.orderBy?.length ? (grouped as any).orderBy(...options.orderBy) : grouped;
     const limited = options?.limit ? ordered.limit(options.limit) : ordered;
     return options?.offset ? limited.offset(options.offset) : limited;
   }
 
-  // Returns paginated result and total count, with optional custom select, LEFT JOIN, and ordering
+  // Returns paginated result and total count, with optional custom select, LEFT JOINs, GROUP BY, and ordering
   async findAllAndCount<TResult = TSelect>(options?: {
     select?: Record<string, unknown>;
     where?: SQL;
@@ -150,6 +159,8 @@ export abstract class PrimaryBaseRepository<
     limit?: number;
     offset?: number;
     leftJoin?: { table: PgTable; on: SQL };
+    leftJoins?: { table: PgTable; on: SQL }[];
+    groupBy?: (Column | SQL)[];
   }): Promise<{ result: TResult[]; count: number }> {
     const [count, result] = await Promise.all([
       this.count(options?.where),

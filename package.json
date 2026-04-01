@@ -35,6 +35,16 @@
         "types": "./dist/drizzle-pg-core.d.cts",
         "default": "./dist/drizzle-pg-core.cjs"
       }
+    },
+    "./xlsx": {
+      "import": {
+        "types": "./dist/xlsx.d.ts",
+        "default": "./dist/xlsx.js"
+      },
+      "require": {
+        "types": "./dist/xlsx.d.cts",
+        "default": "./dist/xlsx.cjs"
+      }
     }
   },
   "files": [
@@ -68,7 +78,8 @@
     "ioredis": "^5.4.1",
     "pg": "^8.16.0",
     "winston": "^3.11.0",
-    "winston-daily-rotate-file": "^5.0.0"
+    "winston-daily-rotate-file": "^5.0.0",
+    "xlsx": "^0.18.5"
   },
   "peerDependencies": {
     "@nestjs/common": "^11.0.0",
