@@ -13,7 +13,7 @@ import {
   type SQL,
   sql,
 } from 'drizzle-orm';
-import type { PgTable } from 'drizzle-orm/pg-core';
+import type { PgSelect, PgTable } from 'drizzle-orm/pg-core';
 import type { TypedDrizzleClient } from '../schema.registry';
 import { PrimaryDatabaseService } from '../services/primary-database.service';
 import type { FindForSelectConfig, SelectQueryResult } from '../types';
@@ -126,29 +126,39 @@ export abstract class PrimaryBaseRepository<
     orderBy?: SQL[];
     limit?: number;
     offset?: number;
-    leftJoin?: { table: PgTable; on: SQL };
-    leftJoins?: { table: PgTable; on: SQL }[];
+    leftJoin?: { table: PgTable; on: SQL | undefined };
+    leftJoins?: { table: PgTable; on: SQL | undefined }[];
     groupBy?: (Column | SQL)[];
   }) {
-    const base = options?.select
+    let query: PgSelect = (options?.select
       ? this.db.select(options.select as Record<string, Column | SQL>).from(this.table as PgTable)
-      : this.db.select().from(this.table as PgTable);
+      : this.db.select().from(this.table as PgTable)
+    ).$dynamic();
 
-    let joined = options?.leftJoin
-      ? base.leftJoin(options.leftJoin.table, options.leftJoin.on)
-      : base;
-
+    if (options?.leftJoin) {
+      query = query.leftJoin(options.leftJoin.table, options.leftJoin.on);
+    }
     if (options?.leftJoins) {
       for (const join of options.leftJoins) {
-        joined = (joined as any).leftJoin(join.table, join.on);
+        query = query.leftJoin(join.table, join.on);
       }
     }
-
-    const filtered = options?.where ? (joined as any).where(options.where) : joined;
-    const grouped = options?.groupBy?.length ? (filtered as any).groupBy(...options.groupBy) : filtered;
-    const ordered = options?.orderBy?.length ? (grouped as any).orderBy(...options.orderBy) : grouped;
-    const limited = options?.limit ? ordered.limit(options.limit) : ordered;
-    return options?.offset ? limited.offset(options.offset) : limited;
+    if (options?.where) {
+      query = query.where(options.where);
+    }
+    if (options?.groupBy?.length) {
+      query = query.groupBy(...options.groupBy);
+    }
+    if (options?.orderBy?.length) {
+      query = query.orderBy(...options.orderBy);
+    }
+    if (options?.limit) {
+      query = query.limit(options.limit);
+    }
+    if (options?.offset) {
+      query = query.offset(options.offset);
+    }
+    return query;
   }
 
   // Returns paginated result and total count, with optional custom select, LEFT JOINs, GROUP BY, and ordering
@@ -158,8 +168,8 @@ export abstract class PrimaryBaseRepository<
     orderBy?: SQL[];
     limit?: number;
     offset?: number;
-    leftJoin?: { table: PgTable; on: SQL };
-    leftJoins?: { table: PgTable; on: SQL }[];
+    leftJoin?: { table: PgTable; on: SQL | undefined };
+    leftJoins?: { table: PgTable; on: SQL | undefined }[];
     groupBy?: (Column | SQL)[];
   }): Promise<{ result: TResult[]; count: number }> {
     const [count, result] = await Promise.all([
@@ -390,7 +400,7 @@ export abstract class PrimaryBaseRepository<
     }
 
     if (conditions.length > 0) {
-      query = query.where(conditions.length === 1 ? conditions[0] : and(...conditions) as SQL);
+      query = query.where(conditions.length === 1 ? conditions[0] : (and(...conditions) as SQL));
     }
 
     const orderClauses: SQL[] = [];

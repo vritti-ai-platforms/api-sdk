@@ -36,7 +36,6 @@ export {
 } from './config';
 export { DatabaseModule } from './database/database.module';
 // Decorators
-export { Tenant } from './database/decorators/tenant.decorator';
 export { UploadedFile, type UploadedFileResult } from './decorators/uploaded-file.decorator';
 // Database DTOs
 export { CreateResponseDto } from './database/dto/create-response.dto';
@@ -59,16 +58,12 @@ export type {
 export * from './database/interfaces';
 // Repositories
 export { PrimaryBaseRepository } from './database/repositories/primary-base.repository';
-export { TenantBaseRepository } from './database/repositories/tenant-base.repository';
 // Schema Registry (for module augmentation)
 export type {
   RegisteredSchema,
   TypedDrizzleClient,
 } from './database/schema.registry';
 export { PrimaryDatabaseService } from './database/services/primary-database.service';
-// Services
-export { TenantContextService } from './database/services/tenant-context.service';
-export { TenantDatabaseService } from './database/services/tenant-database.service';
 // Database types
 export type {
   FindForSelectConfig,
