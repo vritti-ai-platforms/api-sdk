@@ -36,7 +36,7 @@ export {
 } from './config';
 export { DatabaseModule } from './database/database.module';
 // Decorators
-export { UploadedFile, type UploadedFileResult } from './decorators/uploaded-file.decorator';
+export { UploadedFile, UploadedFiles, type UploadedFileResult } from './decorators/uploaded-file.decorator';
 // Database DTOs
 export { CreateResponseDto } from './database/dto/create-response.dto';
 export { ImportResponseDto, ImportSummaryDto, ValidatedRowDto } from './database/dto/import-response.dto';
