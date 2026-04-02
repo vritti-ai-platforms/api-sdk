@@ -12,15 +12,8 @@ export interface PrimaryDbConfig {
 
 export interface DatabaseModuleOptions {
   primaryDb: PrimaryDbConfig;
-
   drizzleSchema: RegisteredSchema;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: Drizzle relations type is dynamic
   drizzleRelations?: Record<string, any>;
-
-  connectionCacheTTL?: number;
-
   maxConnections?: number;
-
-  encryptionKey?: string;
 }

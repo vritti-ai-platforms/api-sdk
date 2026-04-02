@@ -1,5 +1,3 @@
-import type { TenantInfo } from '../database/interfaces/tenant-info.interface';
-
 declare module 'fastify' {
   interface FastifyRequest {
     sessionInfo?: {
@@ -7,7 +5,6 @@ declare module 'fastify' {
       sessionId: string;
       sessionType: string;
     };
-    tenant?: TenantInfo;
     cookies?: Record<string, string>;
   }
 }
