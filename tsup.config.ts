@@ -2,7 +2,7 @@ import { defineConfig } from 'tsup';
 
 export default defineConfig({
   // Entry points
-  entry: ['src/index.ts', 'src/drizzle-orm.ts', 'src/drizzle-pg-core.ts', 'src/xlsx.ts'],
+  entry: ['src/index.ts', 'src/drizzle-orm.ts', 'src/drizzle-pg-core.ts', 'src/xlsx.ts', 'src/lodash.ts'],
 
   // Output formats
   format: ['cjs', 'esm'],
