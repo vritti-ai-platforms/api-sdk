@@ -1,4 +1,4 @@
-import type { ModuleMetadata, Type } from '@nestjs/common';
+import type { InjectionToken, ModuleMetadata, Type } from '@nestjs/common';
 
 export type LogLevel = 'error' | 'warn' | 'log' | 'debug' | 'verbose';
 
@@ -34,11 +34,11 @@ export interface LoggerOptionsFactory {
   createLoggerOptions(): Promise<LoggerModuleOptions> | LoggerModuleOptions;
 }
 
-export interface LoggerModuleAsyncOptions extends Pick<ModuleMetadata, 'imports'> {
+export interface LoggerModuleAsyncOptions<T extends unknown[] = unknown[]> extends Pick<ModuleMetadata, 'imports'> {
   useExisting?: Type<LoggerOptionsFactory>;
   useClass?: Type<LoggerOptionsFactory>;
-  useFactory?: (...args: unknown[]) => Promise<LoggerModuleOptions> | LoggerModuleOptions;
-  inject?: unknown[];
+  useFactory?: (...args: [...T]) => Promise<LoggerModuleOptions> | LoggerModuleOptions;
+  inject?: InjectionToken[];
 }
 
 export interface CorrelationContext {

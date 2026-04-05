@@ -9,8 +9,8 @@ import { PrimaryDatabaseService } from './services/primary-database.service';
 @Module({})
 export class DatabaseModule {
   // Configures the database module with a single primary connection
-  static forServer(options: {
-    useFactory: (...args: unknown[]) => Promise<DatabaseModuleOptions> | DatabaseModuleOptions;
+  static forServer<T extends unknown[] = unknown[]>(options: {
+    useFactory: (...args: [...T]) => Promise<DatabaseModuleOptions> | DatabaseModuleOptions;
     inject?: InjectionToken[];
   }): DynamicModule {
     const asyncProvider: Provider = {
