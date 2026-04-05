@@ -22,11 +22,7 @@ export class DatabaseModule {
     return {
       module: DatabaseModule,
       imports: [RequestModule],
-      providers: [
-        { provide: Reflector, useClass: Reflector },
-        asyncProvider,
-        PrimaryDatabaseService,
-      ],
+      providers: [{ provide: Reflector, useClass: Reflector }, asyncProvider, PrimaryDatabaseService],
       exports: [PrimaryDatabaseService, asyncProvider],
     };
   }
