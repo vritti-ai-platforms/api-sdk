@@ -1,31 +1,31 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import type { DataTableViewRecord } from '../../../schema/data-table-views.table';
 import type { TableViewState } from '../../../../database/filter/filter.types';
+import type { DataTableViewRecord } from '../../../schema/data-table-views.table';
 
 export class DataTableViewDto {
   @ApiProperty({ description: 'View unique identifier' })
-  id!: string;
+  id: string;
 
   @ApiPropertyOptional({ description: 'Display name of the view', nullable: true })
-  name!: string | null;
+  name: string | null;
 
   @ApiProperty({ description: 'Slug of the table this view belongs to', example: 'cloud-providers' })
-  tableSlug!: string;
+  tableSlug: string;
 
   @ApiProperty({ description: 'Stored filter, sort, and column visibility state' })
-  state!: TableViewState;
+  state: TableViewState;
 
   @ApiProperty({ description: 'Whether the view is visible to all users', example: false })
-  isShared!: boolean;
+  isShared: boolean;
 
   @ApiProperty({ description: 'Whether the requesting user owns this view', example: true })
-  isOwn!: boolean;
+  isOwn: boolean;
 
   @ApiProperty({ description: 'Creation timestamp' })
-  createdAt!: Date;
+  createdAt: Date;
 
   @ApiPropertyOptional({ description: 'Last updated timestamp', nullable: true })
-  updatedAt!: Date | null;
+  updatedAt: Date | null;
 
   // Creates a response DTO from a DataTableView entity, computing isOwn by comparing userId
   static from(view: DataTableViewRecord, userId: string): DataTableViewDto {

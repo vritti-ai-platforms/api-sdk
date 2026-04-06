@@ -6,16 +6,16 @@ export class CreateDataTableViewDto {
   @ApiProperty({ description: 'Display name for the saved view', example: 'AWS Only' })
   @IsString()
   @MaxLength(100)
-  name!: string;
+  name: string;
 
   @ApiProperty({ description: 'Unique slug identifying the table', example: 'cloud-providers' })
   @IsString()
   @MaxLength(100)
-  tableSlug!: string;
+  tableSlug: string;
 
   @ApiProperty({ description: 'Full table view state including filters, sort, and column visibility' })
   @IsObject()
-  state!: TableViewState;
+  state: TableViewState;
 
   @ApiPropertyOptional({ description: 'Whether this view is visible to all users', example: false })
   @IsBoolean()

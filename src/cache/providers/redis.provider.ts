@@ -6,7 +6,7 @@ import type { ICacheProvider } from '../interfaces/cache-provider.interface';
 @Injectable()
 export class RedisCacheProvider implements ICacheProvider, OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RedisCacheProvider.name);
-  private client!: Redis;
+  private client: Redis;
 
   constructor(private readonly configService: ConfigService) {}
 

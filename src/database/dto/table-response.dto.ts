@@ -3,14 +3,14 @@ import type { TableViewState } from '../filter/filter.types';
 
 export class TableResponseDto<T> {
   @ApiProperty()
-  result!: T[];
+  result: T[];
 
   @ApiProperty()
-  count!: number;
+  count: number;
 
   @ApiProperty()
-  state!: TableViewState;
+  state: TableViewState;
 
   @ApiPropertyOptional({ nullable: true })
-  activeViewId!: string | null;
+  activeViewId: string | null;
 }

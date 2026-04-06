@@ -2,35 +2,35 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ValidatedRowDto {
   @ApiProperty({ example: 1 })
-  index!: number;
+  index: number;
 
   @ApiProperty({ example: { code: 'products', name: 'Products' } })
-  data!: Record<string, string>;
+  data: Record<string, string>;
 
   @ApiProperty({ example: true })
-  valid!: boolean;
+  valid: boolean;
 
   @ApiProperty({ example: ['Code already exists'] })
-  errors!: string[];
+  errors: string[];
 }
 
 export class ImportSummaryDto {
   @ApiProperty({ example: 10 })
-  total!: number;
+  total: number;
 
   @ApiProperty({ example: 8 })
-  valid!: number;
+  valid: number;
 
   @ApiProperty({ example: 2 })
-  invalid!: number;
+  invalid: number;
 }
 
 export class ImportResponseDto {
   @ApiProperty({ example: true })
-  success!: boolean;
+  success: boolean;
 
   @ApiProperty({ example: 'Import complete.' })
-  message!: string;
+  message: string;
 
   @ApiPropertyOptional({ example: 3 })
   created?: number;
