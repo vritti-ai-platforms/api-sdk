@@ -90,7 +90,7 @@ export class VrittiAuthGuard implements CanActivate {
 
       // Validate session type access
       const sessionType = decodedAccessToken.sessionType;
-      const allowed = requiredSessionTypes ?? getConfig().guard.defaultSessionTypes;
+      const allowed = requiredSessionTypes?.length ? requiredSessionTypes : getConfig().guard.defaultSessionTypes;
 
       if (!allowed.includes(sessionType)) {
         throw new UnauthorizedException(`${sessionType} sessions cannot access this endpoint`);

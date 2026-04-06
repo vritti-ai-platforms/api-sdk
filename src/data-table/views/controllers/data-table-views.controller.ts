@@ -12,7 +12,7 @@ import { DataTableViewsService } from '../services/data-table-views.service';
 
 @ApiTags('Table Views')
 @ApiBearerAuth()
-@RequireSession('CLOUD', 'ADMIN')
+@RequireSession()
 @Controller('table-views')
 export class DataTableViewsController {
   private readonly logger = new Logger(DataTableViewsController.name);

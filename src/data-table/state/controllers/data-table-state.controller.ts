@@ -8,7 +8,7 @@ import { DataTableStateService } from '../services/data-table-state.service';
 
 @ApiTags('Table States')
 @ApiBearerAuth()
-@RequireSession('CLOUD', 'ADMIN')
+@RequireSession()
 @Controller('table-states')
 export class DataTableStateController {
   private readonly logger = new Logger(DataTableStateController.name);
