@@ -1,39 +1,30 @@
 import './types/fastify-augmentation';
 
-// Config system
-
 // Auth (decorators, guards, token utilities)
 export * from './auth';
 // Auth decorators (SkipCsrf for webhook endpoints)
 export { SKIP_CSRF_KEY, SkipCsrf } from './auth/decorators/skip-csrf.decorator';
-// JWT config utilities
+// Token types and config
 export {
+  AUTH_CONFIG,
+  AUTH_CONFIG_DEFAULTS,
   type AccessTokenPayload,
-  getTokenExpiry,
-  jwtConfigFactory,
+  type AuthConfig,
+  type CookieConfig,
+  type DecodedAccessToken,
+  type DecodedRefreshToken,
+  type GuardConfig,
   type RefreshTokenPayload,
   type TokenExpiry,
+  type TokenExpiryString,
   TokenType,
-} from './auth/jwt.config';
-// JWT auth service
-export { JwtAuthService } from './auth/services/jwt-auth.service';
+} from './auth/auth.config';
+// Token service — generation, validation, and binding verification
+export { TokenService } from './auth/services/token.service';
 export type { ICacheProvider } from './cache';
 // Cache module (Redis provider + ICacheProvider contract)
 export { CACHE_PROVIDER, CacheModule, CacheService, RedisCacheProvider } from './cache';
-export {
-  type ApiSdkConfig,
-  type CookieConfig,
-  type CookieSerializeOptions,
-  configureApiSdk,
-  defineConfig,
-  type GuardConfig,
-  getConfig,
-  getJwtExpiry,
-  getRefreshCookieOptions,
-  getRefreshCookieOptionsForHost,
-  type JwtConfig,
-  resetConfig,
-} from './config';
+export { type CookieSerializeOptions, type OnAuthenticatedCallback } from './auth/auth.config';
 export { DatabaseModule } from './database/database.module';
 // Decorators
 export { UploadedFile, UploadedFiles, type UploadedFileResult } from './decorators/uploaded-file.decorator';

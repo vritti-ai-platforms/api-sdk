@@ -2,32 +2,27 @@ import {
   type CanActivate,
   type ExecutionContext,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   Scope,
   UnauthorizedException,
 } from '@nestjs/common';
 import { SSE_METADATA } from '@nestjs/common/constants';
-import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
-import { JwtService } from '@nestjs/jwt';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { getConfig } from '../../config';
 import '../../types/fastify-augmentation';
 import { RequestService } from '../../request/services/request.service';
 import { REQUIRE_SESSION_KEY } from '../decorators/require-session.decorator';
 import { SKIP_CSRF_KEY } from '../decorators/skip-csrf.decorator';
-import { verifyTokenHash } from '../utils/token-hash.util';
+import { TokenService } from '../services/token.service';
+import { AUTH_CONFIG, type AuthConfig } from '../auth.config';
 
-interface DecodedToken {
-  userId: string;
-  sessionId: string;
-  sessionType: string;
-  tokenType: string;
-  refreshTokenHash?: string;
-  exp?: number;
-  iat?: number;
+interface FastifyInstanceWithCsrf {
+  csrfProtection?: (req: FastifyRequest, reply: FastifyReply, next: (err?: Error) => void) => void;
 }
+
+type PatchableReply = { send: (...args: unknown[]) => unknown };
 
 @Injectable({ scope: Scope.REQUEST })
 export class VrittiAuthGuard implements CanActivate {
@@ -35,14 +30,18 @@ export class VrittiAuthGuard implements CanActivate {
 
   constructor(
     private readonly reflector: Reflector,
-    readonly _configService: ConfigService,
-    private readonly jwtService: JwtService,
     private readonly requestService: RequestService,
+    private readonly tokenService: TokenService,
+    @Inject(AUTH_CONFIG) private readonly config: AuthConfig,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<FastifyRequest>();
     const reply = context.switchToHttp().getResponse<FastifyReply>();
+    const route = `${request.method} ${request.url}`;
+
+    // Attach auth config to request so decorators can access it without injection
+    request.authConfig = this.config;
 
     // Validate CSRF for state-changing methods (unless @SkipCsrf)
     const skipCsrf = this.reflector.getAllAndOverride<boolean>(SKIP_CSRF_KEY, [
@@ -56,6 +55,7 @@ export class VrittiAuthGuard implements CanActivate {
     // @Public() endpoints skip all auth
     const isPublic = this.reflector.getAllAndOverride<boolean>('isPublic', [context.getHandler(), context.getClass()]);
     if (isPublic) {
+      this.logger.debug(`${route} — public endpoint, skipping auth`);
       return true;
     }
 
@@ -68,110 +68,67 @@ export class VrittiAuthGuard implements CanActivate {
     // SSE endpoints authenticate via refresh token cookie (EventSource cannot send Authorization headers)
     const isSseEndpoint = this.reflector.get<boolean>(SSE_METADATA, context.getHandler());
     if (isSseEndpoint) {
+      this.logger.debug(`${route} — SSE endpoint, authenticating via refresh cookie`);
       return this.handleSseAuth(request, requiredSessionTypes);
     }
 
-    try {
-      const accessToken = this.requestService.getAccessToken();
-      if (!accessToken) {
-        throw new UnauthorizedException('Access token not found');
-      }
-
-      // Validate JWT signature and expiry
-      const decodedAccessToken = this.validateAccessToken(accessToken);
-
-      // Must be an ACCESS token, not REFRESH
-      if (decodedAccessToken.tokenType !== 'access') {
-        throw new UnauthorizedException('Invalid token type');
-      }
-
-      // Validate refresh token binding (hash check on every request)
-      this.validateRefreshTokenBinding(decodedAccessToken);
-
-      // Validate session type access
-      const sessionType = decodedAccessToken.sessionType;
-      const allowed = requiredSessionTypes?.length ? requiredSessionTypes : getConfig().guard.defaultSessionTypes;
-
-      if (!allowed.includes(sessionType)) {
-        throw new UnauthorizedException(`${sessionType} sessions cannot access this endpoint`);
-      }
-
-      // Attach session info to request
-      request.sessionInfo = {
-        userId: decodedAccessToken.userId,
-        sessionId: decodedAccessToken.sessionId,
-        sessionType: decodedAccessToken.sessionType,
-      };
-
-      return true;
-    } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      this.logger.error('Unexpected error in auth guard', error);
-      throw new UnauthorizedException('Authentication failed');
-    }
+    return this.handleHttpAuth(request, requiredSessionTypes);
   }
 
-  // Validates JWT signature, expiry, and not-before claims
-  private validateAccessToken(token: string): DecodedToken {
-    try {
-      return this.jwtService.verify<DecodedToken>(token);
-    } catch (error: unknown) {
-      if (error instanceof UnauthorizedException) throw error;
+  // Authenticates standard HTTP requests using the access token from Authorization header
+  private async handleHttpAuth(request: FastifyRequest, requiredSessionTypes?: string[]): Promise<boolean> {
+    const route = `${request.method} ${request.url}`;
 
-      const jwtError = error as { name?: string; message?: string };
-      if (jwtError?.name === 'TokenExpiredError') {
-        throw new UnauthorizedException('Access token has expired');
-      }
-      if (jwtError?.name === 'JsonWebTokenError') {
-        throw new UnauthorizedException('Invalid access token');
-      }
-      if (jwtError?.name === 'NotBeforeError') {
-        throw new UnauthorizedException('Access token not yet valid');
-      }
-
-      throw new UnauthorizedException('Access token validation failed');
-    }
-  }
-
-  // Validates that the access token is bound to the refresh token in the cookie
-  private validateRefreshTokenBinding(decodedAccessToken: DecodedToken): void {
-    if (!decodedAccessToken.refreshTokenHash) {
-      throw new UnauthorizedException('Token missing refresh token binding');
+    const accessToken = this.requestService.getAccessToken();
+    if (!accessToken) {
+      this.logger.warn(`${route} — no access token found`);
+      throw new UnauthorizedException('Access token not found');
     }
 
+    const decoded = this.tokenService.validateAccessToken(accessToken);
+
+    // Validate refresh token binding
     const refreshToken = this.requestService.getRefreshToken();
-
     if (!refreshToken) {
       throw new UnauthorizedException('Session validation failed');
     }
+    this.tokenService.validateTokenBinding(decoded, refreshToken);
 
-    if (!verifyTokenHash(refreshToken, decodedAccessToken.refreshTokenHash)) {
-      throw new UnauthorizedException('Session validation failed');
+    // Validate session type access (only if @RequireSession specifies types)
+    if (requiredSessionTypes?.length && !requiredSessionTypes.includes(decoded.sessionType)) {
+      this.logger.warn(`${route} — session type ${decoded.sessionType} not in allowed: [${requiredSessionTypes.join(', ')}]`);
+      throw new UnauthorizedException(`${decoded.sessionType} sessions cannot access this endpoint`);
     }
+
+    // Attach session info to request
+    request.sessionInfo = {
+      userId: decoded.userId,
+      sessionId: decoded.sessionId,
+      sessionType: decoded.sessionType,
+    };
+
+    // Call onAuthenticated callback if configured (authConfig already set on request)
+    const onAuthenticated = this.config.guard.onAuthenticated;
+    if (onAuthenticated) {
+      await onAuthenticated(request, request.sessionInfo);
+    }
+
+    this.logger.debug(`${route} — authenticated user: ${decoded.userId} (${decoded.sessionType})`);
+    return true;
   }
 
   // Authenticates SSE connections using the refresh token httpOnly cookie
   private handleSseAuth(request: FastifyRequest, requiredSessionTypes?: string[]): boolean {
     const refreshToken = this.requestService.getRefreshToken();
     if (!refreshToken) {
+      this.logger.warn(`SSE ${request.url} — no refresh token cookie`);
       throw new UnauthorizedException('Authentication required');
     }
 
-    let decoded: { userId: string; sessionId: string; sessionType: string; tokenType: string };
-    try {
-      decoded = this.jwtService.verify<{ userId: string; sessionId: string; sessionType: string; tokenType: string }>(refreshToken);
-    } catch {
-      throw new UnauthorizedException('Invalid or expired session');
-    }
+    const decoded = this.tokenService.validateRefreshToken(refreshToken);
 
-    if (decoded.tokenType !== 'refresh') {
-      throw new UnauthorizedException('Invalid token type');
-    }
-
-    const allowed = requiredSessionTypes ?? getConfig().guard.defaultSessionTypes;
-    if (!allowed.includes(decoded.sessionType)) {
+    if (requiredSessionTypes?.length && !requiredSessionTypes.includes(decoded.sessionType)) {
+      this.logger.warn(`SSE ${request.url} — session type ${decoded.sessionType} not allowed`);
       throw new UnauthorizedException(`${decoded.sessionType} sessions cannot access this endpoint`);
     }
 
@@ -181,6 +138,7 @@ export class VrittiAuthGuard implements CanActivate {
       sessionType: decoded.sessionType,
     };
 
+    this.logger.debug(`SSE ${request.url} — authenticated user: ${decoded.userId} (${decoded.sessionType})`);
     return true;
   }
 
@@ -188,11 +146,6 @@ export class VrittiAuthGuard implements CanActivate {
   private async validateCsrf(request: FastifyRequest, reply: FastifyReply): Promise<void> {
     const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
     if (safeMethods.includes(request.method)) return;
-
-    interface FastifyInstanceWithCsrf {
-      csrfProtection?: (req: FastifyRequest, reply: FastifyReply, next: (err?: Error) => void) => void;
-    }
-    type PatchableReply = { send: (...args: unknown[]) => unknown };
 
     try {
       const fastifyInstance = request.server as unknown as FastifyInstanceWithCsrf;
@@ -202,7 +155,6 @@ export class VrittiAuthGuard implements CanActivate {
       }
 
       await new Promise<void>((resolve, reject) => {
-        // Intercept reply.send to prevent the plugin from bypassing NestJS error handling
         const originalSend = reply.send.bind(reply);
         (reply as PatchableReply).send = () => {
           (reply as PatchableReply).send = originalSend as PatchableReply['send'];
@@ -216,7 +168,8 @@ export class VrittiAuthGuard implements CanActivate {
           else resolve();
         });
       });
-    } catch (error) {
+    } catch (_error: unknown) {
+      this.logger.warn(`${request.method} ${request.url} — CSRF validation failed`);
       throw new ForbiddenException({
         errors: [{ field: 'csrf', message: 'Invalid or missing CSRF token' }],
         message: 'CSRF validation failed',

@@ -1,6 +1,5 @@
 import { type DynamicModule, Global, type InjectionToken, Module, type Provider } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { RequestModule } from '../request/request.module';
 import { DATABASE_MODULE_OPTIONS } from './constants';
 import type { DatabaseModuleOptions } from './interfaces';
 import { PrimaryDatabaseService } from './services/primary-database.service';
@@ -21,7 +20,6 @@ export class DatabaseModule {
 
     return {
       module: DatabaseModule,
-      imports: [RequestModule],
       providers: [{ provide: Reflector, useClass: Reflector }, asyncProvider, PrimaryDatabaseService],
       exports: [PrimaryDatabaseService, asyncProvider],
     };
