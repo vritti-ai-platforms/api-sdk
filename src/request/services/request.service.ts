@@ -10,16 +10,6 @@ export class RequestService {
     @Inject(AUTH_CONFIG) private readonly config: AuthConfig,
   ) {}
 
-  // Extracts tenant identifier from x-tenant-id or x-subdomain request header
-  getTenantIdentifier(): string | null {
-    const getHeader = (key: string) => {
-      const value = this.request.headers?.[key];
-      return Array.isArray(value) ? value[0] : value;
-    };
-
-    return getHeader('x-tenant-id') || getHeader('x-subdomain') || null;
-  }
-
   // Extracts the bearer access token from the Authorization header
   getAccessToken(): string | null {
     const authHeader = this.request.headers?.[this.config.guard.authHeaderName];
