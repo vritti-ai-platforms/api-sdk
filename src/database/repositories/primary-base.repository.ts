@@ -2,7 +2,6 @@ import { Logger } from '@nestjs/common';
 import {
   and,
   asc,
-  type Column,
   eq,
   getTableName,
   type InferInsertModel,
@@ -13,7 +12,8 @@ import {
   type SQL,
   sql,
 } from 'drizzle-orm';
-import type { PgSelect, PgTable } from 'drizzle-orm/pg-core';
+import type { PgColumn, PgTable, SelectedFields } from 'drizzle-orm/pg-core';
+import type { AnyPgAsyncSelect } from 'drizzle-orm/pg-core/async';
 import type { TypedDrizzleClient } from '../schema.registry';
 import { PrimaryDatabaseService } from '../services/primary-database.service';
 import type { FindForSelectConfig, SelectQueryResult } from '../types';
@@ -128,35 +128,38 @@ export abstract class PrimaryBaseRepository<
     offset?: number;
     leftJoin?: { table: PgTable; on: SQL | undefined };
     leftJoins?: { table: PgTable; on: SQL | undefined }[];
-    groupBy?: (Column | SQL)[];
+    groupBy?: (PgColumn | SQL)[];
   }) {
-    let query: PgSelect = (options?.select
-      ? this.db.select(options.select as Record<string, Column | SQL>).from(this.table as PgTable)
+    // Drizzle's dynamic query builder methods (leftJoin, where, groupBy, etc.) return union types
+    // that include Omit<...> variants, making precise type annotations impractical for mutable query
+    // building. We type the variable as the concrete async select and cast each reassignment.
+    let query = (options?.select
+      ? this.db.select(options.select as SelectedFields).from(this.table as PgTable)
       : this.db.select().from(this.table as PgTable)
-    ).$dynamic();
+    ).$dynamic() as AnyPgAsyncSelect;
 
     if (options?.leftJoin) {
-      query = query.leftJoin(options.leftJoin.table, options.leftJoin.on);
+      query = query.leftJoin(options.leftJoin.table, options.leftJoin.on) as AnyPgAsyncSelect;
     }
     if (options?.leftJoins) {
       for (const join of options.leftJoins) {
-        query = query.leftJoin(join.table, join.on);
+        query = query.leftJoin(join.table, join.on) as AnyPgAsyncSelect;
       }
     }
     if (options?.where) {
-      query = query.where(options.where);
+      query = query.where(options.where) as AnyPgAsyncSelect;
     }
     if (options?.groupBy?.length) {
-      query = query.groupBy(...options.groupBy);
+      query = query.groupBy(...options.groupBy) as AnyPgAsyncSelect;
     }
     if (options?.orderBy?.length) {
-      query = query.orderBy(...options.orderBy);
+      query = query.orderBy(...options.orderBy) as AnyPgAsyncSelect;
     }
     if (options?.limit) {
-      query = query.limit(options.limit);
+      query = query.limit(options.limit) as AnyPgAsyncSelect;
     }
     if (options?.offset) {
-      query = query.offset(options.offset);
+      query = query.offset(options.offset) as AnyPgAsyncSelect;
     }
     return query;
   }
@@ -170,11 +173,11 @@ export abstract class PrimaryBaseRepository<
     offset?: number;
     leftJoin?: { table: PgTable; on: SQL | undefined };
     leftJoins?: { table: PgTable; on: SQL | undefined }[];
-    groupBy?: (Column | SQL)[];
+    groupBy?: (PgColumn | SQL)[];
   }): Promise<{ result: TResult[]; count: number }> {
     const [count, result] = await Promise.all([
       this.count(options?.where),
-      this.buildSelectQuery(options) as Promise<TResult[]>,
+      this.buildSelectQuery(options) as unknown as Promise<TResult[]>,
     ]);
     return { result, count };
   }
@@ -183,7 +186,7 @@ export abstract class PrimaryBaseRepository<
   async update(id: string, data: Partial<TInsert>, tx?: TypedDrizzleClient): Promise<TSelect> {
     this.logger.log(`Updating record with ID: ${id}`);
     const db = tx ?? this.db;
-    const idColumn = (this.table as unknown as Record<string, Column>).id;
+    const idColumn = (this.table as unknown as Record<string, PgColumn>).id;
     if (!idColumn) throw new Error(`Table '${this.tableName}' has no 'id' column`);
     const results = (await db
       .update(this.table as PgTable)
@@ -210,7 +213,7 @@ export abstract class PrimaryBaseRepository<
   async delete(id: string, tx?: TypedDrizzleClient): Promise<TSelect> {
     this.logger.log(`Deleting record with ID: ${id}`);
     const db = tx ?? this.db;
-    const idColumn = (this.table as unknown as Record<string, Column>).id;
+    const idColumn = (this.table as unknown as Record<string, PgColumn>).id;
     if (!idColumn) throw new Error(`Table '${this.tableName}' has no 'id' column`);
     const results = (await db
       .delete(this.table as PgTable)
@@ -292,7 +295,7 @@ export abstract class PrimaryBaseRepository<
             .filter(Boolean)
         : (config.excludeIds ?? []);
 
-    const tableColumns = this.table as unknown as Record<string, Column>;
+    const tableColumns = this.table as unknown as Record<string, PgColumn>;
     const valueCol = tableColumns[config.value];
     if (!valueCol) throw new Error(`Column '${config.value}' not found in table '${this.tableName}'`);
     const labelCol = tableColumns[config.label];
@@ -302,7 +305,7 @@ export abstract class PrimaryBaseRepository<
     let descriptionCol = config.description ? tableColumns[config.description] : undefined;
     if (!descriptionCol && config.description && config.joins) {
       for (const join of config.joins) {
-        const joinCols = join.table as unknown as Record<string, Column>;
+        const joinCols = join.table as unknown as Record<string, PgColumn>;
         if (joinCols[config.description]) {
           descriptionCol = joinCols[config.description];
           break;
@@ -312,14 +315,14 @@ export abstract class PrimaryBaseRepository<
 
     // When values are provided, fetch those specific options by value (skip search/pagination)
     if (parsedValues && parsedValues.length > 0) {
-      const selectCols: Record<string, Column | SQL> = { value: valueCol, label: labelCol };
+      const selectCols: Record<string, PgColumn | SQL> = { value: valueCol, label: labelCol };
       if (descriptionCol) selectCols.description = descriptionCol;
       if (config.groupId) {
         const groupIdCol = tableColumns[config.groupId];
         if (groupIdCol) selectCols.groupId = groupIdCol;
       }
 
-      let valuesQuery = selectFn(selectCols)
+      let valuesQuery = selectFn(selectCols as SelectedFields)
         .from(this.table as PgTable)
         .$dynamic();
 
@@ -348,7 +351,7 @@ export abstract class PrimaryBaseRepository<
     }
 
     // Use SQL builder for count(*) over() window function support
-    const selectFields: Record<string, Column | SQL> = {
+    const selectFields: Record<string, PgColumn | SQL> = {
       value: valueCol,
       label: labelCol,
       totalCount: sql<number>`count(*) over()`.mapWith(Number),
@@ -384,7 +387,7 @@ export abstract class PrimaryBaseRepository<
     const limit = Number(config.limit) || 20;
     const offset = Number(config.offset) || 0;
 
-    let query = selectFn(selectFields)
+    let query = selectFn(selectFields as SelectedFields)
       .from(this.table as PgTable)
       .$dynamic();
 
@@ -430,7 +433,7 @@ export abstract class PrimaryBaseRepository<
     let resolvedGroups = config.groups;
 
     if (config.groupTable && config.groupId) {
-      const groupTableColumns = config.groupTable as unknown as Record<string, Column>;
+      const groupTableColumns = config.groupTable as unknown as Record<string, PgColumn>;
       const groupIdKey = config.groupIdKey ?? 'id';
       const groupNameKey = config.groupLabelKey ?? 'name';
       const groupIdCol = groupTableColumns[groupIdKey];
@@ -439,7 +442,7 @@ export abstract class PrimaryBaseRepository<
       if (!groupNameCol) throw new Error(`Column '${groupNameKey}' not found in group table`);
 
       const groupRows = await this.db
-        .select({ id: groupIdCol, name: groupNameCol })
+        .select({ id: groupIdCol, name: groupNameCol } as SelectedFields)
         .from(config.groupTable)
         .orderBy(asc(groupNameCol));
 

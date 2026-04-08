@@ -81,6 +81,20 @@ export { extractCountryFromPhone, normalizePhoneNumber } from './utils/phone.uti
 // Time utilities
 export { parseExpiryToMs } from './utils/time.utils';
 
+// NATS client module (gateway + microservice modes)
+export { NatsClientModule } from './nats/nats-client.module';
+export { NatsClientService } from './nats/nats-client.service';
+export { NatsMicroserviceClientService } from './nats/nats-microservice-client.service';
+export { NATS_HEADER_KEYS, parseNatsHeaders } from './nats/nats-context';
+export { RpcNatsHeaders } from './nats/decorators/nats-headers.decorator';
+export type {
+  NatsHeaders,
+  ContextResolverFn,
+  NatsRootModuleAsyncOptions,
+  NatsMicroserviceModuleAsyncOptions,
+  NatsServiceConfig,
+} from './nats';
+
 // Data table module (views + ephemeral state)
 export { DATA_TABLE_VIEWS_TABLE, DataTableModule, type DataTableModuleOptions } from './data-table/data-table.module';
 export { DataTableViewsService } from './data-table/views/services/data-table-views.service';
