@@ -1,5 +1,7 @@
 import { Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService, type JwtSignOptions } from '@nestjs/jwt';
+import type { FastifyRequest } from 'fastify';
+import '../../types/fastify-augmentation';
 import { parseExpiryToMs } from '../../utils/time.utils';
 import {
   AUTH_CONFIG,
@@ -11,6 +13,9 @@ import {
 import { hashToken, verifyTokenHash } from '../utils/token-hash.util';
 
 export type { DecodedAccessToken, DecodedRefreshToken };
+
+// Session info type from Fastify augmentation
+type SessionInfo = NonNullable<FastifyRequest['sessionInfo']>;
 
 interface TokenError extends Error {
   name: 'TokenExpiredError' | 'JsonWebTokenError' | 'NotBeforeError';
@@ -29,17 +34,19 @@ export class TokenService {
   // ---- Generation ----
 
   // Generates an access token bound to the given refresh token
-  generateAccessToken(userId: string, sessionId: string, sessionType: string, refreshToken: string): string {
+  generateAccessToken(sessionInfo: SessionInfo, refreshToken: string): string {
+    const { userId, sessionId, sessionType, ...metadata } = sessionInfo;
     return this.jwtService.sign(
-      { sessionType, tokenType: TokenType.ACCESS, userId, sessionId, refreshTokenHash: hashToken(refreshToken) },
+      { sessionType, tokenType: TokenType.ACCESS, userId, sessionId, refreshTokenHash: hashToken(refreshToken), ...metadata },
       { expiresIn: this.config.tokenExpiry.access },
     );
   }
 
   // Generates a refresh token for session persistence
-  generateRefreshToken(userId: string, sessionId: string, sessionType: string): string {
+  generateRefreshToken(sessionInfo: SessionInfo): string {
+    const { userId, sessionId, sessionType, ...metadata } = sessionInfo;
     return this.jwtService.sign(
-      { sessionType, tokenType: TokenType.REFRESH, userId, sessionId },
+      { sessionType, tokenType: TokenType.REFRESH, userId, sessionId, ...metadata },
       { expiresIn: this.config.tokenExpiry.refresh },
     );
   }

@@ -13,10 +13,10 @@ import { Reflector } from '@nestjs/core';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import '../../types/fastify-augmentation';
 import { RequestService } from '../../request/services/request.service';
+import { AUTH_CONFIG, type AuthConfig } from '../auth.config';
 import { REQUIRE_SESSION_KEY } from '../decorators/require-session.decorator';
 import { SKIP_CSRF_KEY } from '../decorators/skip-csrf.decorator';
 import { TokenService } from '../services/token.service';
-import { AUTH_CONFIG, type AuthConfig } from '../auth.config';
 
 interface FastifyInstanceWithCsrf {
   csrfProtection?: (req: FastifyRequest, reply: FastifyReply, next: (err?: Error) => void) => void;
@@ -96,21 +96,20 @@ export class VrittiAuthGuard implements CanActivate {
 
     // Validate session type access (only if @RequireSession specifies types)
     if (requiredSessionTypes?.length && !requiredSessionTypes.includes(decoded.sessionType)) {
-      this.logger.warn(`${route} — session type ${decoded.sessionType} not in allowed: [${requiredSessionTypes.join(', ')}]`);
+      this.logger.warn(
+        `${route} — session type ${decoded.sessionType} not in allowed: [${requiredSessionTypes.join(', ')}]`,
+      );
       throw new UnauthorizedException(`${decoded.sessionType} sessions cannot access this endpoint`);
     }
 
-    // Attach session info to request
-    request.sessionInfo = {
-      userId: decoded.userId,
-      sessionId: decoded.sessionId,
-      sessionType: decoded.sessionType,
-    };
+    // Attach session info to request — spread full decoded token (includes metadata fields)
+    const { tokenType: _tokenType, refreshTokenHash: _hash, exp: _exp, iat: _iat, ...sessionInfo } = decoded;
+    request.sessionInfo = sessionInfo;
 
-    // Call onAuthenticated callback if configured (authConfig already set on request)
+    // Call onAuthenticated callback if configured
     const onAuthenticated = this.config.guard.onAuthenticated;
     if (onAuthenticated) {
-      await onAuthenticated(request, request.sessionInfo);
+      await onAuthenticated(this.requestService, request.sessionInfo);
     }
 
     this.logger.debug(`${route} — authenticated user: ${decoded.userId} (${decoded.sessionType})`);
@@ -132,11 +131,8 @@ export class VrittiAuthGuard implements CanActivate {
       throw new UnauthorizedException(`${decoded.sessionType} sessions cannot access this endpoint`);
     }
 
-    request.sessionInfo = {
-      userId: decoded.userId,
-      sessionId: decoded.sessionId,
-      sessionType: decoded.sessionType,
-    };
+    const { tokenType: _tokenType, exp: _exp, iat: _iat, ...sessionInfo } = decoded;
+    request.sessionInfo = sessionInfo;
 
     this.logger.debug(`SSE ${request.url} — authenticated user: ${decoded.userId} (${decoded.sessionType})`);
     return true;

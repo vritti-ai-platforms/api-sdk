@@ -1,9 +1,10 @@
 import type { FastifyRequest } from 'fastify';
+import type { RequestService } from '../request/services/request.service';
 
 export const AUTH_CONFIG = Symbol('AUTH_CONFIG');
 
 export type OnAuthenticatedCallback = (
-  request: FastifyRequest,
+  requestService: RequestService,
   sessionInfo: NonNullable<FastifyRequest['sessionInfo']>,
 ) => void | Promise<void>;
 

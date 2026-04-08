@@ -51,6 +51,11 @@ export class RequestService {
     return this.request.headers?.[key];
   }
 
+  // Returns the request hostname (without port)
+  getHostname(): string {
+    return this.request.hostname ?? '';
+  }
+
   // Returns all request headers
   getAllHeaders(): FastifyRequest['headers'] {
     return this.request.headers || {};
