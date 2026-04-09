@@ -1,7 +1,7 @@
 import { type DynamicModule, Global, Logger, Module, type OnModuleDestroy, type Provider } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { ClientProxyFactory, Transport } from '@nestjs/microservices';
 import type { ClientProxy } from '@nestjs/microservices';
+import { ClientProxyFactory, Transport } from '@nestjs/microservices';
 import { NATS_CONTEXT_RESOLVER, NATS_MODULE_OPTIONS } from './constants';
 import type {
   NatsMicroserviceModuleAsyncOptions,
