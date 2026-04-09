@@ -87,6 +87,7 @@
     "drizzle-orm": "1.0.0-beta.20",
     "ioredis": "^5.4.1",
     "lodash": "^4.18.1",
+    "nats": "^2.29.3",
     "pg": "^8.16.0",
     "winston": "^3.11.0",
     "winston-daily-rotate-file": "^5.0.0",

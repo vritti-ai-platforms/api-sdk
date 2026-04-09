@@ -67,7 +67,7 @@ export class NatsClientModule implements OnModuleDestroy {
 
     return {
       module: NatsClientModule,
-      imports: [ConfigModule],
+      imports: [ConfigModule, ...(asyncOptions.imports ?? [])],
       providers: [optionsProvider, resolverProvider, clientsProvider, NatsClientService],
       exports: [NatsClientService],
     };
@@ -92,7 +92,7 @@ export class NatsClientModule implements OnModuleDestroy {
 
     return {
       module: NatsClientModule,
-      imports: [ConfigModule],
+      imports: [ConfigModule, ...(asyncOptions.imports ?? [])],
       providers: [optionsProvider, clientsProvider, NatsMicroserviceClientService],
       exports: [NatsMicroserviceClientService],
     };
