@@ -3,6 +3,7 @@ import { REQUEST } from '@nestjs/core';
 import type { ClientProxy } from '@nestjs/microservices';
 import { NatsRecordBuilder } from '@nestjs/microservices';
 import type { FastifyRequest } from 'fastify';
+import { headers as natsHeaders } from 'nats';
 import { NATS_CONTEXT_RESOLVER } from './constants';
 import type { ContextResolverFn } from './nats-client.interfaces';
 import { NATS_HEADER_KEYS, type NatsHeaders} from './nats-context';
@@ -42,13 +43,13 @@ export class NatsClientService {
   }
 }
 
-// Converts NatsHeaders to a flat headers object for NATS transport
-function contextToHeaders(ctx: NatsHeaders): Record<string, string> {
-  return {
-    [NATS_HEADER_KEYS.ORG_ID]: ctx.orgId,
-    [NATS_HEADER_KEYS.USER_ID]: ctx.userId,
-    [NATS_HEADER_KEYS.BU_ID]: ctx.buId,
-    [NATS_HEADER_KEYS.BU_ANCESTOR_IDS]: JSON.stringify(ctx.buAncestorIds),
-    [NATS_HEADER_KEYS.BU_DESCENDANT_IDS]: JSON.stringify(ctx.buDescendantIds),
-  };
+// Converts NatsHeaders to a NATS MsgHdrs object for NATS transport
+function contextToHeaders(ctx: NatsHeaders): import('nats').MsgHdrs {
+  const hdrs = natsHeaders();
+  hdrs.set(NATS_HEADER_KEYS.ORG_ID, ctx.orgId);
+  hdrs.set(NATS_HEADER_KEYS.USER_ID, ctx.userId);
+  hdrs.set(NATS_HEADER_KEYS.BU_ID, ctx.buId);
+  hdrs.set(NATS_HEADER_KEYS.BU_ANCESTOR_IDS, JSON.stringify(ctx.buAncestorIds));
+  hdrs.set(NATS_HEADER_KEYS.BU_DESCENDANT_IDS, JSON.stringify(ctx.buDescendantIds));
+  return hdrs;
 }
