@@ -15,13 +15,24 @@ export const NATS_HEADER_KEYS = {
   BU_DESCENDANT_IDS: 'x-bu-descendant-ids',
 } as const;
 
+// Reads a header value from either a plain object or a NATS MsgHdrsImpl
+function getHeader(headers: unknown, key: string): string | undefined {
+  if (!headers) return undefined;
+  // MsgHdrsImpl uses .get(), plain objects use bracket access
+  if (typeof (headers as { get?: unknown }).get === 'function') {
+    const val = (headers as { get(key: string): string[] }).get(key);
+    return Array.isArray(val) ? val[0] : (val as string | undefined);
+  }
+  return (headers as Record<string, string>)[key];
+}
+
 // Parses NATS message headers into a NatsHeaders object
-export function parseNatsHeaders(headers: Record<string, string> | undefined): NatsHeaders | null {
+export function parseNatsHeaders(headers: unknown): NatsHeaders | null {
   if (!headers) return null;
 
-  const orgId = headers[NATS_HEADER_KEYS.ORG_ID];
-  const userId = headers[NATS_HEADER_KEYS.USER_ID];
-  const buId = headers[NATS_HEADER_KEYS.BU_ID];
+  const orgId = getHeader(headers, NATS_HEADER_KEYS.ORG_ID);
+  const userId = getHeader(headers, NATS_HEADER_KEYS.USER_ID);
+  const buId = getHeader(headers, NATS_HEADER_KEYS.BU_ID);
 
   if (!orgId || !userId || !buId) return null;
 
@@ -29,7 +40,7 @@ export function parseNatsHeaders(headers: Record<string, string> | undefined): N
     orgId,
     userId,
     buId,
-    buAncestorIds: JSON.parse(headers[NATS_HEADER_KEYS.BU_ANCESTOR_IDS] || '[]'),
-    buDescendantIds: JSON.parse(headers[NATS_HEADER_KEYS.BU_DESCENDANT_IDS] || '[]'),
+    buAncestorIds: JSON.parse(getHeader(headers, NATS_HEADER_KEYS.BU_ANCESTOR_IDS) || '[]'),
+    buDescendantIds: JSON.parse(getHeader(headers, NATS_HEADER_KEYS.BU_DESCENDANT_IDS) || '[]'),
   };
 }
