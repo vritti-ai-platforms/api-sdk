@@ -15,6 +15,7 @@ const EMPTY_TABLE_STATE: TableViewState = {
   density: 'normal',
   filterOrder: [],
   filterVisibility: {},
+  search: null,
   pagination: { limit: 20, offset: 0 },
 };
 

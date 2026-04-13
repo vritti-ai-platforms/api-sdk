@@ -34,6 +34,6 @@ export interface TableViewState {
   density: DensityType;
   filterOrder: string[];
   filterVisibility: Record<string, boolean>;
-  search?: SearchState | null;
-  pagination?: { limit: number; offset: number };
+  search: SearchState | null;
+  pagination: { limit: number; offset: number };
 }
