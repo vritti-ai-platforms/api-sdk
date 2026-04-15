@@ -35,6 +35,8 @@ export interface FindForSelectConfig {
   limit?: number;
   offset?: number;
   where?: Record<string, unknown>;
+  orderByKey?: string;
+  orderDirection?: 'asc' | 'desc';
   orderBy?: Record<string, 'asc' | 'desc'>;
   groups?: SelectQueryGroup[];
   values?: string | (string | number | boolean)[];

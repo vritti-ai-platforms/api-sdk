@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import {
   and,
   asc,
+  desc,
   eq,
   getTableName,
   type InferInsertModel,
@@ -133,9 +134,10 @@ export abstract class PrimaryBaseRepository<
     // Drizzle's dynamic query builder methods (leftJoin, where, groupBy, etc.) return union types
     // that include Omit<...> variants, making precise type annotations impractical for mutable query
     // building. We type the variable as the concrete async select and cast each reassignment.
-    let query = (options?.select
-      ? this.db.select(options.select as SelectedFields).from(this.table as PgTable)
-      : this.db.select().from(this.table as PgTable)
+    let query = (
+      options?.select
+        ? this.db.select(options.select as SelectedFields).from(this.table as PgTable)
+        : this.db.select().from(this.table as PgTable)
     ).$dynamic() as AnyPgAsyncSelect;
 
     if (options?.leftJoin) {
@@ -382,7 +384,8 @@ export abstract class PrimaryBaseRepository<
       conditions.push(...config.conditions);
     }
 
-    const orderByKey = config.orderBy ? Object.keys(config.orderBy)[0] : undefined;
+    const orderByKey = config.orderByKey || (config.orderBy ? Object.keys(config.orderBy)[0] : undefined);
+    const orderDirection = config.orderDirection || (config.orderBy ? Object.values(config.orderBy)[0] : undefined);
     const orderByCol = orderByKey ? (tableColumns[orderByKey] ?? labelCol) : labelCol;
     const limit = Number(config.limit) || 20;
     const offset = Number(config.offset) || 0;
@@ -411,7 +414,7 @@ export abstract class PrimaryBaseRepository<
       const groupIdCol = tableColumns[config.groupId];
       if (groupIdCol) orderClauses.push(asc(groupIdCol));
     }
-    orderClauses.push(asc(orderByCol));
+    orderClauses.push(orderDirection === 'desc' ? desc(orderByCol) : asc(orderByCol));
 
     query = query
       .orderBy(...orderClauses)
