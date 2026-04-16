@@ -52,7 +52,22 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let detail = 'Internal server error';
     let errors: FieldError[] = [];
 
-    if (this.isHttpException(exception)) {
+    if (this.isProblemLikeObject(exception)) {
+      const problemObj = exception as Record<string, unknown>;
+      const statusCandidate = problemObj.status ?? problemObj.statusCode;
+      if (typeof statusCandidate === 'number' && statusCandidate >= 400 && statusCandidate <= 599) {
+        status = statusCandidate;
+      }
+      type = typeof problemObj.type === 'string' ? problemObj.type : 'about:blank';
+      label = typeof problemObj.label === 'string' ? problemObj.label : undefined;
+      detail =
+        typeof problemObj.detail === 'string'
+          ? problemObj.detail
+          : typeof problemObj.message === 'string'
+            ? problemObj.message
+            : getHttpStatusTitle(status);
+      errors = Array.isArray(problemObj.errors) ? (problemObj.errors as FieldError[]) : [];
+    } else if (this.isHttpException(exception)) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
 
@@ -135,5 +150,16 @@ export class HttpExceptionFilter implements ExceptionFilter {
     config?: { url?: string };
   } {
     return error instanceof Error && (error as { isAxiosError?: boolean }).isAxiosError === true;
+  }
+
+  private isProblemLikeObject(error: unknown): error is Record<string, unknown> {
+    if (!error || typeof error !== 'object') return false;
+    const obj = error as Record<string, unknown>;
+    return (
+      typeof obj.status === 'number' ||
+      typeof obj.statusCode === 'number' ||
+      typeof obj.detail === 'string' ||
+      Array.isArray(obj.errors)
+    );
   }
 }

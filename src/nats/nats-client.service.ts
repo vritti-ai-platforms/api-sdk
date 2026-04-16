@@ -6,7 +6,7 @@ import type { FastifyRequest } from 'fastify';
 import { headers as natsHeaders } from 'nats';
 import { NATS_CONTEXT_RESOLVER } from './constants';
 import type { ContextResolverFn } from './nats-client.interfaces';
-import { NATS_HEADER_KEYS, type NatsHeaders} from './nats-context';
+import { NATS_HEADER_KEYS, type NatsHeaders } from './nats-context';
 
 export const NATS_CLIENTS = Symbol('NATS_CLIENTS');
 
