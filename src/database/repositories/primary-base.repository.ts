@@ -303,17 +303,28 @@ export abstract class PrimaryBaseRepository<
     const labelCol = tableColumns[config.label];
     if (!labelCol) throw new Error(`Column '${config.label}' not found in table '${this.tableName}'`);
 
-    // Resolve optional description column (checks main table first, then joined tables)
-    let descriptionCol = config.description ? tableColumns[config.description] : undefined;
-    if (!descriptionCol && config.description && config.joins) {
-      for (const join of config.joins) {
-        const joinCols = join.table as unknown as Record<string, PgColumn>;
-        if (joinCols[config.description]) {
-          descriptionCol = joinCols[config.description];
-          break;
-        }
+    const joinTables = config.joins?.map((join) => join.table as unknown as Record<string, PgColumn>) ?? [];
+    const resolveColumn = (key: string): PgColumn | undefined => {
+      if (tableColumns[key]) return tableColumns[key];
+      for (const joinColumns of joinTables) {
+        if (joinColumns[key]) return joinColumns[key];
       }
-    }
+      return undefined;
+    };
+
+    // Resolve optional description column (checks main table first, then joined tables)
+    const descriptionCol = config.description ? resolveColumn(config.description) : undefined;
+
+    const parseKeys = (input?: string | string[]): string[] => {
+      if (!input) return [];
+      const values = Array.isArray(input) ? input : input.split(',');
+      return values.map((v) => v.trim()).filter(Boolean);
+    };
+    const additionalKeys = parseKeys(config.additionalKeys);
+    const additionalEntries = additionalKeys
+      .map((key) => ({ key, column: resolveColumn(key) }))
+      .filter((entry): entry is { key: string; column: PgColumn } => Boolean(entry.column));
+    const additionalAlias = (key: string) => `__additional_${key}`;
 
     // When values are provided, fetch those specific options by value (skip search/pagination)
     if (parsedValues && parsedValues.length > 0) {
@@ -322,6 +333,9 @@ export abstract class PrimaryBaseRepository<
       if (config.groupId) {
         const groupIdCol = tableColumns[config.groupId];
         if (groupIdCol) selectCols.groupId = groupIdCol;
+      }
+      for (const entry of additionalEntries) {
+        selectCols[additionalAlias(entry.key)] = entry.column;
       }
 
       let valuesQuery = selectFn(selectCols as SelectedFields)
@@ -344,8 +358,23 @@ export abstract class PrimaryBaseRepository<
         options: (rows as unknown as SelectRow[]).map((row) => ({
           value: row.value,
           label: String(row.label),
-          ...(descriptionCol && row.description != null ? { description: row.description } : {}),
+          ...(descriptionCol && row.description != null ? { description: String(row.description) } : {}),
           ...(config.groupId && row.groupId != null ? { groupId: row.groupId } : {}),
+          ...(additionalEntries.length > 0
+            ? {
+                additionals: additionalEntries.reduce<Record<string, string | number | boolean | null>>((acc, entry) => {
+                  const value = (row as unknown as Record<string, unknown>)[additionalAlias(entry.key)];
+                  if (value !== undefined) {
+                    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null) {
+                      acc[entry.key] = value;
+                    } else {
+                      acc[entry.key] = String(value);
+                    }
+                  }
+                  return acc;
+                }, {}),
+              }
+            : {}),
         })),
         hasMore: false,
         ...(config.groups ? { groups: config.groups } : {}),
@@ -362,6 +391,9 @@ export abstract class PrimaryBaseRepository<
     if (config.groupId) {
       const groupIdCol = tableColumns[config.groupId];
       if (groupIdCol) selectFields.groupId = groupIdCol;
+    }
+    for (const entry of additionalEntries) {
+      selectFields[additionalAlias(entry.key)] = entry.column;
     }
 
     const conditions: SQL[] = [];
@@ -428,8 +460,23 @@ export abstract class PrimaryBaseRepository<
     const options = (rows as unknown as SelectRow[]).map((row) => ({
       value: row.value,
       label: String(row.label),
-      ...(descriptionCol && row.description != null ? { description: row.description } : {}),
+      ...(descriptionCol && row.description != null ? { description: String(row.description) } : {}),
       ...(config.groupId && row.groupId != null ? { groupId: row.groupId } : {}),
+      ...(additionalEntries.length > 0
+        ? {
+            additionals: additionalEntries.reduce<Record<string, string | number | boolean | null>>((acc, entry) => {
+              const value = (row as unknown as Record<string, unknown>)[additionalAlias(entry.key)];
+              if (value !== undefined) {
+                if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null) {
+                  acc[entry.key] = value;
+                } else {
+                  acc[entry.key] = String(value);
+                }
+              }
+              return acc;
+            }, {}),
+          }
+        : {}),
     }));
 
     // Auto-resolve groups from groupTable when provided

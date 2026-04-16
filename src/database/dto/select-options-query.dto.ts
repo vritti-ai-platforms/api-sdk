@@ -51,6 +51,14 @@ export class SelectOptionsQueryDto {
   @IsString()
   descriptionKey?: string;
 
+  @ApiPropertyOptional({
+    description: 'Comma-separated column names to include in option.additionals',
+    example: 'locationName,availableQuantity',
+  })
+  @IsOptional()
+  @IsString()
+  additionalKeys?: string;
+
   @ApiPropertyOptional({ description: 'Column name for group ID', example: 'regionId' })
   @IsOptional()
   @IsString()

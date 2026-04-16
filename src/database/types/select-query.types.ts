@@ -5,6 +5,7 @@ export interface SelectQueryOption {
   value: string | number | boolean;
   label: string;
   description?: string;
+  additionals?: Record<string, string | number | boolean | null>;
   groupId?: string | number;
 }
 
@@ -30,6 +31,7 @@ export interface FindForSelectConfig {
   value: string;
   label: string;
   description?: string;
+  additionalKeys?: string | string[];
   groupId?: string;
   search?: string;
   limit?: number;
