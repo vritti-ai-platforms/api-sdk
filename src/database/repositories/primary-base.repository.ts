@@ -13,7 +13,7 @@ import {
   type SQL,
   sql,
 } from 'drizzle-orm';
-import type { PgColumn, PgTable, SelectedFields } from 'drizzle-orm/pg-core';
+import type { PgColumn, PgSequence, PgTable, SelectedFields } from 'drizzle-orm/pg-core';
 import type { AnyPgAsyncSelect } from 'drizzle-orm/pg-core/async';
 import type { TypedDrizzleClient } from '../schema.registry';
 import { PrimaryDatabaseService } from '../services/primary-database.service';
@@ -49,6 +49,7 @@ export abstract class PrimaryBaseRepository<
   TSelect = InferSelectModel<TTable>,
 > {
   protected readonly logger: Logger;
+  protected readonly sequence?: PgSequence;
 
   private readonly tableName: string;
 
@@ -72,14 +73,36 @@ export abstract class PrimaryBaseRepository<
   constructor(
     protected readonly database: PrimaryDatabaseService,
     protected readonly table: TTable,
+    options?: {
+      sequence?: PgSequence;
+    },
   ) {
     // Convert snake_case table name to camelCase to match Drizzle query object keys
     // Example: 'email_verifications' -> 'emailVerifications'
     const dbTableName = getTableName(table);
     this.tableName = snakeToCamel(dbTableName);
+    this.sequence = options?.sequence;
     this.logger = new Logger(this.constructor.name);
     this.logger.debug(`Initialized ${this.constructor.name}`);
     this.logger.debug(`Table name: '${dbTableName}' -> query key: '${this.tableName}'`);
+  }
+
+  // Returns next value from configured sequence, or an explicitly passed sequence
+  protected async nextSequenceValue(sequence?: PgSequence): Promise<number> {
+    const resolvedSequence = sequence ?? this.sequence;
+    if (!resolvedSequence) {
+      throw new Error(`${this.constructor.name}: sequence is required for nextSequenceValue`);
+    }
+
+    const sequenceName = resolvedSequence.schema
+      ? `${resolvedSequence.schema}.${resolvedSequence.seqName}`
+      : resolvedSequence.seqName;
+
+    const result = await this.db.execute<{ sequence_value: number }>(
+      sql`select nextval(${sequenceName}::regclass) as sequence_value`,
+    );
+    const rows = (result as { rows?: Array<{ sequence_value: number | string }> }).rows ?? [];
+    return Number(rows[0]?.sequence_value ?? 1);
   }
 
   // Creates a new record and returns it
