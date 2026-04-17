@@ -106,8 +106,17 @@ export class HttpLoggerInterceptor implements NestInterceptor {
   private logError(request: FastifyRequest, response: FastifyReply, duration: number, error: unknown): void {
     try {
       const correlationContext = getCorrelationContext();
-      const statusCode = response.statusCode || 500;
-      const err = error as { name?: string; message?: string; stack?: string; response?: unknown };
+      const err = error as {
+        name?: string;
+        message?: string;
+        detail?: string;
+        status?: number;
+        statusCode?: number;
+        stack?: string;
+        response?: unknown;
+      };
+      const statusCode = err.status ?? err.statusCode ?? response.statusCode ?? 500;
+      const errorMessage = err.message || err.detail || 'Unknown error';
 
       const metadata: LogMetadata = {
         type: 'http_error',
@@ -117,7 +126,7 @@ export class HttpLoggerInterceptor implements NestInterceptor {
         duration,
         correlationId: correlationContext?.correlationId,
         errorName: err.name || 'Error',
-        errorMessage: err.message || 'Unknown error',
+        errorMessage,
       };
 
       if (err.stack) {
@@ -128,7 +137,7 @@ export class HttpLoggerInterceptor implements NestInterceptor {
         metadata.errorDetails = err.response;
       }
 
-      const message = `ERROR ${request.method} ${request.url} ${statusCode} - ${err.message || 'Unknown error'}`;
+      const message = `ERROR ${request.method} ${request.url} ${statusCode} - ${errorMessage}`;
       this.logger.logWithMetadata('error', message, metadata);
     } catch (loggingError) {
       this.logger.error('Failed to log HTTP error', (loggingError as Error).stack);
