@@ -542,6 +542,22 @@ This is an automated message, please do not reply.
     this.logger.log(`Invite email sent to ${to}`);
   }
 
+  // Sends a transactional email with custom subject, HTML, and text content
+  async sendTransactionalEmail(params: {
+    to: { email: string; name?: string };
+    subject: string;
+    htmlContent: string;
+    textContent: string;
+  }): Promise<void> {
+    await this.sendEmail({
+      to: [params.to],
+      subject: params.subject,
+      htmlContent: params.htmlContent,
+      textContent: params.textContent,
+    });
+    this.logger.log(`Transactional email sent to ${params.to.email}`);
+  }
+
   // Verifies Brevo API connectivity — a 400 response means the API is reachable
   async verifyConnection(): Promise<boolean> {
     try {
