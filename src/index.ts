@@ -28,6 +28,7 @@ export { type CookieSerializeOptions, type OnAuthenticatedCallback } from './aut
 export { DatabaseModule } from './database/database.module';
 // Decorators
 export { UploadedFile, UploadedFiles, type UploadedFileResult } from './decorators/uploaded-file.decorator';
+export { IsZonedIsoDateString } from './decorators/is-zoned-iso-date-string.decorator';
 // Database DTOs
 export { CreateResponseDto } from './database/dto/create-response.dto';
 export { ImportResponseDto, ImportSummaryDto, ValidatedRowDto } from './database/dto/import-response.dto';
