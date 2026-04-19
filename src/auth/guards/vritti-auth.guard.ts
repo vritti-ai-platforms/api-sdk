@@ -23,6 +23,7 @@ interface FastifyInstanceWithCsrf {
 }
 
 type PatchableReply = { send: (...args: unknown[]) => unknown };
+const MOBILE_SESSION_TYPE = 'MOBILE';
 
 @Injectable({ scope: Scope.REQUEST })
 export class VrittiAuthGuard implements CanActivate {
@@ -43,18 +44,17 @@ export class VrittiAuthGuard implements CanActivate {
     // Attach auth config to request so decorators can access it without injection
     request.authConfig = this.config;
 
-    // Validate CSRF for state-changing methods (unless @SkipCsrf)
     const skipCsrf = this.reflector.getAllAndOverride<boolean>(SKIP_CSRF_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
-    if (!skipCsrf) {
-      await this.validateCsrf(request, reply);
-    }
 
-    // @Public() endpoints skip all auth
+    // @Public() endpoints skip auth, while preserving their current CSRF behavior
     const isPublic = this.reflector.getAllAndOverride<boolean>('isPublic', [context.getHandler(), context.getClass()]);
     if (isPublic) {
+      if (!skipCsrf) {
+        await this.validateCsrf(request, reply);
+      }
       this.logger.debug(`${route} — public endpoint, skipping auth`);
       return true;
     }
@@ -72,11 +72,17 @@ export class VrittiAuthGuard implements CanActivate {
       return this.handleSseAuth(request, requiredSessionTypes);
     }
 
-    return this.handleHttpAuth(request, requiredSessionTypes);
+    const sessionType = await this.handleHttpAuth(request, requiredSessionTypes);
+
+    if (!skipCsrf && sessionType !== MOBILE_SESSION_TYPE) {
+      await this.validateCsrf(request, reply);
+    }
+
+    return true;
   }
 
   // Authenticates standard HTTP requests using the access token from Authorization header
-  private async handleHttpAuth(request: FastifyRequest, requiredSessionTypes?: string[]): Promise<boolean> {
+  private async handleHttpAuth(request: FastifyRequest, requiredSessionTypes?: string[]): Promise<string> {
     const route = `${request.method} ${request.url}`;
 
     const accessToken = this.requestService.getAccessToken();
@@ -113,7 +119,7 @@ export class VrittiAuthGuard implements CanActivate {
     }
 
     this.logger.debug(`${route} — authenticated user: ${decoded.userId} (${decoded.sessionType})`);
-    return true;
+    return decoded.sessionType;
   }
 
   // Authenticates SSE connections using the refresh token httpOnly cookie
