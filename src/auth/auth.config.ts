@@ -27,6 +27,8 @@ export interface CookieConfig {
 export interface GuardConfig {
   authHeaderName: string;
   tokenPrefix: string;
+  csrfExemptSessionTypes?: string[];
+  refreshTokenBindingExemptSessionTypes?: string[];
   onAuthenticated?: OnAuthenticatedCallback;
 }
 
@@ -50,6 +52,8 @@ export const AUTH_CONFIG_DEFAULTS = {
   guard: {
     authHeaderName: 'authorization',
     tokenPrefix: 'Bearer',
+    csrfExemptSessionTypes: [],
+    refreshTokenBindingExemptSessionTypes: [],
   },
 } satisfies Omit<AuthConfig, 'tokenExpiry'>;
 

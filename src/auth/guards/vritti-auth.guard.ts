@@ -23,7 +23,6 @@ interface FastifyInstanceWithCsrf {
 }
 
 type PatchableReply = { send: (...args: unknown[]) => unknown };
-const MOBILE_SESSION_TYPE = 'MOBILE';
 
 @Injectable({ scope: Scope.REQUEST })
 export class VrittiAuthGuard implements CanActivate {
@@ -74,7 +73,8 @@ export class VrittiAuthGuard implements CanActivate {
 
     const sessionType = await this.handleHttpAuth(request, requiredSessionTypes);
 
-    if (!skipCsrf && sessionType !== MOBILE_SESSION_TYPE) {
+    const csrfExemptSessionTypes = this.config.guard.csrfExemptSessionTypes ?? [];
+    if (!skipCsrf && !csrfExemptSessionTypes.includes(sessionType)) {
       await this.validateCsrf(request, reply);
     }
 
@@ -93,12 +93,15 @@ export class VrittiAuthGuard implements CanActivate {
 
     const decoded = this.tokenService.validateAccessToken(accessToken);
 
-    // Validate refresh token binding
-    const refreshToken = this.requestService.getRefreshToken();
-    if (!refreshToken) {
-      throw new UnauthorizedException('Session validation failed');
+    const refreshTokenBindingExemptSessionTypes = this.config.guard.refreshTokenBindingExemptSessionTypes ?? [];
+
+    if (!refreshTokenBindingExemptSessionTypes.includes(decoded.sessionType)) {
+      const refreshToken = this.requestService.getRefreshToken();
+      if (!refreshToken) {
+        throw new UnauthorizedException('Session validation failed');
+      }
+      this.tokenService.validateTokenBinding(decoded, refreshToken);
     }
-    this.tokenService.validateTokenBinding(decoded, refreshToken);
 
     // Validate session type access (only if @RequireSession specifies types)
     if (requiredSessionTypes?.length && !requiredSessionTypes.includes(decoded.sessionType)) {
