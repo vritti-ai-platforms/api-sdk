@@ -353,8 +353,8 @@ export abstract class PrimaryBaseRepository<
     if (parsedValues && parsedValues.length > 0) {
       const selectCols: Record<string, PgColumn | SQL> = { value: valueCol, label: labelCol };
       if (descriptionCol) selectCols.description = descriptionCol;
-      if (config.groupId) {
-        const groupIdCol = tableColumns[config.groupId];
+      if (config.groupIdKey) {
+        const groupIdCol = resolveColumn(config.groupIdKey);
         if (groupIdCol) selectCols.groupId = groupIdCol;
       }
       for (const entry of additionalEntries) {
@@ -382,7 +382,7 @@ export abstract class PrimaryBaseRepository<
           value: row.value,
           label: String(row.label),
           ...(descriptionCol && row.description != null ? { description: String(row.description) } : {}),
-          ...(config.groupId && row.groupId != null ? { groupId: row.groupId } : {}),
+          ...(config.groupIdKey && row.groupId != null ? { groupId: row.groupId } : {}),
           ...(additionalEntries.length > 0
             ? {
                 additionals: additionalEntries.reduce<Record<string, string | number | boolean | null>>((acc, entry) => {
@@ -411,8 +411,8 @@ export abstract class PrimaryBaseRepository<
       totalCount: sql<number>`count(*) over()`.mapWith(Number),
     };
     if (descriptionCol) selectFields.description = descriptionCol;
-    if (config.groupId) {
-      const groupIdCol = tableColumns[config.groupId];
+    if (config.groupIdKey) {
+      const groupIdCol = resolveColumn(config.groupIdKey);
       if (groupIdCol) selectFields.groupId = groupIdCol;
     }
     for (const entry of additionalEntries) {
@@ -465,8 +465,8 @@ export abstract class PrimaryBaseRepository<
     }
 
     const orderClauses: SQL[] = [];
-    if (config.groupId) {
-      const groupIdCol = tableColumns[config.groupId];
+    if (config.groupIdKey) {
+      const groupIdCol = resolveColumn(config.groupIdKey);
       if (groupIdCol) orderClauses.push(asc(groupIdCol));
     }
     orderClauses.push(orderDirection === 'desc' ? desc(orderByCol) : asc(orderByCol));
@@ -484,7 +484,7 @@ export abstract class PrimaryBaseRepository<
       value: row.value,
       label: String(row.label),
       ...(descriptionCol && row.description != null ? { description: String(row.description) } : {}),
-      ...(config.groupId && row.groupId != null ? { groupId: row.groupId } : {}),
+      ...(config.groupIdKey && row.groupId != null ? { groupId: row.groupId } : {}),
       ...(additionalEntries.length > 0
         ? {
             additionals: additionalEntries.reduce<Record<string, string | number | boolean | null>>((acc, entry) => {
@@ -505,9 +505,9 @@ export abstract class PrimaryBaseRepository<
     // Auto-resolve groups from groupTable when provided
     let resolvedGroups = config.groups;
 
-    if (config.groupTable && config.groupId) {
+    if (config.groupTable && config.groupIdKey) {
       const groupTableColumns = config.groupTable as unknown as Record<string, PgColumn>;
-      const groupIdKey = config.groupIdKey ?? 'id';
+      const groupIdKey = config.groupTableIdKey ?? 'id';
       const groupNameKey = config.groupLabelKey ?? 'name';
       const groupIdCol = groupTableColumns[groupIdKey];
       if (!groupIdCol) throw new Error(`Column '${groupIdKey}' not found in group table`);

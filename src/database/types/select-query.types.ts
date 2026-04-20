@@ -32,7 +32,7 @@ export interface FindForSelectConfig {
   label: string;
   description?: string;
   additionalKeys?: string | string[];
-  groupId?: string;
+  groupIdKey?: string;
   search?: string;
   limit?: number;
   offset?: number;
@@ -45,7 +45,7 @@ export interface FindForSelectConfig {
   excludeIds?: string | (string | number | boolean)[];
   groupTable?: PgTable;
   groupLabelKey?: string;
-  groupIdKey?: string;
+  groupTableIdKey?: string;
   // Optional JOINs on the base table
   joins?: FindForSelectJoin[];
   // Additional raw SQL conditions (for joined table columns)
