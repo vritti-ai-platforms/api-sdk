@@ -11,6 +11,9 @@ importers:
       '@getbrevo/brevo':
         specifier: ^4.0.1
         version: 4.0.1
+      dinero.js:
+        specifier: 2.0.2
+        version: 2.0.2
       drizzle-orm:
         specifier: 1.0.0-beta.20
         version: 1.0.0-beta.20(@electric-sql/pglite@0.3.2)(@types/mssql@9.1.8)(@types/pg@8.16.0)(mssql@11.0.1)(mysql2@3.15.3)(pg@8.16.3)(postgres@3.4.7)(valibot@1.2.0(typescript@5.9.3))
@@ -1011,6 +1014,10 @@ packages:
   dequal@2.0.3:
     resolution: {integrity: sha512-0je+qPKHEMohvfRTCEo3CrPG6cAzAYgmzKyxRiYSSDkS6eGJdyVJm7WaYA5ECaAD9wLB2T4EEeymA5aFVcYXCA==}
     engines: {node: '>=6'}
+
+  dinero.js@2.0.2:
+    resolution: {integrity: sha512-d+4egJTvNinkb66KSed11Daqz6MWaOHzyalLu6h3p+BLrsmwKFjHjvOKivOWeM7WyoX89te+xx4cKI6zrDtCfQ==}
+    engines: {node: '>=20.0.0'}
 
   dotenv-expand@10.0.0:
     resolution: {integrity: sha512-GopVGCpVS1UKH75VKHGuQFqS1Gusej0z4FyQkPdwjil2gNIv+LNsqBlboOzpJFZKVT95GkCyWJbBSdFEFUWI2A==}
@@ -2725,6 +2732,8 @@ snapshots:
   denque@2.1.0: {}
 
   dequal@2.0.3: {}
+
+  dinero.js@2.0.2: {}
 
   dotenv-expand@10.0.0: {}
 
