@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, Scope } from '@nestjs/common';
+import { Inject, Injectable, Scope } from '@nestjs/common';
 import { REQUEST } from '@nestjs/core';
 import type { ClientProxy } from '@nestjs/microservices';
 import { NatsRecordBuilder } from '@nestjs/microservices';
@@ -12,7 +12,6 @@ export const NATS_CLIENTS = Symbol('NATS_CLIENTS');
 
 @Injectable({ scope: Scope.REQUEST })
 export class NatsClientService {
-  private readonly logger = new Logger(NatsClientService.name);
   private cachedContext: NatsHeaders | null = null;
 
   constructor(
@@ -25,7 +24,9 @@ export class NatsClientService {
   async send<T>(service: string, cmd: string, data?: object): Promise<T> {
     const client = this.clients.get(service);
     if (!client) {
-      throw new Error(`NATS service "${service}" is not registered. Available: [${[...this.clients.keys()].join(', ')}]`);
+      throw new Error(
+        `NATS service "${service}" is not registered. Available: [${[...this.clients.keys()].join(', ')}]`,
+      );
     }
 
     if (!this.cachedContext) {

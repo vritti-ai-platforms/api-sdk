@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { ClientProxy } from '@nestjs/microservices';
 import { NatsRecordBuilder } from '@nestjs/microservices';
 import { NATS_HEADER_KEYS, type NatsHeaders } from './nats-context';
@@ -7,17 +7,15 @@ export const NATS_MS_CLIENTS = Symbol('NATS_MS_CLIENTS');
 
 @Injectable()
 export class NatsMicroserviceClientService {
-  private readonly logger = new Logger(NatsMicroserviceClientService.name);
-
-  constructor(
-    @Inject(NATS_MS_CLIENTS) private readonly clients: Map<string, ClientProxy>,
-  ) {}
+  constructor(@Inject(NATS_MS_CLIENTS) private readonly clients: Map<string, ClientProxy>) {}
 
   // Forwards a message to another microservice with NatsHeaders
   async send<T>(service: string, cmd: string, natsHeaders: NatsHeaders, data?: object): Promise<T> {
     const client = this.clients.get(service);
     if (!client) {
-      throw new Error(`NATS service "${service}" is not registered. Available: [${[...this.clients.keys()].join(', ')}]`);
+      throw new Error(
+        `NATS service "${service}" is not registered. Available: [${[...this.clients.keys()].join(', ')}]`,
+      );
     }
 
     const headers: Record<string, string> = {
