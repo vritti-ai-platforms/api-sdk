@@ -79,7 +79,7 @@ export type {
   SelectQueryResult,
 } from './database/types';
 export { IsCurrencyCode } from './decorators/is-currency-code.decorator';
-export { IsZonedIsoDateString } from './decorators/is-zoned-iso-date-string.decorator';
+export { IsDateTime } from './decorators/is-date-time.decorator';
 // Decorators
 export { UploadedFile, type UploadedFileResult, UploadedFiles } from './decorators/uploaded-file.decorator';
 // Email module
