@@ -49,6 +49,7 @@ function contextToHeaders(ctx: NatsHeaders): import('nats').MsgHdrs {
   hdrs.set(NATS_HEADER_KEYS.ORG_ID, ctx.orgId);
   hdrs.set(NATS_HEADER_KEYS.USER_ID, ctx.userId);
   hdrs.set(NATS_HEADER_KEYS.BU_ID, ctx.buId);
+  hdrs.set(NATS_HEADER_KEYS.BU_TIMEZONE, ctx.buTimezone);
   hdrs.set(NATS_HEADER_KEYS.BU_ANCESTOR_IDS, JSON.stringify(ctx.buAncestorIds));
   hdrs.set(NATS_HEADER_KEYS.BU_DESCENDANT_IDS, JSON.stringify(ctx.buDescendantIds));
   return hdrs;

@@ -2,6 +2,7 @@ export interface NatsHeaders {
   orgId: string;
   userId: string;
   buId: string;
+  buTimezone: string;
   buAncestorIds: string[];
   buDescendantIds: string[];
 }
@@ -11,6 +12,7 @@ export const NATS_HEADER_KEYS = {
   ORG_ID: 'x-org-id',
   USER_ID: 'x-user-id',
   BU_ID: 'x-bu-id',
+  BU_TIMEZONE: 'x-bu-timezone',
   BU_ANCESTOR_IDS: 'x-bu-ancestor-ids',
   BU_DESCENDANT_IDS: 'x-bu-descendant-ids',
 } as const;
@@ -40,6 +42,7 @@ export function parseNatsHeaders(headers: unknown): NatsHeaders | null {
     orgId,
     userId,
     buId,
+    buTimezone: getHeader(headers, NATS_HEADER_KEYS.BU_TIMEZONE) || 'UTC',
     buAncestorIds: JSON.parse(getHeader(headers, NATS_HEADER_KEYS.BU_ANCESTOR_IDS) || '[]'),
     buDescendantIds: JSON.parse(getHeader(headers, NATS_HEADER_KEYS.BU_DESCENDANT_IDS) || '[]'),
   };
