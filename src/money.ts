@@ -357,7 +357,7 @@ export const SUPPORTED_CURRENCIES = {
 } as const;
 
 export type CurrencyCode = keyof typeof SUPPORTED_CURRENCIES;
-type Currency = (typeof SUPPORTED_CURRENCIES)[CurrencyCode];
+export type Currency = (typeof SUPPORTED_CURRENCIES)[CurrencyCode];
 
 export type MinorToMajorTransform<TOutput> = (props: { value: string; currency: Currency }) => TOutput;
 

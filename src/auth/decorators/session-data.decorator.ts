@@ -9,19 +9,17 @@ export interface SessionInfo {
 }
 
 // Returns full decoded session info from request.sessionInfo (set by VrittiAuthGuard)
-export const SessionData = createParamDecorator(
-  (_data: unknown, ctx: ExecutionContext): SessionInfo => {
-    const request = ctx.switchToHttp().getRequest<FastifyRequest>();
-    const sessionInfo = request.sessionInfo;
+export const SessionData = createParamDecorator((_data: unknown, ctx: ExecutionContext): SessionInfo => {
+  const request = ctx.switchToHttp().getRequest<FastifyRequest>();
+  const sessionInfo = request.sessionInfo;
 
-    if (!sessionInfo?.sessionId) {
-      throw new Error('Session info not found on request. Ensure route is protected by auth guard.');
-    }
+  if (!sessionInfo?.sessionId) {
+    throw new Error('Session info not found on request. Ensure route is protected by auth guard.');
+  }
 
-    return {
-      userId: sessionInfo.userId,
-      sessionId: sessionInfo.sessionId,
-      sessionType: sessionInfo.sessionType,
-    };
-  },
-);
+  return {
+    userId: sessionInfo.userId,
+    sessionId: sessionInfo.sessionId,
+    sessionType: sessionInfo.sessionType,
+  };
+});

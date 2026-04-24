@@ -2,7 +2,14 @@ import { defineConfig } from 'tsup';
 
 export default defineConfig({
   // Entry points
-  entry: ['src/index.ts', 'src/drizzle-orm.ts', 'src/drizzle-pg-core.ts', 'src/xlsx.ts', 'src/lodash.ts', 'src/money.ts'],
+  entry: [
+    'src/index.ts',
+    'src/drizzle-orm.ts',
+    'src/drizzle-pg-core.ts',
+    'src/xlsx.ts',
+    'src/lodash.ts',
+    'src/money.ts',
+  ],
 
   // Output formats
   format: ['cjs', 'esm'],
@@ -43,7 +50,17 @@ export default defineConfig({
   keepNames: true,
 
   // External dependencies - don't bundle peer dependencies or optional Prisma clients
-  external: ['@nestjs/common', '@nestjs/core', '@nestjs/swagger', 'class-transformer', 'class-validator', 'reflect-metadata', 'rxjs', '@prisma/client', '@prisma/cloud-client'],
+  external: [
+    '@nestjs/common',
+    '@nestjs/core',
+    '@nestjs/swagger',
+    'class-transformer',
+    'class-validator',
+    'reflect-metadata',
+    'rxjs',
+    '@prisma/client',
+    '@prisma/cloud-client',
+  ],
 
   // Platform configuration for Node.js
   platform: 'node',

@@ -1,19 +1,4 @@
-import {
-  and,
-  asc,
-  type Column,
-  desc,
-  eq,
-  gt,
-  gte,
-  ilike,
-  lt,
-  lte,
-  ne,
-  notIlike,
-  or,
-  type SQL,
-} from 'drizzle-orm';
+import { and, asc, type Column, desc, eq, gt, gte, ilike, lt, lte, ne, notIlike, or, type SQL } from 'drizzle-orm';
 import type { FilterCondition, SearchState, SortCondition } from './filter.types';
 
 export type FieldDefinition =
@@ -63,7 +48,10 @@ export class FilterProcessor {
 
     if (search.columnId === 'all') {
       const conditions = Object.values(fieldMap)
-        .filter((def): def is { column: Column; type: 'string' | 'number' | 'boolean' } => 'column' in def && def.type === 'string')
+        .filter(
+          (def): def is { column: Column; type: 'string' | 'number' | 'boolean' } =>
+            'column' in def && def.type === 'string',
+        )
         .map((def) => ilike(def.column, `%${search.value}%`));
       return conditions.length ? or(...conditions) : undefined;
     }

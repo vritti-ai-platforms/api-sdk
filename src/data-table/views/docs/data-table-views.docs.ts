@@ -55,7 +55,8 @@ export function ApiRenameDataTableView() {
   return applyDecorators(
     ApiOperation({
       summary: 'Rename a named table view',
-      description: 'Updates the display name of an existing view. The new name must be unique per user+table. Only the owner can rename.',
+      description:
+        'Updates the display name of an existing view. The new name must be unique per user+table. Only the owner can rename.',
     }),
     ApiParam({ name: 'id', description: 'UUID of the table view to rename' }),
     ApiBody({ type: RenameDataTableViewDto }),
@@ -71,7 +72,8 @@ export function ApiToggleShareDataTableView() {
   return applyDecorators(
     ApiOperation({
       summary: 'Toggle view sharing',
-      description: 'Makes a view visible to all users (shared) or restricts it to the owner only (private). Only the owner can toggle sharing.',
+      description:
+        'Makes a view visible to all users (shared) or restricts it to the owner only (private). Only the owner can toggle sharing.',
     }),
     ApiParam({ name: 'id', description: 'UUID of the table view' }),
     ApiBody({ type: ToggleShareDataTableViewDto }),

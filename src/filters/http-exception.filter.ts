@@ -1,4 +1,11 @@
-import { type ArgumentsHost, Catch, type ExceptionFilter, type HttpException, HttpStatus, Logger } from '@nestjs/common';
+import {
+  type ArgumentsHost,
+  Catch,
+  type ExceptionFilter,
+  type HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { ApiErrorResponse, FieldError } from '../types/error-response.types';
 

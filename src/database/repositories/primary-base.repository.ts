@@ -385,17 +385,25 @@ export abstract class PrimaryBaseRepository<
           ...(config.groupIdKey && row.groupId != null ? { groupId: row.groupId } : {}),
           ...(additionalEntries.length > 0
             ? {
-                additionals: additionalEntries.reduce<Record<string, string | number | boolean | null>>((acc, entry) => {
-                  const value = (row as unknown as Record<string, unknown>)[additionalAlias(entry.key)];
-                  if (value !== undefined) {
-                    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null) {
-                      acc[entry.key] = value;
-                    } else {
-                      acc[entry.key] = String(value);
+                additionals: additionalEntries.reduce<Record<string, string | number | boolean | null>>(
+                  (acc, entry) => {
+                    const value = (row as unknown as Record<string, unknown>)[additionalAlias(entry.key)];
+                    if (value !== undefined) {
+                      if (
+                        typeof value === 'string' ||
+                        typeof value === 'number' ||
+                        typeof value === 'boolean' ||
+                        value === null
+                      ) {
+                        acc[entry.key] = value;
+                      } else {
+                        acc[entry.key] = String(value);
+                      }
                     }
-                  }
-                  return acc;
-                }, {}),
+                    return acc;
+                  },
+                  {},
+                ),
               }
             : {}),
         })),
@@ -490,7 +498,12 @@ export abstract class PrimaryBaseRepository<
             additionals: additionalEntries.reduce<Record<string, string | number | boolean | null>>((acc, entry) => {
               const value = (row as unknown as Record<string, unknown>)[additionalAlias(entry.key)];
               if (value !== undefined) {
-                if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null) {
+                if (
+                  typeof value === 'string' ||
+                  typeof value === 'number' ||
+                  typeof value === 'boolean' ||
+                  value === null
+                ) {
                   acc[entry.key] = value;
                 } else {
                   acc[entry.key] = String(value);

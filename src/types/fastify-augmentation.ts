@@ -14,5 +14,3 @@ declare module 'fastify' {
     cookies?: Record<string, string>;
   }
 }
-
-export type {};

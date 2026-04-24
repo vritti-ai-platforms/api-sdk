@@ -37,7 +37,14 @@ export class TokenService {
   generateAccessToken(sessionInfo: SessionInfo, refreshToken: string): string {
     const { userId, sessionId, sessionType, ...metadata } = sessionInfo;
     return this.jwtService.sign(
-      { sessionType, tokenType: TokenType.ACCESS, userId, sessionId, refreshTokenHash: hashToken(refreshToken), ...metadata },
+      {
+        sessionType,
+        tokenType: TokenType.ACCESS,
+        userId,
+        sessionId,
+        refreshTokenHash: hashToken(refreshToken),
+        ...metadata,
+      },
       { expiresIn: this.config.tokenExpiry.access },
     );
   }

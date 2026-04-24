@@ -2,8 +2,15 @@ import { type BookType, utils, write } from 'xlsx';
 
 export type ExportFormat = 'xlsx' | 'xls' | 'csv' | 'tsv' | 'ods';
 
-const FORMAT_CONFIG: Record<ExportFormat, { bookType: BookType; mimeType: string; ext: string; opts?: Record<string, unknown> }> = {
-  xlsx: { bookType: 'xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', ext: 'xlsx' },
+const FORMAT_CONFIG: Record<
+  ExportFormat,
+  { bookType: BookType; mimeType: string; ext: string; opts?: Record<string, unknown> }
+> = {
+  xlsx: {
+    bookType: 'xlsx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ext: 'xlsx',
+  },
   xls: { bookType: 'biff8', mimeType: 'application/vnd.ms-excel', ext: 'xls' },
   csv: { bookType: 'csv', mimeType: 'text/csv', ext: 'csv' },
   tsv: { bookType: 'csv', mimeType: 'text/tab-separated-values', ext: 'tsv', opts: { FS: '\t' } },

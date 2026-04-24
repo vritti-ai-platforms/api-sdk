@@ -1,1 +1,1 @@
-export { type ExportFormat, buildExportBuffer, getExportExt, getExportMimeType } from './utils/export.utils';
+export { buildExportBuffer, type ExportFormat, getExportExt, getExportMimeType } from './utils/export.utils';

@@ -35,8 +35,8 @@ export class NatsClientModule implements OnModuleDestroy {
         options: { servers: [natsUrl] },
       });
       clients.set(svc.name, proxy);
-      this.allClients.push(proxy);
-      this.logger.log(`Registered NATS client: ${svc.name} → ${natsUrl}`);
+      NatsClientModule.allClients.push(proxy);
+      NatsClientModule.logger.log(`Registered NATS client: ${svc.name} → ${natsUrl}`);
     }
 
     return clients;

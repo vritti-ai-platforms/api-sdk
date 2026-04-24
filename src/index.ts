@@ -78,10 +78,12 @@ export type {
   SelectQueryOption,
   SelectQueryResult,
 } from './database/types';
+export { IsCurrency } from './decorators/is-currency.decorator';
 export { IsCurrencyCode } from './decorators/is-currency-code.decorator';
 export { IsDateTime } from './decorators/is-date-time.decorator';
 // Decorators
 export { UploadedFile, type UploadedFileResult, UploadedFiles } from './decorators/uploaded-file.decorator';
+export { CurrencyAmountDto } from './dto/currency-amount.dto';
 // Email module
 export { EmailModule } from './email/email.module';
 export { EmailService } from './email/email.service';
@@ -91,6 +93,8 @@ export * from './exceptions';
 export * from './filters';
 // Logger utilities
 export * from './logger';
+export { majorToMinor, minorToMajor, SUPPORTED_CURRENCIES } from './money';
+export type { Currency, CurrencyCode } from './money';
 export type {
   ContextResolverFn,
   NatsHeaders,
