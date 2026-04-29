@@ -1,9 +1,9 @@
-export type FilterOperator = 'equals' | 'notEquals' | 'contains' | 'notContains' | 'gt' | 'gte' | 'lt' | 'lte';
+export type FilterOperator = 'equals' | 'notEquals' | 'contains' | 'notContains' | 'gt' | 'gte' | 'lt' | 'lte' | 'isAnyOf' | 'isNotAnyOf';
 
 export interface FilterCondition {
   field: string;
   operator: FilterOperator;
-  value: string | number;
+  value: string | number | string[];
 }
 
 export interface SortCondition {

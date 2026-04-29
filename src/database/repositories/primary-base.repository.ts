@@ -200,11 +200,28 @@ export abstract class PrimaryBaseRepository<
     leftJoins?: { table: PgTable; on: SQL | undefined }[];
     groupBy?: (PgColumn | SQL)[];
   }): Promise<{ result: TResult[]; count: number }> {
-    const [count, result] = await Promise.all([
-      this.count(options?.where),
+    // Count query mirrors the same JOINs so WHERE clauses on joined columns are valid
+    let countQuery = this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(this.table as PgTable)
+      .$dynamic();
+    if (options?.leftJoin) {
+      countQuery = countQuery.leftJoin(options.leftJoin.table, options.leftJoin.on) as typeof countQuery;
+    }
+    if (options?.leftJoins) {
+      for (const join of options.leftJoins) {
+        countQuery = countQuery.leftJoin(join.table, join.on) as typeof countQuery;
+      }
+    }
+    if (options?.where) {
+      countQuery = countQuery.where(options.where) as typeof countQuery;
+    }
+
+    const [countResult, result] = await Promise.all([
+      countQuery,
       this.buildSelectQuery(options) as unknown as Promise<TResult[]>,
     ]);
-    return { result, count };
+    return { result, count: (countResult[0] as { count: number }).count };
   }
 
   // Updates a record by ID and returns the updated record

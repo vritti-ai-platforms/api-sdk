@@ -1,4 +1,4 @@
-import { and, asc, type Column, desc, eq, gt, gte, ilike, lt, lte, ne, notIlike, or, type SQL } from 'drizzle-orm';
+import { and, asc, type Column, desc, eq, gt, gte, ilike, inArray, lt, lte, ne, notIlike, notInArray, or, type SQL } from 'drizzle-orm';
 import type { FilterCondition, SearchState, SortCondition } from './filter.types';
 
 export type FieldDefinition =
@@ -13,7 +13,7 @@ export class FilterProcessor {
       const def = fieldMap[f.field];
       if (!def) return []; // unknown field — skip (security whitelist)
       // Expression field — delegate SQL generation to the caller-supplied factory
-      if ('expression' in def) return [def.expression(f.value)];
+      if ('expression' in def) return Array.isArray(f.value) ? [] : [def.expression(f.value)];
       const { column: col } = def;
       const val = f.value;
       switch (f.operator) {
@@ -35,6 +35,10 @@ export class FilterProcessor {
           return [lt(col, val)];
         case 'lte':
           return [lte(col, val)];
+        case 'isAnyOf':
+          return [inArray(col, Array.isArray(val) ? val : [String(val)])];
+        case 'isNotAnyOf':
+          return [notInArray(col, Array.isArray(val) ? val : [String(val)])];
         default:
           return [];
       }
