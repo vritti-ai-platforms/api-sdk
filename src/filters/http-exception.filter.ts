@@ -59,22 +59,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let detail = 'Internal server error';
     let errors: FieldError[] = [];
 
-    if (this.isProblemLikeObject(exception)) {
-      const problemObj = exception as Record<string, unknown>;
-      const statusCandidate = problemObj.status ?? problemObj.statusCode;
-      if (typeof statusCandidate === 'number' && statusCandidate >= 400 && statusCandidate <= 599) {
-        status = statusCandidate;
-      }
-      type = typeof problemObj.type === 'string' ? problemObj.type : 'about:blank';
-      label = typeof problemObj.label === 'string' ? problemObj.label : undefined;
-      detail =
-        typeof problemObj.detail === 'string'
-          ? problemObj.detail
-          : typeof problemObj.message === 'string'
-            ? problemObj.message
-            : getHttpStatusTitle(status);
-      errors = Array.isArray(problemObj.errors) ? (problemObj.errors as FieldError[]) : [];
-    } else if (this.isHttpException(exception)) {
+    if (this.isHttpException(exception)) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
 
@@ -115,6 +100,21 @@ export class HttpExceptionFilter implements ExceptionFilter {
       } else if (typeof exceptionResponse === 'string') {
         detail = exceptionResponse;
       }
+    } else if (this.isProblemLikeObject(exception)) {
+      const problemObj = exception as Record<string, unknown>;
+      const statusCandidate = problemObj.status ?? problemObj.statusCode;
+      if (typeof statusCandidate === 'number' && statusCandidate >= 400 && statusCandidate <= 599) {
+        status = statusCandidate;
+      }
+      type = typeof problemObj.type === 'string' ? problemObj.type : 'about:blank';
+      label = typeof problemObj.label === 'string' ? problemObj.label : undefined;
+      detail =
+        typeof problemObj.detail === 'string'
+          ? problemObj.detail
+          : typeof problemObj.message === 'string'
+            ? problemObj.message
+            : getHttpStatusTitle(status);
+      errors = Array.isArray(problemObj.errors) ? (problemObj.errors as FieldError[]) : [];
     } else if (this.isAxiosError(exception)) {
       // Outgoing HTTP call failures (e.g., service-to-service calls)
       const axiosStatus = exception.response?.status;
