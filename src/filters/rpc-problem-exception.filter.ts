@@ -33,12 +33,18 @@ export class RpcProblemExceptionFilter {
     }
 
     if (exception instanceof Error) {
-      this.logger.error(exception.message, exception.stack);
+      const cause = (exception as { cause?: unknown }).cause;
+      const causeMessage = cause instanceof Error ? cause.message : undefined;
+      const causeStack = cause instanceof Error ? cause.stack : undefined;
+      this.logger.error(causeMessage ?? exception.message, causeStack ?? exception.stack);
+      if (cause && cause !== exception) {
+        this.logger.error(`Wrapped by: ${exception.message}`);
+      }
       return throwError(() =>
         this.toProblemPayload(
           {
             type: 'about:blank',
-            detail: exception.message,
+            detail: causeMessage ?? exception.message,
             errors: [],
           },
           HttpStatus.INTERNAL_SERVER_ERROR,

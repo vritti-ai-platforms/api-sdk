@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import {
   Inject,
   Injectable,
@@ -18,6 +19,8 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
 
   private pool: Pool | null = null;
   private db: TypedDrizzleClient | null = null;
+  // Per-request pinned drizzle client (one PoolClient checked out for the whole request)
+  private readonly als = new AsyncLocalStorage<TypedDrizzleClient>();
 
   constructor(
     @Inject(DATABASE_MODULE_OPTIONS)
@@ -65,8 +68,11 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  // Returns the initialized Drizzle client
+  // Returns the active Drizzle client — request-pinned client when inside runWithPinnedConnection,
+  // otherwise the pool-backed singleton (each query checks out a different connection)
   get drizzleClient(): TypedDrizzleClient {
+    const pinned = this.als.getStore();
+    if (pinned) return pinned;
     if (!this.db) {
       throw new Error('Primary database client not initialized');
     }
@@ -76,6 +82,21 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
   // Returns the Drizzle schema passed in module options
   get schema(): typeof this.options.drizzleSchema {
     return this.options.drizzleSchema;
+  }
+
+  // Runs `fn` inside a single transaction. All repository queries via drizzleClient
+  // automatically use the transaction's pinned connection, ensuring per-connection
+  // session state (e.g. SET LOCAL app.org_id for RLS) stays valid for every query
+  // in the request and is discarded at commit/rollback.
+  async runWithPinnedConnection<T>(fn: () => Promise<T>): Promise<T> {
+    if (!this.db) {
+      throw new Error('Primary database client not initialized');
+    }
+    if (this.als.getStore()) {
+      // Nested call — reuse existing pinned client (avoids nested transactions)
+      return fn();
+    }
+    return this.db.transaction(async (tx) => this.als.run(tx as TypedDrizzleClient, fn));
   }
 
   async onModuleDestroy() {
