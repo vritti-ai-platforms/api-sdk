@@ -200,25 +200,54 @@ export abstract class PrimaryBaseRepository<
     leftJoins?: { table: PgTable; on: SQL | undefined }[];
     groupBy?: (PgColumn | SQL)[];
   }): Promise<{ result: TResult[]; count: number }> {
-    // Count query mirrors the same JOINs so WHERE clauses on joined columns are valid
-    let countQuery = this.db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(this.table as PgTable)
-      .$dynamic();
-    if (options?.leftJoin) {
-      countQuery = countQuery.leftJoin(options.leftJoin.table, options.leftJoin.on) as typeof countQuery;
-    }
-    if (options?.leftJoins) {
-      for (const join of options.leftJoins) {
-        countQuery = countQuery.leftJoin(join.table, join.on) as typeof countQuery;
+    let countResultPromise: Promise<{ count: number }[]>;
+
+    if (options?.groupBy?.length) {
+      // When groupBy is active, wrap the grouped query in a subquery so we count
+      // distinct groups rather than raw join rows.
+      let subq = this.db
+        .select({ _: sql`1` })
+        .from(this.table as PgTable)
+        .$dynamic();
+      if (options.leftJoin) {
+        subq = subq.leftJoin(options.leftJoin.table, options.leftJoin.on) as typeof subq;
       }
-    }
-    if (options?.where) {
-      countQuery = countQuery.where(options.where) as typeof countQuery;
+      if (options.leftJoins) {
+        for (const join of options.leftJoins) {
+          subq = subq.leftJoin(join.table, join.on) as typeof subq;
+        }
+      }
+      if (options.where) {
+        subq = subq.where(options.where) as typeof subq;
+      }
+      subq = subq.groupBy(...options.groupBy) as typeof subq;
+
+      const named = subq.as('_count_subq');
+      countResultPromise = this.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(named) as unknown as Promise<{ count: number }[]>;
+    } else {
+      // Count query mirrors the same JOINs so WHERE clauses on joined columns are valid
+      let countQuery = this.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(this.table as PgTable)
+        .$dynamic();
+      if (options?.leftJoin) {
+        countQuery = countQuery.leftJoin(options.leftJoin.table, options.leftJoin.on) as typeof countQuery;
+      }
+      if (options?.leftJoins) {
+        for (const join of options.leftJoins) {
+          countQuery = countQuery.leftJoin(join.table, join.on) as typeof countQuery;
+        }
+      }
+      if (options?.where) {
+        countQuery = countQuery.where(options.where) as typeof countQuery;
+      }
+      countResultPromise = countQuery as unknown as Promise<{ count: number }[]>;
     }
 
     const [countResult, result] = await Promise.all([
-      countQuery,
+      countResultPromise,
       this.buildSelectQuery(options) as unknown as Promise<TResult[]>,
     ]);
     return { result, count: (countResult[0] as { count: number }).count };
