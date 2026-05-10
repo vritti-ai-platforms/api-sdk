@@ -326,9 +326,11 @@ export abstract class PrimaryBaseRepository<
     return count > 0;
   }
 
-  // Executes the callback within a database transaction
+  // Executes the callback within a database transaction. Routes through PrimaryDatabaseService so
+  // the RLS context from AsyncLocalStorage is applied once at BEGIN and queries inside `callback`
+  // (whether they use the passed tx arg or `this.db` via ALS) all participate in the same txn.
   async transaction<T>(callback: (tx: TypedDrizzleClient) => Promise<T>): Promise<T> {
-    return this.db.transaction(callback as Parameters<TypedDrizzleClient['transaction']>[0]) as Promise<T>;
+    return this.database.runInTransaction(async () => callback(this.database.drizzleClient));
   }
 
   // Finds records formatted as select dropdown options with optional search, pagination, and grouping
