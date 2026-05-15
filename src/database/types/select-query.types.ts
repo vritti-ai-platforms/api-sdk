@@ -32,6 +32,7 @@ export interface FindForSelectConfig {
   label: string;
   description?: string;
   additionalKeys?: string | string[];
+  additionalExpressions?: Record<string, SQL>;
   groupIdKey?: string;
   search?: string;
   limit?: number;

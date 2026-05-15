@@ -369,10 +369,6 @@ export abstract class PrimaryBaseRepository<
         : (config.excludeIds ?? []);
 
     const tableColumns = this.table as unknown as Record<string, PgColumn>;
-    const valueCol = tableColumns[config.value];
-    if (!valueCol) throw new Error(`Column '${config.value}' not found in table '${this.tableName}'`);
-    const labelCol = tableColumns[config.label];
-    if (!labelCol) throw new Error(`Column '${config.label}' not found in table '${this.tableName}'`);
 
     const joinTables = config.joins?.map((join) => join.table as unknown as Record<string, PgColumn>) ?? [];
     const resolveColumn = (key: string): PgColumn | undefined => {
@@ -383,7 +379,12 @@ export abstract class PrimaryBaseRepository<
       return undefined;
     };
 
-    // Resolve optional description column (checks main table first, then joined tables)
+    const valueCol = resolveColumn(config.value);
+    if (!valueCol) throw new Error(`Column '${config.value}' not found in table '${this.tableName}' or its joins`);
+
+    const labelCol = resolveColumn(config.label);
+    if (!labelCol) throw new Error(`Column '${config.label}' not found in table '${this.tableName}' or its joins`);
+
     const descriptionCol = config.description ? resolveColumn(config.description) : undefined;
 
     const parseKeys = (input?: string | string[]): string[] => {
@@ -392,9 +393,12 @@ export abstract class PrimaryBaseRepository<
       return values.map((v) => v.trim()).filter(Boolean);
     };
     const additionalKeys = parseKeys(config.additionalKeys);
-    const additionalEntries = additionalKeys
-      .map((key) => ({ key, column: resolveColumn(key) }))
-      .filter((entry): entry is { key: string; column: PgColumn } => Boolean(entry.column));
+    const additionalEntries: { key: string; expr: PgColumn | SQL }[] = [
+      ...additionalKeys
+        .map((key) => ({ key, expr: resolveColumn(key) as PgColumn | undefined }))
+        .filter((e): e is { key: string; expr: PgColumn } => Boolean(e.expr)),
+      ...Object.entries(config.additionalExpressions ?? {}).map(([key, expr]) => ({ key, expr })),
+    ];
     const additionalAlias = (key: string) => `__additional_${key}`;
 
     // When values are provided, fetch those specific options by value (skip search/pagination)
@@ -406,7 +410,7 @@ export abstract class PrimaryBaseRepository<
         if (groupIdCol) selectCols.groupId = groupIdCol;
       }
       for (const entry of additionalEntries) {
-        selectCols[additionalAlias(entry.key)] = entry.column;
+        selectCols[additionalAlias(entry.key)] = entry.expr;
       }
 
       let valuesQuery = selectFn(selectCols as SelectedFields)
@@ -472,7 +476,7 @@ export abstract class PrimaryBaseRepository<
       if (groupIdCol) selectFields.groupId = groupIdCol;
     }
     for (const entry of additionalEntries) {
-      selectFields[additionalAlias(entry.key)] = entry.column;
+      selectFields[additionalAlias(entry.key)] = entry.expr;
     }
 
     const conditions: SQL[] = [];
