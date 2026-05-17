@@ -112,6 +112,8 @@ export { NatsMicroserviceClientService } from './nats/nats-microservice-client.s
 export { RootModule } from './root/root.module';
 // RFC 7807 Types (using named exports to avoid conflicts)
 export type { ApiErrorResponse, ProblemDetails } from './types';
+// Math utilities
+export { gcd } from './utils/math.utils';
 // Phone utilities
 export { extractCountryFromPhone, normalizePhoneNumber } from './utils/phone.utils';
 // Time utilities
