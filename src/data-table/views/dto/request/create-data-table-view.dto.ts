@@ -10,7 +10,7 @@ export class CreateDataTableViewDto {
 
   @ApiProperty({ description: 'Unique slug identifying the table', example: 'cloud-providers' })
   @IsString()
-  @MaxLength(100)
+  @MaxLength(200)
   tableSlug: string;
 
   @ApiProperty({ description: 'Full table view state including filters, sort, and column visibility' })
