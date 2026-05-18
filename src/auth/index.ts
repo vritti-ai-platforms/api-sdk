@@ -17,6 +17,7 @@ export * from './auth-config.module';
 export * from './decorators/access-token.decorator';
 export * from './decorators/cookie-domain.decorator';
 export * from './decorators/cookie-name.decorator';
+export * from './decorators/hostname.decorator';
 export * from './decorators/public.decorator';
 export * from './decorators/refresh-cookie-options.decorator';
 export * from './decorators/refresh-token-cookie.decorator';
