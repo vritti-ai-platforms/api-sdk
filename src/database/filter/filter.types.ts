@@ -1,5 +1,18 @@
 export type FilterOperator = 'equals' | 'notEquals' | 'contains' | 'notContains' | 'gt' | 'gte' | 'lt' | 'lte' | 'isAnyOf' | 'isNotAnyOf';
 
+export const FilterOperators = {
+  EQUALS: 'equals',
+  NOT_EQUALS: 'notEquals',
+  CONTAINS: 'contains',
+  NOT_CONTAINS: 'notContains',
+  GT: 'gt',
+  GTE: 'gte',
+  LT: 'lt',
+  LTE: 'lte',
+  IS_ANY_OF: 'isAnyOf',
+  IS_NOT_ANY_OF: 'isNotAnyOf',
+} as const satisfies Record<string, FilterOperator>;
+
 export interface FilterCondition {
   field: string;
   operator: FilterOperator;

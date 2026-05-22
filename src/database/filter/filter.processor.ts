@@ -1,9 +1,9 @@
 import { and, asc, type Column, desc, eq, gt, gte, ilike, inArray, lt, lte, ne, notIlike, notInArray, or, type SQL } from 'drizzle-orm';
-import type { FilterCondition, SearchState, SortCondition } from './filter.types';
+import type { FilterCondition, FilterOperator, SearchState, SortCondition } from './filter.types';
 
 export type FieldDefinition =
   | { column: Column; type: 'string' | 'number' | 'boolean' }
-  | { expression: (value: string | number) => SQL; type: 'string' | 'number' | 'boolean' };
+  | { expression: (value: string | number, operator: FilterOperator) => SQL; type: 'string' | 'number' | 'boolean' };
 export type FieldMap = Record<string, FieldDefinition>;
 
 export class FilterProcessor {
@@ -12,8 +12,8 @@ export class FilterProcessor {
     const conditions = filters.flatMap((f) => {
       const def = fieldMap[f.field];
       if (!def) return []; // unknown field — skip (security whitelist)
-      // Expression field — delegate SQL generation to the caller-supplied factory
-      if ('expression' in def) return Array.isArray(f.value) ? [] : [def.expression(f.value)];
+      // Expression field — delegate SQL generation to the caller-supplied factory (operator passed for custom handling)
+      if ('expression' in def) return Array.isArray(f.value) ? [] : [def.expression(f.value, f.operator)];
       const { column: col } = def;
       const val = f.value;
       switch (f.operator) {

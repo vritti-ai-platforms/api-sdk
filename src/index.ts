@@ -60,6 +60,7 @@ export type {
   SortCondition,
   TableViewState,
 } from './database/filter/filter.types';
+export { FilterOperators } from './database/filter/filter.types';
 // Interfaces
 export * from './database/interfaces';
 // Repositories
@@ -93,8 +94,8 @@ export * from './exceptions';
 export * from './filters';
 // Logger utilities
 export * from './logger';
-export { majorToMinor, minorToMajor, SUPPORTED_CURRENCIES } from './money';
 export type { Currency, CurrencyCode } from './money';
+export { majorToMinor, minorToMajor, SUPPORTED_CURRENCIES } from './money';
 export type {
   ContextResolverFn,
   NatsHeaders,
