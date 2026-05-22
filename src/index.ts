@@ -103,7 +103,7 @@ export type {
   NatsRootModuleAsyncOptions,
   NatsServiceConfig,
 } from './nats';
-export { RpcBuId, RpcNatsHeaders } from './nats/decorators/nats-headers.decorator';
+export { RpcBuCurrencyCode, RpcBuId, RpcNatsHeaders } from './nats/decorators/nats-headers.decorator';
 // NATS client module (gateway + microservice modes)
 export { NatsClientModule } from './nats/nats-client.module';
 export { NatsClientService } from './nats/nats-client.service';

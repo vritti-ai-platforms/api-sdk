@@ -1,4 +1,4 @@
-export { RpcBuId, RpcNatsHeaders } from './decorators/nats-headers.decorator';
+export { RpcBuCurrencyCode, RpcBuId, RpcNatsHeaders } from './decorators/nats-headers.decorator';
 export type {
   ContextResolverFn,
   NatsMicroserviceModuleAsyncOptions,
