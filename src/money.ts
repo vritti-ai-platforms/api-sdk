@@ -167,6 +167,7 @@ import {
   ZMW,
   ZWG,
 } from 'dinero.js/bigint/currencies';
+import { ValidationException } from './exceptions/validation.exception';
 
 export * from 'dinero.js/bigint';
 
@@ -380,13 +381,19 @@ export function minorToMajor<TOutput = string>(
   return toDecimal(amount, ({ value, currency: resolvedCurrency }) => transform({ value, currency: resolvedCurrency }));
 }
 
-export function majorToMinor(major: string, currencyCode: CurrencyCode): bigint {
+// Throws ValidationException (HTTP 422) instead of generic Error so the
+// NestJS error filter maps it to a field-level response automatically.
+// Callers pass `field` so the validation error binds to the right form field.
+export function majorToMinor(major: string, currencyCode: CurrencyCode, field = 'amount'): bigint {
   const { exponent } = resolveCurrency(currencyCode);
   const scale = typeof exponent === 'bigint' ? Number(exponent) : exponent;
   const trimmed = major.trim();
 
   if (!/^-?\d+(\.\d+)?$/.test(trimmed)) {
-    throw new Error(`Invalid major amount: ${major}`);
+    throw new ValidationException({
+      detail: `Invalid amount: "${major}".`,
+      errors: [{ field, message: 'Enter a valid number.' }],
+    });
   }
 
   const isNegative = trimmed.startsWith('-');
@@ -394,7 +401,10 @@ export function majorToMinor(major: string, currencyCode: CurrencyCode): bigint 
   const [wholePart, fractionalPart = ''] = unsignedValue.split('.');
 
   if (fractionalPart.length > scale) {
-    throw new Error(`Too many decimal places for ${currencyCode}. Maximum allowed is ${scale}.`);
+    throw new ValidationException({
+      detail: `Too many decimal places for ${currencyCode}. Maximum allowed is ${scale}.`,
+      errors: [{ field, message: `${currencyCode} allows up to ${scale} decimal place${scale === 1 ? '' : 's'}.` }],
+    });
   }
 
   const paddedFraction = fractionalPart.padEnd(scale, '0');
