@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { ApiErrorResponse, FieldError } from '../types/error-response.types';
+import { tryTranslatePgError } from './pg-error.translator';
 
 interface ProblemExceptionResponse {
   type?: string;
@@ -52,6 +53,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<FastifyReply>();
     const request = ctx.getRequest<FastifyRequest>();
+
+    // Translate raw Postgres errors (e.g. 23505 unique_violation from an unguarded INSERT)
+    // into a ConflictException before the rest of the filter classifies it as 500.
+    const translatedPgError = tryTranslatePgError(exception);
+    if (translatedPgError) exception = translatedPgError;
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let type = 'about:blank';

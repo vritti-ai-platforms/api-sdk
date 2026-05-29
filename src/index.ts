@@ -65,11 +65,7 @@ export { FilterOperators } from './database/filter/filter.types';
 export * from './database/interfaces';
 // Repositories
 export { PrimaryBaseRepository } from './database/repositories/primary-base.repository';
-// Schema Registry (for module augmentation)
-export type {
-  RegisteredSchema,
-  TypedDrizzleClient,
-} from './database/schema.registry';
+export type { TypedDrizzleClient } from './database/schema.registry';
 export { PrimaryDatabaseService } from './database/services/primary-database.service';
 // Database types
 export type {

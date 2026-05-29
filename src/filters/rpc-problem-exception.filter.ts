@@ -1,6 +1,7 @@
 import { type ArgumentsHost, Catch, type HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 import { type Observable, throwError } from 'rxjs';
+import { tryTranslatePgError } from './pg-error.translator';
 
 interface FieldError {
   field: string;
@@ -22,6 +23,11 @@ export class RpcProblemExceptionFilter {
   private readonly logger = new Logger(RpcProblemExceptionFilter.name);
 
   catch(exception: unknown, _host: ArgumentsHost): Observable<never> {
+    // Translate raw Postgres errors (e.g. 23505 unique_violation from an unguarded INSERT in
+    // a NATS handler) into a ConflictException before the rest of the filter handles them.
+    const translatedPgError = tryTranslatePgError(exception);
+    if (translatedPgError) exception = translatedPgError;
+
     if (exception instanceof RpcException) {
       return throwError(() => exception.getError());
     }

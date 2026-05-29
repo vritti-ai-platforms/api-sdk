@@ -1,5 +1,4 @@
 import type { PoolClient } from 'pg';
-import type { RegisteredSchema } from '../schema.registry';
 
 export interface PrimaryDbConfig {
   host: string;
@@ -13,8 +12,7 @@ export interface PrimaryDbConfig {
 
 export interface DatabaseModuleOptions {
   primaryDb: PrimaryDbConfig;
-  drizzleSchema: RegisteredSchema;
-  // biome-ignore lint/suspicious/noExplicitAny: Drizzle relations type is dynamic
+  // biome-ignore lint/suspicious/noExplicitAny: Drizzle relations type is dynamic per app
   drizzleRelations?: Record<string, any>;
   maxConnections?: number;
   // Sets per-request session vars (e.g. SET LOCAL app.org_id) on the pooled connection

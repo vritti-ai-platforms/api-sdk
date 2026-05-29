@@ -60,16 +60,13 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
         applyRlsContext: this.options.applyRlsContext,
       });
 
-      this.logger.debug(`Schema keys passed to drizzle: [${Object.keys(this.options.drizzleSchema || {}).join(', ')}]`);
       this.logger.debug(
         `Relations keys passed to drizzle: [${Object.keys(this.options.drizzleRelations || {}).join(', ')}]`,
       );
       this.db = drizzle({
         client: this.pool,
-        schema: this.options.drizzleSchema,
         relations: this.options.drizzleRelations,
-      }) as TypedDrizzleClient;
-      this.logger.debug(`Drizzle query keys after init: [${Object.keys(this.db.query || {}).join(', ')}]`);
+      }) as unknown as TypedDrizzleClient;
 
       // Health check runs before any ALS scope is set → bypasses auto-wrap naturally.
       await this.pool.query('SELECT 1');
@@ -90,11 +87,6 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
       throw new Error('Primary database client not initialized');
     }
     return this.db;
-  }
-
-  // Returns the Drizzle schema passed in module options
-  get schema(): typeof this.options.drizzleSchema {
-    return this.options.drizzleSchema;
   }
 
   // Stashes per-request RLS context (any shape) in AsyncLocalStorage. Each downstream query via
