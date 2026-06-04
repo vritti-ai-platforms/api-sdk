@@ -190,7 +190,7 @@ describe('RFC 9457 Problem Details Format - Exception Classes', () => {
       });
       const response = exception.getResponse() as ExceptionResponse;
 
-      assert.equal(exception.getStatus(), HttpStatus.BAD_REQUEST);
+      assert.equal(exception.getStatus(), HttpStatus.UNPROCESSABLE_ENTITY);
       assert.equal(response.errors.length, 2);
       assert.equal(response.detail, 'Please correct the errors and try again');
     });
