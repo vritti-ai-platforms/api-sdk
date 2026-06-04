@@ -1,6 +1,14 @@
-import { type ArgumentsHost, Catch, type ExceptionFilter, type HttpException, HttpStatus, Logger } from '@nestjs/common';
+import {
+  type ArgumentsHost,
+  Catch,
+  type ExceptionFilter,
+  type HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { ApiErrorResponse, FieldError } from '../types/error-response.types';
+import { tryTranslatePgError } from './pg-error.translator';
 
 interface ProblemExceptionResponse {
   type?: string;
@@ -45,6 +53,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<FastifyReply>();
     const request = ctx.getRequest<FastifyRequest>();
+
+    // Translate raw Postgres errors (e.g. 23505 unique_violation from an unguarded INSERT)
+    // into a ConflictException before the rest of the filter classifies it as 500.
+    const translatedPgError = tryTranslatePgError(exception);
+    if (translatedPgError) exception = translatedPgError;
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let type = 'about:blank';
@@ -93,6 +106,21 @@ export class HttpExceptionFilter implements ExceptionFilter {
       } else if (typeof exceptionResponse === 'string') {
         detail = exceptionResponse;
       }
+    } else if (this.isProblemLikeObject(exception)) {
+      const problemObj = exception as Record<string, unknown>;
+      const statusCandidate = problemObj.status ?? problemObj.statusCode;
+      if (typeof statusCandidate === 'number' && statusCandidate >= 400 && statusCandidate <= 599) {
+        status = statusCandidate;
+      }
+      type = typeof problemObj.type === 'string' ? problemObj.type : 'about:blank';
+      label = typeof problemObj.label === 'string' ? problemObj.label : undefined;
+      detail =
+        typeof problemObj.detail === 'string'
+          ? problemObj.detail
+          : typeof problemObj.message === 'string'
+            ? problemObj.message
+            : getHttpStatusTitle(status);
+      errors = Array.isArray(problemObj.errors) ? (problemObj.errors as FieldError[]) : [];
     } else if (this.isAxiosError(exception)) {
       // Outgoing HTTP call failures (e.g., service-to-service calls)
       const axiosStatus = exception.response?.status;
@@ -135,5 +163,16 @@ export class HttpExceptionFilter implements ExceptionFilter {
     config?: { url?: string };
   } {
     return error instanceof Error && (error as { isAxiosError?: boolean }).isAxiosError === true;
+  }
+
+  private isProblemLikeObject(error: unknown): error is Record<string, unknown> {
+    if (!error || typeof error !== 'object') return false;
+    const obj = error as Record<string, unknown>;
+    return (
+      typeof obj.status === 'number' ||
+      typeof obj.statusCode === 'number' ||
+      typeof obj.detail === 'string' ||
+      Array.isArray(obj.errors)
+    );
   }
 }

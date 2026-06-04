@@ -8,3 +8,4 @@ export type {
   SortCondition,
   TableViewState,
 } from './filter.types';
+export { FilterOperators } from './filter.types';

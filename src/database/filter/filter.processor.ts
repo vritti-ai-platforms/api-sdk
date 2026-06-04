@@ -1,24 +1,9 @@
-import {
-  and,
-  asc,
-  type Column,
-  desc,
-  eq,
-  gt,
-  gte,
-  ilike,
-  lt,
-  lte,
-  ne,
-  notIlike,
-  or,
-  type SQL,
-} from 'drizzle-orm';
-import type { FilterCondition, SearchState, SortCondition } from './filter.types';
+import { and, asc, type Column, desc, eq, gt, gte, ilike, inArray, lt, lte, ne, notIlike, notInArray, or, type SQL } from 'drizzle-orm';
+import type { FilterCondition, FilterOperator, SearchState, SortCondition } from './filter.types';
 
 export type FieldDefinition =
   | { column: Column; type: 'string' | 'number' | 'boolean' }
-  | { expression: (value: string | number) => SQL; type: 'string' | 'number' | 'boolean' };
+  | { expression: (value: string | number, operator: FilterOperator) => SQL; type: 'string' | 'number' | 'boolean' };
 export type FieldMap = Record<string, FieldDefinition>;
 
 export class FilterProcessor {
@@ -27,8 +12,8 @@ export class FilterProcessor {
     const conditions = filters.flatMap((f) => {
       const def = fieldMap[f.field];
       if (!def) return []; // unknown field — skip (security whitelist)
-      // Expression field — delegate SQL generation to the caller-supplied factory
-      if ('expression' in def) return [def.expression(f.value)];
+      // Expression field — delegate SQL generation to the caller-supplied factory (operator passed for custom handling)
+      if ('expression' in def) return Array.isArray(f.value) ? [] : [def.expression(f.value, f.operator)];
       const { column: col } = def;
       const val = f.value;
       switch (f.operator) {
@@ -50,6 +35,10 @@ export class FilterProcessor {
           return [lt(col, val)];
         case 'lte':
           return [lte(col, val)];
+        case 'isAnyOf':
+          return [inArray(col, Array.isArray(val) ? val : [String(val)])];
+        case 'isNotAnyOf':
+          return [notInArray(col, Array.isArray(val) ? val : [String(val)])];
         default:
           return [];
       }
@@ -63,7 +52,10 @@ export class FilterProcessor {
 
     if (search.columnId === 'all') {
       const conditions = Object.values(fieldMap)
-        .filter((def): def is { column: Column; type: 'string' | 'number' | 'boolean' } => 'column' in def && def.type === 'string')
+        .filter(
+          (def): def is { column: Column; type: 'string' | 'number' | 'boolean' } =>
+            'column' in def && def.type === 'string',
+        )
         .map((def) => ilike(def.column, `%${search.value}%`));
       return conditions.length ? or(...conditions) : undefined;
     }

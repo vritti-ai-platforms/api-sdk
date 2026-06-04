@@ -3,6 +3,6 @@ import { HttpProblemException, type ProblemOptions } from './base-field.exceptio
 
 export class ValidationException extends HttpProblemException {
   constructor(detailOrOptions?: string | ProblemOptions) {
-    super(detailOrOptions ?? 'Validation Failed', HttpStatus.BAD_REQUEST);
+    super(detailOrOptions ?? 'Validation Failed', HttpStatus.UNPROCESSABLE_ENTITY);
   }
 }

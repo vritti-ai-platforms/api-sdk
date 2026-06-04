@@ -5,6 +5,7 @@ export interface SelectQueryOption {
   value: string | number | boolean;
   label: string;
   description?: string;
+  additionals?: Record<string, string | number | boolean | null>;
   groupId?: string | number;
 }
 
@@ -30,20 +31,26 @@ export interface FindForSelectConfig {
   value: string;
   label: string;
   description?: string;
-  groupId?: string;
+  additionalKeys?: string | string[];
+  additionalExpressions?: Record<string, SQL>;
+  groupIdKey?: string;
   search?: string;
   limit?: number;
   offset?: number;
   where?: Record<string, unknown>;
+  orderByKey?: string;
+  orderDirection?: 'asc' | 'desc';
   orderBy?: Record<string, 'asc' | 'desc'>;
   groups?: SelectQueryGroup[];
   values?: string | (string | number | boolean)[];
   excludeIds?: string | (string | number | boolean)[];
   groupTable?: PgTable;
   groupLabelKey?: string;
-  groupIdKey?: string;
+  groupTableIdKey?: string;
   // Optional JOINs on the base table
   joins?: FindForSelectJoin[];
   // Additional raw SQL conditions (for joined table columns)
   conditions?: SQL[];
+  // Use SELECT DISTINCT instead of SELECT (for deduplication across versions)
+  distinct?: boolean;
 }

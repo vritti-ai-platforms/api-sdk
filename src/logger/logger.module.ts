@@ -1,7 +1,6 @@
 import {
   type DynamicModule,
   Global,
-  type InjectionToken,
   Logger,
   type MiddlewareConsumer,
   Module,
@@ -230,8 +229,8 @@ export class LoggerModule implements NestModule {
   }
 
   // Configures the logger module with async options (useFactory, useClass, useExisting)
-  static forRootAsync(options: LoggerModuleAsyncOptions): DynamicModule {
-    const asyncProviders = LoggerModule.createAsyncProviders(options);
+  static forRootAsync<T extends unknown[] = unknown[]>(options: LoggerModuleAsyncOptions<T>): DynamicModule {
+    const asyncProviders = LoggerModule.createAsyncProviders(options as LoggerModuleAsyncOptions<unknown[]>);
 
     return {
       module: LoggerModule,
@@ -297,7 +296,7 @@ export class LoggerModule implements NestModule {
   }
 
   // Creates async providers for dynamic module configuration
-  private static createAsyncProviders(options: LoggerModuleAsyncOptions): Provider[] {
+  private static createAsyncProviders(options: LoggerModuleAsyncOptions<unknown[]>): Provider[] {
     if (options.useFactory) {
       return [LoggerModule.createAsyncOptionsProvider(options)];
     }
@@ -315,7 +314,7 @@ export class LoggerModule implements NestModule {
   }
 
   // Creates the DI provider that resolves and merges async logger options
-  private static createAsyncOptionsProvider(options: LoggerModuleAsyncOptions): Provider {
+  private static createAsyncOptionsProvider(options: LoggerModuleAsyncOptions<unknown[]>): Provider {
     if (options.useFactory) {
       return {
         provide: LOGGER_MODULE_OPTIONS,
@@ -323,7 +322,7 @@ export class LoggerModule implements NestModule {
           const userOptions = await options.useFactory?.(...args);
           return mergeWithDefaults(userOptions);
         },
-        inject: (options.inject || []) as InjectionToken[],
+        inject: options.inject || [],
       };
     }
 

@@ -5,12 +5,12 @@ import type { TableViewState } from '../../../../database/filter/filter.types';
 export class UpsertDataTableStateDto {
   @ApiProperty({ description: 'Unique slug identifying the table', example: 'cloud-providers' })
   @IsString()
-  @MaxLength(100)
-  tableSlug!: string;
+  @MaxLength(200)
+  tableSlug: string;
 
   @ApiProperty({ description: 'Full table view state including filters, sort, and column visibility' })
   @IsObject()
-  state!: TableViewState;
+  state: TableViewState;
 
   @ApiPropertyOptional()
   @IsOptional()

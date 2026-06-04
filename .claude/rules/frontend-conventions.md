@@ -159,13 +159,13 @@ async function handleDelete(id: string, name: string) {
 Pass the resource name (and relevant context) into `handleDelete` so the description is specific, not generic.
 
 ## Slug-based Routes — use `buildSlug` + `useSlugParams`
-- For detail page URLs that should show a readable name, use `buildSlug(name, id)` from `@vritti/quantum-ui/utils/slug`
+- For detail page URLs that should show a readable name, use `buildSlug(name, id)` from `@vritti/quantum-ui/slug`
 - The slug format is `name-slug~uuid` — the Breadcrumb auto-humanizes the name part
 - In the detail page, use `useSlugParams()` from `@vritti/quantum-ui/hooks` to extract `{ name, id }`
 
 ```tsx
 // Navigating to detail page
-import { buildSlug } from '@vritti/quantum-ui/utils/slug';
+import { buildSlug } from '@vritti/quantum-ui/slug';
 navigate(`/regions/${buildSlug(region.name, region.id)}`);
 // → URL: /regions/us-east~bdfc838c-...
 

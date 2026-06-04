@@ -6,7 +6,7 @@ export function dataTableViewsColumns() {
   return {
     id: uuid('id').primaryKey().defaultRandom(),
     userId: uuid('user_id').notNull(),
-    tableSlug: varchar('table_slug', { length: 100 }).notNull(),
+    tableSlug: varchar('table_slug', { length: 200 }).notNull(),
     name: varchar('name', { length: 100 }).notNull(),
     state: jsonb('state').notNull().$type<TableViewState>(),
     isShared: boolean('is_shared').notNull().default(false),

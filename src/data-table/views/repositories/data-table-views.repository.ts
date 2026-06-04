@@ -9,11 +9,12 @@ import type { DataTableViewRecord, NewDataTableViewRecord } from '../../schema/d
 const NAMED_VIEWS_LIMIT = 100;
 
 @Injectable()
-export class DataTableViewsRepository extends PrimaryBaseRepository<PgTable, NewDataTableViewRecord, DataTableViewRecord> {
-  constructor(
-    database: PrimaryDatabaseService,
-    @Inject(DATA_TABLE_VIEWS_TABLE) table: PgTable,
-  ) {
+export class DataTableViewsRepository extends PrimaryBaseRepository<
+  PgTable,
+  NewDataTableViewRecord,
+  DataTableViewRecord
+> {
+  constructor(database: PrimaryDatabaseService, @Inject(DATA_TABLE_VIEWS_TABLE) table: PgTable) {
     super(database, table);
   }
 

@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import {
   and,
   asc,
-  type Column,
+  desc,
   eq,
   getTableName,
   type InferInsertModel,
@@ -13,7 +13,8 @@ import {
   type SQL,
   sql,
 } from 'drizzle-orm';
-import type { PgTable } from 'drizzle-orm/pg-core';
+import type { PgColumn, PgSequence, PgTable, SelectedFields } from 'drizzle-orm/pg-core';
+import type { AnyPgAsyncSelect } from 'drizzle-orm/pg-core/async';
 import type { TypedDrizzleClient } from '../schema.registry';
 import { PrimaryDatabaseService } from '../services/primary-database.service';
 import type { FindForSelectConfig, SelectQueryResult } from '../types';
@@ -48,6 +49,7 @@ export abstract class PrimaryBaseRepository<
   TSelect = InferSelectModel<TTable>,
 > {
   protected readonly logger: Logger;
+  protected readonly sequence?: PgSequence;
 
   private readonly tableName: string;
 
@@ -71,14 +73,36 @@ export abstract class PrimaryBaseRepository<
   constructor(
     protected readonly database: PrimaryDatabaseService,
     protected readonly table: TTable,
+    options?: {
+      sequence?: PgSequence;
+    },
   ) {
     // Convert snake_case table name to camelCase to match Drizzle query object keys
     // Example: 'email_verifications' -> 'emailVerifications'
     const dbTableName = getTableName(table);
     this.tableName = snakeToCamel(dbTableName);
+    this.sequence = options?.sequence;
     this.logger = new Logger(this.constructor.name);
     this.logger.debug(`Initialized ${this.constructor.name}`);
     this.logger.debug(`Table name: '${dbTableName}' -> query key: '${this.tableName}'`);
+  }
+
+  // Returns next value from configured sequence, or an explicitly passed sequence
+  protected async nextSequenceValue(sequence?: PgSequence): Promise<number> {
+    const resolvedSequence = sequence ?? this.sequence;
+    if (!resolvedSequence) {
+      throw new Error(`${this.constructor.name}: sequence is required for nextSequenceValue`);
+    }
+
+    const sequenceName = resolvedSequence.schema
+      ? `${resolvedSequence.schema}.${resolvedSequence.seqName}`
+      : resolvedSequence.seqName;
+
+    const result = await this.db.execute<{ sequence_value: number }>(
+      sql`select nextval(${sequenceName}::regclass) as sequence_value`,
+    );
+    const rows = (result as { rows?: Array<{ sequence_value: number | string }> }).rows ?? [];
+    return Number(rows[0]?.sequence_value ?? 1);
   }
 
   // Creates a new record and returns it
@@ -119,50 +143,121 @@ export abstract class PrimaryBaseRepository<
     return this.model.findMany(options);
   }
 
-  // Builds a select query with optional custom fields, join, filter, ordering, and pagination
+  // Builds a select query with optional custom fields, joins, filter, grouping, ordering, and pagination
   private buildSelectQuery(options?: {
     select?: Record<string, unknown>;
     where?: SQL;
     orderBy?: SQL[];
     limit?: number;
     offset?: number;
-    leftJoin?: { table: PgTable; on: SQL };
+    leftJoin?: { table: PgTable; on: SQL | undefined };
+    leftJoins?: { table: PgTable; on: SQL | undefined }[];
+    groupBy?: (PgColumn | SQL)[];
   }) {
-    const base = options?.select
-      ? this.db.select(options.select as Record<string, Column | SQL>).from(this.table as PgTable)
-      : this.db.select().from(this.table as PgTable);
+    // Drizzle's dynamic query builder methods (leftJoin, where, groupBy, etc.) return union types
+    // that include Omit<...> variants, making precise type annotations impractical for mutable query
+    // building. We type the variable as the concrete async select and cast each reassignment.
+    let query = (
+      options?.select
+        ? this.db.select(options.select as SelectedFields).from(this.table as PgTable)
+        : this.db.select().from(this.table as PgTable)
+    ).$dynamic() as AnyPgAsyncSelect;
 
-    const joined = options?.leftJoin
-      ? base.leftJoin(options.leftJoin.table, options.leftJoin.on)
-      : base;
-
-    const filtered = options?.where ? joined.where(options.where) : joined;
-    const ordered = options?.orderBy?.length ? filtered.orderBy(...options.orderBy) : filtered;
-    const limited = options?.limit ? ordered.limit(options.limit) : ordered;
-    return options?.offset ? limited.offset(options.offset) : limited;
+    if (options?.leftJoin) {
+      query = query.leftJoin(options.leftJoin.table, options.leftJoin.on) as AnyPgAsyncSelect;
+    }
+    if (options?.leftJoins) {
+      for (const join of options.leftJoins) {
+        query = query.leftJoin(join.table, join.on) as AnyPgAsyncSelect;
+      }
+    }
+    if (options?.where) {
+      query = query.where(options.where) as AnyPgAsyncSelect;
+    }
+    if (options?.groupBy?.length) {
+      query = query.groupBy(...options.groupBy) as AnyPgAsyncSelect;
+    }
+    if (options?.orderBy?.length) {
+      query = query.orderBy(...options.orderBy) as AnyPgAsyncSelect;
+    }
+    if (options?.limit) {
+      query = query.limit(options.limit) as AnyPgAsyncSelect;
+    }
+    if (options?.offset) {
+      query = query.offset(options.offset) as AnyPgAsyncSelect;
+    }
+    return query;
   }
 
-  // Returns paginated result and total count, with optional custom select, LEFT JOIN, and ordering
+  // Returns paginated result and total count, with optional custom select, LEFT JOINs, GROUP BY, and ordering
   async findAllAndCount<TResult = TSelect>(options?: {
     select?: Record<string, unknown>;
     where?: SQL;
     orderBy?: SQL[];
     limit?: number;
     offset?: number;
-    leftJoin?: { table: PgTable; on: SQL };
+    leftJoin?: { table: PgTable; on: SQL | undefined };
+    leftJoins?: { table: PgTable; on: SQL | undefined }[];
+    groupBy?: (PgColumn | SQL)[];
   }): Promise<{ result: TResult[]; count: number }> {
-    const [count, result] = await Promise.all([
-      this.count(options?.where),
-      this.buildSelectQuery(options) as Promise<TResult[]>,
+    let countResultPromise: Promise<{ count: number }[]>;
+
+    if (options?.groupBy?.length) {
+      // When groupBy is active, wrap the grouped query in a subquery so we count
+      // distinct groups rather than raw join rows.
+      let subq = this.db
+        .select({ _: sql`1` })
+        .from(this.table as PgTable)
+        .$dynamic();
+      if (options.leftJoin) {
+        subq = subq.leftJoin(options.leftJoin.table, options.leftJoin.on) as typeof subq;
+      }
+      if (options.leftJoins) {
+        for (const join of options.leftJoins) {
+          subq = subq.leftJoin(join.table, join.on) as typeof subq;
+        }
+      }
+      if (options.where) {
+        subq = subq.where(options.where) as typeof subq;
+      }
+      subq = subq.groupBy(...options.groupBy) as typeof subq;
+
+      const named = subq.as('_count_subq');
+      countResultPromise = this.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(named) as unknown as Promise<{ count: number }[]>;
+    } else {
+      // Count query mirrors the same JOINs so WHERE clauses on joined columns are valid
+      let countQuery = this.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(this.table as PgTable)
+        .$dynamic();
+      if (options?.leftJoin) {
+        countQuery = countQuery.leftJoin(options.leftJoin.table, options.leftJoin.on) as typeof countQuery;
+      }
+      if (options?.leftJoins) {
+        for (const join of options.leftJoins) {
+          countQuery = countQuery.leftJoin(join.table, join.on) as typeof countQuery;
+        }
+      }
+      if (options?.where) {
+        countQuery = countQuery.where(options.where) as typeof countQuery;
+      }
+      countResultPromise = countQuery as unknown as Promise<{ count: number }[]>;
+    }
+
+    const [countResult, result] = await Promise.all([
+      countResultPromise,
+      this.buildSelectQuery(options) as unknown as Promise<TResult[]>,
     ]);
-    return { result, count };
+    return { result, count: (countResult[0] as { count: number }).count };
   }
 
   // Updates a record by ID and returns the updated record
   async update(id: string, data: Partial<TInsert>, tx?: TypedDrizzleClient): Promise<TSelect> {
     this.logger.log(`Updating record with ID: ${id}`);
     const db = tx ?? this.db;
-    const idColumn = (this.table as unknown as Record<string, Column>).id;
+    const idColumn = (this.table as unknown as Record<string, PgColumn>).id;
     if (!idColumn) throw new Error(`Table '${this.tableName}' has no 'id' column`);
     const results = (await db
       .update(this.table as PgTable)
@@ -189,7 +284,7 @@ export abstract class PrimaryBaseRepository<
   async delete(id: string, tx?: TypedDrizzleClient): Promise<TSelect> {
     this.logger.log(`Deleting record with ID: ${id}`);
     const db = tx ?? this.db;
-    const idColumn = (this.table as unknown as Record<string, Column>).id;
+    const idColumn = (this.table as unknown as Record<string, PgColumn>).id;
     if (!idColumn) throw new Error(`Table '${this.tableName}' has no 'id' column`);
     const results = (await db
       .delete(this.table as PgTable)
@@ -231,14 +326,19 @@ export abstract class PrimaryBaseRepository<
     return count > 0;
   }
 
-  // Executes the callback within a database transaction
+  // Executes the callback within a database transaction. Routes through PrimaryDatabaseService so
+  // the RLS context from AsyncLocalStorage is applied once at BEGIN and queries inside `callback`
+  // (whether they use the passed tx arg or `this.db` via ALS) all participate in the same txn.
   async transaction<T>(callback: (tx: TypedDrizzleClient) => Promise<T>): Promise<T> {
-    return this.db.transaction(callback as Parameters<TypedDrizzleClient['transaction']>[0]) as Promise<T>;
+    return this.database.runInTransaction(async () => callback(this.database.drizzleClient));
   }
 
   // Finds records formatted as select dropdown options with optional search, pagination, and grouping
   async findForSelect(config: FindForSelectConfig): Promise<SelectQueryResult> {
     this.logger.debug('Finding records for select dropdown');
+
+    // Use selectDistinct when deduplication is needed (e.g., distinct app codes across versions)
+    const selectFn = config.distinct ? this.db.selectDistinct.bind(this.db) : this.db.select.bind(this.db);
 
     interface SelectRow {
       value: string | number | boolean;
@@ -268,35 +368,52 @@ export abstract class PrimaryBaseRepository<
             .filter(Boolean)
         : (config.excludeIds ?? []);
 
-    const tableColumns = this.table as unknown as Record<string, Column>;
-    const valueCol = tableColumns[config.value];
-    if (!valueCol) throw new Error(`Column '${config.value}' not found in table '${this.tableName}'`);
-    const labelCol = tableColumns[config.label];
-    if (!labelCol) throw new Error(`Column '${config.label}' not found in table '${this.tableName}'`);
+    const tableColumns = this.table as unknown as Record<string, PgColumn>;
 
-    // Resolve optional description column (checks main table first, then joined tables)
-    let descriptionCol = config.description ? tableColumns[config.description] : undefined;
-    if (!descriptionCol && config.description && config.joins) {
-      for (const join of config.joins) {
-        const joinCols = join.table as unknown as Record<string, Column>;
-        if (joinCols[config.description]) {
-          descriptionCol = joinCols[config.description];
-          break;
-        }
+    const joinTables = config.joins?.map((join) => join.table as unknown as Record<string, PgColumn>) ?? [];
+    const resolveColumn = (key: string): PgColumn | undefined => {
+      if (tableColumns[key]) return tableColumns[key];
+      for (const joinColumns of joinTables) {
+        if (joinColumns[key]) return joinColumns[key];
       }
-    }
+      return undefined;
+    };
+
+    const valueCol = resolveColumn(config.value);
+    if (!valueCol) throw new Error(`Column '${config.value}' not found in table '${this.tableName}' or its joins`);
+
+    const labelCol = resolveColumn(config.label);
+    if (!labelCol) throw new Error(`Column '${config.label}' not found in table '${this.tableName}' or its joins`);
+
+    const descriptionCol = config.description ? resolveColumn(config.description) : undefined;
+
+    const parseKeys = (input?: string | string[]): string[] => {
+      if (!input) return [];
+      const values = Array.isArray(input) ? input : input.split(',');
+      return values.map((v) => v.trim()).filter(Boolean);
+    };
+    const additionalKeys = parseKeys(config.additionalKeys);
+    const additionalEntries: { key: string; expr: PgColumn | SQL }[] = [
+      ...additionalKeys
+        .map((key) => ({ key, expr: resolveColumn(key) as PgColumn | undefined }))
+        .filter((e): e is { key: string; expr: PgColumn } => Boolean(e.expr)),
+      ...Object.entries(config.additionalExpressions ?? {}).map(([key, expr]) => ({ key, expr })),
+    ];
+    const additionalAlias = (key: string) => `__additional_${key}`;
 
     // When values are provided, fetch those specific options by value (skip search/pagination)
     if (parsedValues && parsedValues.length > 0) {
-      const selectCols: Record<string, Column | SQL> = { value: valueCol, label: labelCol };
+      const selectCols: Record<string, PgColumn | SQL> = { value: valueCol, label: labelCol };
       if (descriptionCol) selectCols.description = descriptionCol;
-      if (config.groupId) {
-        const groupIdCol = tableColumns[config.groupId];
+      if (config.groupIdKey) {
+        const groupIdCol = resolveColumn(config.groupIdKey);
         if (groupIdCol) selectCols.groupId = groupIdCol;
       }
+      for (const entry of additionalEntries) {
+        selectCols[additionalAlias(entry.key)] = entry.expr;
+      }
 
-      let valuesQuery = this.db
-        .select(selectCols)
+      let valuesQuery = selectFn(selectCols as SelectedFields)
         .from(this.table as PgTable)
         .$dynamic();
 
@@ -316,8 +433,31 @@ export abstract class PrimaryBaseRepository<
         options: (rows as unknown as SelectRow[]).map((row) => ({
           value: row.value,
           label: String(row.label),
-          ...(descriptionCol && row.description != null ? { description: row.description } : {}),
-          ...(config.groupId && row.groupId != null ? { groupId: row.groupId } : {}),
+          ...(descriptionCol && row.description != null ? { description: String(row.description) } : {}),
+          ...(config.groupIdKey && row.groupId != null ? { groupId: row.groupId } : {}),
+          ...(additionalEntries.length > 0
+            ? {
+                additionals: additionalEntries.reduce<Record<string, string | number | boolean | null>>(
+                  (acc, entry) => {
+                    const value = (row as unknown as Record<string, unknown>)[additionalAlias(entry.key)];
+                    if (value !== undefined) {
+                      if (
+                        typeof value === 'string' ||
+                        typeof value === 'number' ||
+                        typeof value === 'boolean' ||
+                        value === null
+                      ) {
+                        acc[entry.key] = value;
+                      } else {
+                        acc[entry.key] = String(value);
+                      }
+                    }
+                    return acc;
+                  },
+                  {},
+                ),
+              }
+            : {}),
         })),
         hasMore: false,
         ...(config.groups ? { groups: config.groups } : {}),
@@ -325,15 +465,18 @@ export abstract class PrimaryBaseRepository<
     }
 
     // Use SQL builder for count(*) over() window function support
-    const selectFields: Record<string, Column | SQL> = {
+    const selectFields: Record<string, PgColumn | SQL> = {
       value: valueCol,
       label: labelCol,
       totalCount: sql<number>`count(*) over()`.mapWith(Number),
     };
     if (descriptionCol) selectFields.description = descriptionCol;
-    if (config.groupId) {
-      const groupIdCol = tableColumns[config.groupId];
+    if (config.groupIdKey) {
+      const groupIdCol = resolveColumn(config.groupIdKey);
       if (groupIdCol) selectFields.groupId = groupIdCol;
+    }
+    for (const entry of additionalEntries) {
+      selectFields[additionalAlias(entry.key)] = entry.expr;
     }
 
     const conditions: SQL[] = [];
@@ -356,13 +499,13 @@ export abstract class PrimaryBaseRepository<
       conditions.push(...config.conditions);
     }
 
-    const orderByKey = config.orderBy ? Object.keys(config.orderBy)[0] : undefined;
+    const orderByKey = config.orderByKey || (config.orderBy ? Object.keys(config.orderBy)[0] : undefined);
+    const orderDirection = config.orderDirection || (config.orderBy ? Object.values(config.orderBy)[0] : undefined);
     const orderByCol = orderByKey ? (tableColumns[orderByKey] ?? labelCol) : labelCol;
     const limit = Number(config.limit) || 20;
     const offset = Number(config.offset) || 0;
 
-    let query = this.db
-      .select(selectFields)
+    let query = selectFn(selectFields as SelectedFields)
       .from(this.table as PgTable)
       .$dynamic();
 
@@ -378,15 +521,15 @@ export abstract class PrimaryBaseRepository<
     }
 
     if (conditions.length > 0) {
-      query = query.where(conditions.length === 1 ? conditions[0] : and(...conditions) as SQL);
+      query = query.where(conditions.length === 1 ? conditions[0] : (and(...conditions) as SQL));
     }
 
     const orderClauses: SQL[] = [];
-    if (config.groupId) {
-      const groupIdCol = tableColumns[config.groupId];
+    if (config.groupIdKey) {
+      const groupIdCol = resolveColumn(config.groupIdKey);
       if (groupIdCol) orderClauses.push(asc(groupIdCol));
     }
-    orderClauses.push(asc(orderByCol));
+    orderClauses.push(orderDirection === 'desc' ? desc(orderByCol) : asc(orderByCol));
 
     query = query
       .orderBy(...orderClauses)
@@ -400,16 +543,36 @@ export abstract class PrimaryBaseRepository<
     const options = (rows as unknown as SelectRow[]).map((row) => ({
       value: row.value,
       label: String(row.label),
-      ...(descriptionCol && row.description != null ? { description: row.description } : {}),
-      ...(config.groupId && row.groupId != null ? { groupId: row.groupId } : {}),
+      ...(descriptionCol && row.description != null ? { description: String(row.description) } : {}),
+      ...(config.groupIdKey && row.groupId != null ? { groupId: row.groupId } : {}),
+      ...(additionalEntries.length > 0
+        ? {
+            additionals: additionalEntries.reduce<Record<string, string | number | boolean | null>>((acc, entry) => {
+              const value = (row as unknown as Record<string, unknown>)[additionalAlias(entry.key)];
+              if (value !== undefined) {
+                if (
+                  typeof value === 'string' ||
+                  typeof value === 'number' ||
+                  typeof value === 'boolean' ||
+                  value === null
+                ) {
+                  acc[entry.key] = value;
+                } else {
+                  acc[entry.key] = String(value);
+                }
+              }
+              return acc;
+            }, {}),
+          }
+        : {}),
     }));
 
     // Auto-resolve groups from groupTable when provided
     let resolvedGroups = config.groups;
 
-    if (config.groupTable && config.groupId) {
-      const groupTableColumns = config.groupTable as unknown as Record<string, Column>;
-      const groupIdKey = config.groupIdKey ?? 'id';
+    if (config.groupTable && config.groupIdKey) {
+      const groupTableColumns = config.groupTable as unknown as Record<string, PgColumn>;
+      const groupIdKey = config.groupTableIdKey ?? 'id';
       const groupNameKey = config.groupLabelKey ?? 'name';
       const groupIdCol = groupTableColumns[groupIdKey];
       if (!groupIdCol) throw new Error(`Column '${groupIdKey}' not found in group table`);
@@ -417,7 +580,7 @@ export abstract class PrimaryBaseRepository<
       if (!groupNameCol) throw new Error(`Column '${groupNameKey}' not found in group table`);
 
       const groupRows = await this.db
-        .select({ id: groupIdCol, name: groupNameCol })
+        .select({ id: groupIdCol, name: groupNameCol } as SelectedFields)
         .from(config.groupTable)
         .orderBy(asc(groupNameCol));
 

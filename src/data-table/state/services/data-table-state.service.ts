@@ -15,6 +15,7 @@ const EMPTY_TABLE_STATE: TableViewState = {
   density: 'normal',
   filterOrder: [],
   filterVisibility: {},
+  search: null,
   pagination: { limit: 20, offset: 0 },
 };
 
@@ -40,7 +41,10 @@ export class DataTableStateService {
   }
 
   // Returns live table state and active view ID from Redis; returns empty state on miss — no DB query
-  async getCurrentState(userId: string, tableSlug: string): Promise<{ state: TableViewState; activeViewId: string | null }> {
+  async getCurrentState(
+    userId: string,
+    tableSlug: string,
+  ): Promise<{ state: TableViewState; activeViewId: string | null }> {
     const key = `dt:${userId}:${tableSlug}`;
     const cached = await this.cacheService.get<{ state: TableViewState; activeViewId: string | null }>(key);
     return cached ?? { state: EMPTY_TABLE_STATE, activeViewId: null };

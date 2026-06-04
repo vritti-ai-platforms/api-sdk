@@ -1,4 +1,4 @@
-import type { RegisteredSchema } from '../schema.registry';
+import type { PoolClient } from 'pg';
 
 export interface PrimaryDbConfig {
   host: string;
@@ -12,15 +12,11 @@ export interface PrimaryDbConfig {
 
 export interface DatabaseModuleOptions {
   primaryDb: PrimaryDbConfig;
-
-  drizzleSchema: RegisteredSchema;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: Drizzle relations type is dynamic per app
   drizzleRelations?: Record<string, any>;
-
-  connectionCacheTTL?: number;
-
   maxConnections?: number;
-
-  encryptionKey?: string;
+  // Sets per-request session vars (e.g. SET LOCAL app.org_id) on the pooled connection
+  // before each auto-wrapped query and once at the start of each explicit transaction.
+  // `ctx` is whatever value the caller passed to PrimaryDatabaseService.runWithRlsContext().
+  applyRlsContext?: (client: PoolClient, ctx: unknown) => Promise<void>;
 }

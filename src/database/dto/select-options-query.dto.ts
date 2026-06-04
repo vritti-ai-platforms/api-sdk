@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 // Standardized query params for select dropdown option endpoints
 export class SelectOptionsQueryDto {
@@ -28,7 +28,10 @@ export class SelectOptionsQueryDto {
   @IsString()
   values?: string;
 
-  @ApiPropertyOptional({ description: 'Comma-separated IDs to exclude from results (already selected)', example: '5,10' })
+  @ApiPropertyOptional({
+    description: 'Comma-separated IDs to exclude from results (already selected)',
+    example: '5,10',
+  })
   @IsOptional()
   @IsString()
   excludeIds?: string;
@@ -48,8 +51,32 @@ export class SelectOptionsQueryDto {
   @IsString()
   descriptionKey?: string;
 
+  @ApiPropertyOptional({
+    description: 'Comma-separated column names to include in option.additionals',
+    example: 'locationName,availableQuantity',
+  })
+  @IsOptional()
+  @IsString()
+  additionalKeys?: string;
+
   @ApiPropertyOptional({ description: 'Column name for group ID', example: 'regionId' })
   @IsOptional()
   @IsString()
   groupIdKey?: string;
+
+  @ApiPropertyOptional({ description: 'Column name to sort options by', example: 'name', default: 'name' })
+  @IsOptional()
+  @IsString()
+  orderByKey?: string;
+
+  @ApiPropertyOptional({
+    description: 'Sort direction for options',
+    example: 'asc',
+    default: 'asc',
+    enum: ['asc', 'desc'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['asc', 'desc'])
+  orderDirection?: 'asc' | 'desc';
 }

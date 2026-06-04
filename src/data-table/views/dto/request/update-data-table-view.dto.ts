@@ -6,5 +6,5 @@ import type { TableViewState } from '../../../../database/filter/filter.types';
 export class UpdateDataTableViewDto {
   @ApiProperty({ description: 'Updated filter, sort, and column visibility state' })
   @IsObject()
-  state!: TableViewState;
+  state: TableViewState;
 }
