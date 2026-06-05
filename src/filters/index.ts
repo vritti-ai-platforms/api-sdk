@@ -1,2 +1,2 @@
 export { getHttpStatusTitle, HttpExceptionFilter } from './http-exception.filter';
-export { RpcProblemExceptionFilter } from './rpc-problem-exception.filter';
+// RpcProblemExceptionFilter is exported from '@vritti/api-sdk/nats' (it needs @nestjs/microservices).

@@ -4,6 +4,7 @@ export default defineConfig({
   // Entry points
   entry: [
     'src/index.ts',
+    'src/nats.ts',
     'src/decimal.ts',
     'src/drizzle-orm.ts',
     'src/drizzle-pg-core.ts',

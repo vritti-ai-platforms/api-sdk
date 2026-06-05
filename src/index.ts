@@ -92,19 +92,8 @@ export * from './filters';
 export * from './logger';
 export type { Currency, CurrencyCode } from './money';
 export { majorToMinor, minorToMajor, SUPPORTED_CURRENCIES } from './money';
-export type {
-  ContextResolverFn,
-  NatsHeaders,
-  NatsMicroserviceModuleAsyncOptions,
-  NatsRootModuleAsyncOptions,
-  NatsServiceConfig,
-} from './nats';
-export { RpcBuCurrencyCode, RpcBuId, RpcNatsHeaders } from './nats/decorators/nats-headers.decorator';
-// NATS client module (gateway + microservice modes)
-export { NatsClientModule } from './nats/nats-client.module';
-export { NatsClientService } from './nats/nats-client.service';
-export { NATS_HEADER_KEYS, parseNatsHeaders } from './nats/nats-context';
-export { NatsMicroserviceClientService } from './nats/nats-microservice-client.service';
+// NATS / microservice exports moved to the './nats' subpath (@vritti/api-sdk/nats) so the main
+// barrel never imports @nestjs/microservices. Non-NATS consumers (cloud-server) stay clean.
 // Root module (health check + CSRF)
 export { RootModule } from './root/root.module';
 // RFC 7807 Types (using named exports to avoid conflicts)

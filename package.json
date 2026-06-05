@@ -1,7 +1,7 @@
 {
   "name": "@vritti/api-sdk",
   "type": "module",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,6 +14,16 @@
       "require": {
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
+      }
+    },
+    "./nats": {
+      "import": {
+        "types": "./dist/nats.d.ts",
+        "default": "./dist/nats.js"
+      },
+      "require": {
+        "types": "./dist/nats.d.cts",
+        "default": "./dist/nats.cjs"
       }
     },
     "./decimal": {
