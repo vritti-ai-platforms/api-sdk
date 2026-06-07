@@ -2,6 +2,7 @@ import { type CallHandler, type ExecutionContext, Injectable, type NestIntercept
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Observable } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
+import { findPgError } from '../../filters/pg-error.translator';
 import { LoggerService } from '../services/logger.service';
 import type { HttpLoggerOptions, LogMetadata } from '../types';
 import { getCorrelationContext } from '../utils';
@@ -116,7 +117,13 @@ export class HttpLoggerInterceptor implements NestInterceptor {
         response?: unknown;
       };
       const statusCode = err.status ?? err.statusCode ?? response.statusCode ?? 500;
-      const errorMessage = err.message || err.detail || 'Unknown error';
+      // Drizzle wraps pg errors in DrizzleQueryError whose `.message` is only the failed query —
+      // the real reason (e.g. "permission denied for table") lives on `.cause`. Unwrap it.
+      const pgCause = findPgError(error);
+      let errorMessage = err.message || err.detail || 'Unknown error';
+      if (pgCause?.message && pgCause.message !== err.message) {
+        errorMessage = `${errorMessage} — cause: ${pgCause.message}${pgCause.code ? ` [${pgCause.code}]` : ''}`;
+      }
 
       const metadata: LogMetadata = {
         type: 'http_error',
@@ -128,6 +135,11 @@ export class HttpLoggerInterceptor implements NestInterceptor {
         errorName: err.name || 'Error',
         errorMessage,
       };
+
+      // Attach the structured pg cause so log sinks capture SQLSTATE, constraint, table, etc.
+      if (pgCause) {
+        metadata.pgError = pgCause;
+      }
 
       if (err.stack) {
         metadata.trace = err.stack;

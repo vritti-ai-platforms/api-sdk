@@ -10,11 +10,15 @@ import { ConflictException } from '../exceptions/conflict.exception';
 // (e.g. 23503 foreign_key_violation → 409 with FK info).
 const PG_UNIQUE_VIOLATION = '23505';
 
-type PgErrorShape = {
+export type PgErrorShape = {
   code?: string;
+  message?: string;
   constraint?: string;
   table?: string;
+  schema?: string;
+  column?: string;
   detail?: string;
+  hint?: string;
 };
 
 // Returns a ConflictException for a Postgres unique-violation error, otherwise undefined.
@@ -38,7 +42,7 @@ export function tryTranslatePgError(error: unknown): ConflictException | undefin
 
 // Walks up to N levels of `.cause` looking for a pg-shaped error (has SQLSTATE `code`).
 // Caps depth so a circular `cause` graph can't trap us.
-function findPgError(error: unknown, depth = 0): PgErrorShape | undefined {
+export function findPgError(error: unknown, depth = 0): PgErrorShape | undefined {
   if (!error || typeof error !== 'object' || depth > 5) return undefined;
   const candidate = error as PgErrorShape & { cause?: unknown };
   if (typeof candidate.code === 'string') return candidate;
