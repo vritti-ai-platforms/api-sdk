@@ -2,6 +2,7 @@ import { Inject, Injectable, Scope } from '@nestjs/common';
 import { REQUEST } from '@nestjs/core';
 import type { FastifyRequest } from 'fastify';
 import { AUTH_CONFIG, type AuthConfig } from '../../auth/auth.config';
+import { resolveInjectedRequest } from '../../context/resolve-request';
 
 @Injectable({ scope: Scope.REQUEST })
 export class RequestService {
@@ -10,15 +11,10 @@ export class RequestService {
     @Inject(AUTH_CONFIG) private readonly config: AuthConfig,
   ) {}
 
-  // NestJS injects the raw Fastify request for HTTP, but for GraphQL it injects the GraphQL
-  // context object ({ req, reply }) — which has no `.headers`. Unwrap to the real Fastify
-  // request so every accessor below works across both transports.
+  // For GraphQL, @Inject(REQUEST) is the { req, reply } context wrapper, not the Fastify request;
+  // unwrap so every accessor below works identically across both transports.
   private get request(): FastifyRequest {
-    const injected = this.injectedRequest as unknown as { headers?: unknown; req?: FastifyRequest };
-    if (injected && injected.headers === undefined && injected.req) {
-      return injected.req;
-    }
-    return this.injectedRequest;
+    return resolveInjectedRequest(this.injectedRequest);
   }
 
   // Extracts the bearer access token from the Authorization header

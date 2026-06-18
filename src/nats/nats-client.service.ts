@@ -4,6 +4,7 @@ import type { ClientProxy } from '@nestjs/microservices';
 import { NatsRecordBuilder } from '@nestjs/microservices';
 import type { FastifyRequest } from 'fastify';
 import { headers as natsHeaders } from 'nats';
+import { resolveInjectedRequest } from '../context/resolve-request';
 import { NATS_CONTEXT_RESOLVER } from './constants';
 import type { ContextResolverFn } from './nats-client.interfaces';
 import { NATS_HEADER_KEYS, type NatsHeaders } from './nats-context';
@@ -15,10 +16,16 @@ export class NatsClientService {
   private cachedContext: NatsHeaders | null = null;
 
   constructor(
-    @Inject(REQUEST) private readonly request: FastifyRequest,
+    @Inject(REQUEST) private readonly injectedRequest: FastifyRequest,
     @Inject(NATS_CONTEXT_RESOLVER) private readonly contextResolver: ContextResolverFn,
     @Inject(NATS_CLIENTS) private readonly clients: Map<string, ClientProxy>,
   ) {}
+
+  // For GraphQL, @Inject(REQUEST) is the { req, reply } context wrapper, not the Fastify request;
+  // unwrap so `sessionInfo` (set by the auth guard on the request) is visible across both transports.
+  private get request(): FastifyRequest {
+    return resolveInjectedRequest(this.injectedRequest);
+  }
 
   // Sends a message to a named microservice with NatsHeaders as NATS headers
   async send<T>(service: string, cmd: string, data?: object): Promise<T> {
