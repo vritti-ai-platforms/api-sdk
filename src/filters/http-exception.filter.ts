@@ -9,41 +9,9 @@ import {
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { ApiErrorResponse, FieldError } from '../types/error-response.types';
 import { tryTranslatePgError } from './pg-error.translator';
+import { extractProblemFromResponse, getHttpStatusTitle } from './problem-extraction';
 
-interface ProblemExceptionResponse {
-  type?: string;
-  label?: string;
-  detail?: string;
-  errors?: FieldError[];
-}
-
-interface ValidationExceptionResponse {
-  message: Array<string | { property: string; constraints: Record<string, string> }>;
-  error?: string;
-}
-
-interface StandardExceptionResponse {
-  message: string | string[];
-  error?: string;
-}
-
-type ExceptionResponseObject = ProblemExceptionResponse | ValidationExceptionResponse | StandardExceptionResponse;
-
-// Converts an HTTP status code to its title string (e.g., 400 → "Bad Request")
-export function getHttpStatusTitle(status: number): string {
-  // Find the enum key for the given status code
-  const enumKey = Object.entries(HttpStatus).find(([key, value]) => value === status && Number.isNaN(Number(key)))?.[0];
-
-  if (!enumKey) {
-    return 'Error';
-  }
-
-  // Convert enum key to title case (e.g., BAD_REQUEST -> Bad Request)
-  return enumKey
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-}
+export { getHttpStatusTitle };
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -69,43 +37,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
 
-      if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
-        const responseObj = exceptionResponse as ExceptionResponseObject;
-
-        // Handle custom HttpProblemException from @vritti/api-sdk
-        if ('type' in responseObj || 'label' in responseObj || 'errors' in responseObj) {
-          const problemResponse = responseObj as ProblemExceptionResponse;
-          type = problemResponse.type ?? 'about:blank';
-          label = problemResponse.label;
-          detail = problemResponse.detail ?? exception.message ?? getHttpStatusTitle(status);
-          errors = problemResponse.errors ?? [];
-        }
-        // Handle class-validator DTO validation errors
-        else if ('message' in responseObj && Array.isArray(responseObj.message)) {
-          errors = responseObj.message
-            .map((msg) => {
-              if (typeof msg === 'object' && 'property' in msg && 'constraints' in msg) {
-                const constraintValues = Object.values(msg.constraints);
-                return {
-                  field: msg.property,
-                  message: constraintValues[0] ?? 'Validation failed',
-                };
-              }
-              // Non-field-specific validation messages are ignored
-              // They should be handled as detail at the response level
-              return null;
-            })
-            .filter((error): error is FieldError => error !== null);
-          detail = 'Validation failed';
-        }
-        // Handle standard NestJS exceptions
-        else if ('message' in responseObj) {
-          const message = responseObj.message;
-          detail = Array.isArray(message) ? message.join(', ') : message;
-        }
-      } else if (typeof exceptionResponse === 'string') {
-        detail = exceptionResponse;
-      }
+      // Reuse the shared extractor so HTTP and GraphQL surface identical problem details.
+      const extracted = extractProblemFromResponse(exceptionResponse, exception.message ?? getHttpStatusTitle(status));
+      type = extracted.type;
+      label = extracted.label;
+      // An object body that matched no known shape leaves detail undefined; keep the
+      // initial 'Internal server error' to preserve byte-identical HTTP output.
+      detail = extracted.detail ?? detail;
+      errors = extracted.errors;
     } else if (this.isProblemLikeObject(exception)) {
       const problemObj = exception as Record<string, unknown>;
       const statusCandidate = problemObj.status ?? problemObj.statusCode;

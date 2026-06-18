@@ -15,6 +15,7 @@ export {
 } from './auth.config';
 export * from './auth-config.module';
 export * from './decorators/access-token.decorator';
+export * from './decorators/client-ip.decorator';
 export * from './decorators/cookie-domain.decorator';
 export * from './decorators/cookie-name.decorator';
 export * from './decorators/hostname.decorator';
@@ -25,6 +26,7 @@ export * from './decorators/require-session.decorator';
 export type { SessionInfo } from './decorators/session-data.decorator';
 export { SessionData } from './decorators/session-data.decorator';
 export * from './decorators/subdomain.decorator';
+export * from './decorators/user-agent.decorator';
 export * from './decorators/user-id.decorator';
 export * from './guards/vritti-auth.guard';
 // Token service — generation, validation, and binding verification

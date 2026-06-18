@@ -1,9 +1,9 @@
 import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
+import { getRequestFromContext } from '../../context';
 
 // Extracts the subdomain from the request's origin or x-forwarded-host header
 export const Subdomain = createParamDecorator((_data: unknown, ctx: ExecutionContext): string | undefined => {
-  const request = ctx.switchToHttp().getRequest<FastifyRequest>();
+  const request = getRequestFromContext(ctx);
 
   // Try origin header first (browser always sends this on cross-origin requests)
   const origin = request.headers.origin;

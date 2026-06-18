@@ -1,5 +1,5 @@
 import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
+import { getRequestFromContext } from '../../context';
 import '../../types/fastify-augmentation';
 
 export interface SessionInfo {
@@ -10,7 +10,7 @@ export interface SessionInfo {
 
 // Returns full decoded session info from request.sessionInfo (set by VrittiAuthGuard)
 export const SessionData = createParamDecorator((_data: unknown, ctx: ExecutionContext): SessionInfo => {
-  const request = ctx.switchToHttp().getRequest<FastifyRequest>();
+  const request = getRequestFromContext(ctx);
   const sessionInfo = request.sessionInfo;
 
   if (!sessionInfo?.sessionId) {

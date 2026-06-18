@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { beforeEach, describe, it } from 'node:test';
 import { type ArgumentsHost, HttpStatus } from '@nestjs/common';
-import { getHttpStatusTitle, HttpExceptionFilter } from '../filters/http-exception.filter';
+import { getHttpStatusTitle, HttpExceptionFilter } from '../filters';
 import type { ApiErrorResponse, FieldError } from '../types/error-response.types';
 
 interface ExceptionResponse {

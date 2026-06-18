@@ -1,10 +1,10 @@
 import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
+import { getRequestFromContext } from '../../context';
 import { AUTH_CONFIG_DEFAULTS } from '../auth.config';
 
 // Extracts the cookie domain from x-forwarded-host (injected by proxy), validated against baseDomain, falls back to baseDomain if invalid
 export const CookieDomain = createParamDecorator((_data: unknown, ctx: ExecutionContext): string => {
-  const request = ctx.switchToHttp().getRequest<FastifyRequest>();
+  const request = getRequestFromContext(ctx);
   const forwarded = request.headers['x-forwarded-host'];
   const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded;
   const hostStr = raw ?? request.hostname;

@@ -26,6 +26,8 @@ export { TokenService } from './auth/services/token.service';
 export type { ICacheProvider } from './cache';
 // Cache module (Redis provider + ICacheProvider contract)
 export { CACHE_PROVIDER, CacheModule, CacheService, RedisCacheProvider } from './cache';
+// Context module — transport-agnostic request/response access + extensible transport registry
+export * from './context';
 // Data table module (views + ephemeral state)
 export { DATA_TABLE_VIEWS_TABLE, DataTableModule, type DataTableModuleOptions } from './data-table/data-table.module';
 export {
@@ -45,10 +47,13 @@ export { DataTableViewsService } from './data-table/views/services/data-table-vi
 export { DatabaseModule } from './database/database.module';
 // Database DTOs
 export { CreateResponseDto } from './database/dto/create-response.dto';
+export { CursorListResponseDto } from './database/dto/cursor-list-response.dto';
 export { ImportResponseDto, ImportSummaryDto, ValidatedRowDto } from './database/dto/import-response.dto';
 export { SelectOptionsQueryDto } from './database/dto/select-options-query.dto';
 export { SuccessResponseDto } from './database/dto/success-response.dto';
 export { TableResponseDto } from './database/dto/table-response.dto';
+// Cursor / keyset pagination
+export { CursorCodec } from './database/filter/cursor.codec';
 // Filter processor
 export { type FieldDefinition, type FieldMap, FilterProcessor } from './database/filter/filter.processor';
 export type {
@@ -61,6 +66,7 @@ export type {
   TableViewState,
 } from './database/filter/filter.types';
 export { FilterOperators } from './database/filter/filter.types';
+export { type KeysetOrderBy, KeysetProcessor } from './database/filter/keyset.processor';
 // Interfaces
 export * from './database/interfaces';
 // Repositories

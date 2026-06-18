@@ -28,6 +28,10 @@ export interface GuardConfig {
   authHeaderName: string;
   tokenPrefix: string;
   csrfExemptSessionTypes?: string[];
+  // Transports (matched against ExecutionContext.getType(), e.g. 'graphql') that skip the
+  // cookie-based CSRF check entirely — for bearer-token, cookie-less transports where CSRF
+  // does not apply. Skips CSRF for both @Public() and authenticated requests on that transport.
+  csrfExemptTransports?: string[];
   refreshTokenBindingExemptSessionTypes?: string[];
   onAuthenticated?: OnAuthenticatedCallback;
 }
@@ -53,6 +57,7 @@ export const AUTH_CONFIG_DEFAULTS = {
     authHeaderName: 'authorization',
     tokenPrefix: 'Bearer',
     csrfExemptSessionTypes: [],
+    csrfExemptTransports: [],
     refreshTokenBindingExemptSessionTypes: [],
   },
 } satisfies Omit<AuthConfig, 'tokenExpiry'>;

@@ -56,6 +56,7 @@ export default defineConfig({
   external: [
     '@nestjs/common',
     '@nestjs/core',
+    '@nestjs/graphql',
     '@nestjs/swagger',
     'class-transformer',
     'class-validator',

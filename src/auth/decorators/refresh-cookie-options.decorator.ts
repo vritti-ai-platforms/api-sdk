@@ -1,6 +1,6 @@
 import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
 import { UnauthorizedException } from '../../exceptions';
+import { getRequestFromContext } from '../../context';
 import { AUTH_CONFIG_DEFAULTS, type CookieConfig, type CookieSerializeOptions } from '../auth.config';
 
 // Builds cookie serialize options from the given cookie config
@@ -28,7 +28,7 @@ function buildCookieOptionsForHost(cookieConfig: CookieConfig, hostname: string)
 // Returns refresh cookie options with domain scoped to the request subdomain (reads x-forwarded-host injected by proxy)
 export const RefreshCookieOptions = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): CookieSerializeOptions => {
-    const request = ctx.switchToHttp().getRequest<FastifyRequest>();
+    const request = getRequestFromContext(ctx);
     const forwarded = request.headers['x-forwarded-host'];
     const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded;
     const hostStr = raw ?? request.hostname;

@@ -12,6 +12,7 @@ import { SSE_METADATA } from '@nestjs/common/constants';
 import { Reflector } from '@nestjs/core';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import '../../types/fastify-augmentation';
+import { getRequestFromContext, getResponseFromContext } from '../../context';
 import { RequestService } from '../../request/services/request.service';
 import { AUTH_CONFIG, type AuthConfig } from '../auth.config';
 import { REQUIRE_SESSION_KEY } from '../decorators/require-session.decorator';
@@ -36,17 +37,19 @@ export class VrittiAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<FastifyRequest>();
-    const reply = context.switchToHttp().getResponse<FastifyReply>();
+    const request = getRequestFromContext(context);
+    const reply = getResponseFromContext(context);
     const route = `${request.method} ${request.url}`;
 
     // Attach auth config to request so decorators can access it without injection
     request.authConfig = this.config;
 
-    const skipCsrf = this.reflector.getAllAndOverride<boolean>(SKIP_CSRF_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    // CSRF is skipped via @SkipCsrf(), or when the request transport is CSRF-exempt (e.g. 'graphql'
+    // — a bearer-token, cookie-less transport where the cookie-based CSRF check does not apply).
+    const csrfExemptTransports = this.config.guard.csrfExemptTransports ?? [];
+    const skipCsrf =
+      this.reflector.getAllAndOverride<boolean>(SKIP_CSRF_KEY, [context.getHandler(), context.getClass()]) ||
+      csrfExemptTransports.includes(context.getType<string>());
 
     // @Public() endpoints skip auth, while preserving their current CSRF behavior
     const isPublic = this.reflector.getAllAndOverride<boolean>('isPublic', [context.getHandler(), context.getClass()]);
