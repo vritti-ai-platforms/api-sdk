@@ -2,17 +2,20 @@ import { defineConfig } from 'tsup';
 
 export default defineConfig({
   // Entry points
-  entry: [
-    'src/index.ts',
-    'src/migrate.ts',
-    'src/nats.ts',
-    'src/decimal.ts',
-    'src/drizzle-orm.ts',
-    'src/drizzle-pg-core.ts',
-    'src/xlsx.ts',
-    'src/lodash.ts',
-    'src/money.ts',
-  ],
+  entry: {
+    index: 'src/index.ts',
+    migrate: 'src/migrate.ts',
+    nats: 'src/nats.ts',
+    decimal: 'src/decimal.ts',
+    'drizzle-orm': 'src/drizzle-orm.ts',
+    'drizzle-pg-core': 'src/drizzle-pg-core.ts',
+    xlsx: 'src/xlsx.ts',
+    lodash: 'src/lodash.ts',
+    money: 'src/money.ts',
+    // Dedicated entry so the large icon-names.json (~352KB) only loads via the
+    // './icons' subpath, never bundled into the main barrel.
+    icons: 'src/icons/index.ts',
+  },
 
   // Output formats
   format: ['cjs', 'esm'],

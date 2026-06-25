@@ -87,6 +87,9 @@ export { IsDateTime } from './decorators/is-date-time.decorator';
 // Decorators
 export { UploadedFile, type UploadedFileResult, UploadedFiles } from './decorators/uploaded-file.decorator';
 export { CurrencyAmountDto } from './dto/currency-amount.dto';
+// Icon-name validation (IsIconName, ICON_NAMES, isIconName) is intentionally NOT re-exported
+// here — import it from the '@vritti/api-sdk/icons' subpath so the large icon-names.json (~352KB)
+// stays out of the main bundle and only loads where it's used.
 // Email module
 export { EmailModule } from './email/email.module';
 export { EmailService } from './email/email.service';

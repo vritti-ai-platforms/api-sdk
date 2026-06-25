@@ -1,3 +1,6 @@
+// Pulls the `declare module 'fastify'` augmentation (request.sessionInfo) into this entry's
+// dts graph — tsup builds each entry in isolation and otherwise drops the global augmentation.
+import '../types/fastify-augmentation';
 import { Inject, Injectable, Scope } from '@nestjs/common';
 import { REQUEST } from '@nestjs/core';
 import type { ClientProxy } from '@nestjs/microservices';
