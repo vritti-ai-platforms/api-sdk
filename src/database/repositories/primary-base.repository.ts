@@ -5,16 +5,20 @@ import {
   desc,
   eq,
   getTableName,
+  getViewName,
   type InferInsertModel,
   type InferSelectModel,
+  type InferSelectViewModel,
   ilike,
   inArray,
+  is,
   notInArray,
   type SQL,
   sql,
 } from 'drizzle-orm';
 import type { PgColumn, PgSequence, PgTable, SelectedFields } from 'drizzle-orm/pg-core';
 import type { AnyPgAsyncSelect } from 'drizzle-orm/pg-core/async';
+import { PgViewBase } from 'drizzle-orm/pg-core/view-base';
 import type { TypedDrizzleClient } from '../schema.registry';
 import { PrimaryDatabaseService } from '../services/primary-database.service';
 import type { FindForSelectConfig, SelectQueryResult } from '../types';
@@ -44,20 +48,31 @@ interface TypedRelationalQueryBuilder<TSelect> {
 }
 
 export abstract class PrimaryBaseRepository<
-  TTable extends PgTable,
-  TInsert = InferInsertModel<TTable>,
-  TSelect = InferSelectModel<TTable>,
+  TTable extends PgTable | PgViewBase,
+  TInsert = TTable extends PgTable ? InferInsertModel<TTable> : never,
+  TSelect = TTable extends PgTable
+    ? InferSelectModel<TTable>
+    : TTable extends PgViewBase
+      ? InferSelectViewModel<TTable>
+      : never,
 > {
   protected readonly logger: Logger;
   protected readonly sequence?: PgSequence;
 
   private readonly tableName: string;
+  private readonly isView: boolean;
 
   protected get db(): TypedDrizzleClient {
     return this.database.drizzleClient;
   }
 
   protected get model(): TypedRelationalQueryBuilder<TSelect> {
+    if (this.isView) {
+      throw new Error(
+        `${this.constructor.name}: relational queries (.model) are not supported on the view '${this.tableName}'. Use findForSelect / findAllAndCount instead.`,
+      );
+    }
+
     const query = this.database.drizzleClient.query;
     const queryKeys = Object.keys(query || {});
     this.logger.debug(`Looking for '${this.tableName}' in query keys: [${queryKeys.join(', ')}]`);
@@ -77,9 +92,10 @@ export abstract class PrimaryBaseRepository<
       sequence?: PgSequence;
     },
   ) {
-    // Convert snake_case table name to camelCase to match Drizzle query object keys
+    // Convert snake_case table/view name to camelCase to match Drizzle query object keys
     // Example: 'email_verifications' -> 'emailVerifications'
-    const dbTableName = getTableName(table);
+    this.isView = is(table, PgViewBase);
+    const dbTableName = this.isView ? getViewName(table as PgViewBase) : getTableName(table as PgTable);
     this.tableName = snakeToCamel(dbTableName);
     this.sequence = options?.sequence;
     this.logger = new Logger(this.constructor.name);
@@ -223,9 +239,9 @@ export abstract class PrimaryBaseRepository<
       subq = subq.groupBy(...options.groupBy) as typeof subq;
 
       const named = subq.as('_count_subq');
-      countResultPromise = this.db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(named) as unknown as Promise<{ count: number }[]>;
+      countResultPromise = this.db.select({ count: sql<number>`count(*)::int` }).from(named) as unknown as Promise<
+        { count: number }[]
+      >;
     } else {
       // Count query mirrors the same JOINs so WHERE clauses on joined columns are valid
       let countQuery = this.db
