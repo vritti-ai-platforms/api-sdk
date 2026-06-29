@@ -72,16 +72,50 @@ function isHttpExceptionLike(error: unknown): error is HttpExceptionLike {
   );
 }
 
-// Walks the error chain (graphql wraps the thrown error under `originalError`) to find the
-// underlying NestJS HttpException, if any.
-function findHttpException(error: GraphqlErrorShape | undefined): HttpExceptionLike | undefined {
+// A plain RFC 9457 problem object (no HttpException methods). This is what a downstream microservice
+// rejection leaks when forwarded over a transport like NATS: the resolver throws the raw problem body,
+// and graphql-js wraps that non-Error throw as a `NonErrorThrown` whose original is stashed under
+// `.thrownValue`. We detect it by a numeric `status`/`statusCode` so it maps exactly like an HttpException
+// (otherwise it falls through to the default 500 → INTERNAL, hiding a legitimate 4xx + its message).
+interface ProblemLike {
+  status?: number;
+  statusCode?: number;
+  detail?: string;
+  message?: string;
+}
+
+function isProblemLike(error: unknown): error is ProblemLike {
+  if (error == null || typeof error !== 'object') {
+    return false;
+  }
+  const o = error as Record<string, unknown>;
+  return typeof o.status === 'number' || typeof o.statusCode === 'number';
+}
+
+// Normalized problem source: a status plus a body `extractProblemFromResponse` understands.
+interface ProblemSource {
+  status: number;
+  response: string | object;
+  fallback: string;
+}
+
+// Walks the error chain to find the underlying problem — either a NestJS HttpException or a plain RFC 9457
+// object leaked across a transport. graphql wraps the thrown error under `originalError`, and a non-Error
+// throw additionally under `originalError.thrownValue`, so the walk follows both links.
+function findProblemSource(error: GraphqlErrorShape | undefined): ProblemSource | undefined {
   let current: unknown = error;
-  // Bounded walk — guard against cyclic originalError chains.
+  // Bounded walk — guard against cyclic chains.
   for (let depth = 0; current && depth < 10; depth++) {
     if (isHttpExceptionLike(current)) {
-      return current;
+      const status = current.getStatus();
+      return { status, response: current.getResponse(), fallback: current.message ?? getHttpStatusTitle(status) };
     }
-    current = (current as { originalError?: unknown }).originalError;
+    if (isProblemLike(current)) {
+      const status = current.status ?? current.statusCode ?? 500;
+      return { status, response: current, fallback: current.detail ?? current.message ?? getHttpStatusTitle(status) };
+    }
+    const next = current as { originalError?: unknown; thrownValue?: unknown };
+    current = next.originalError ?? next.thrownValue;
   }
   return undefined;
 }
@@ -107,22 +141,20 @@ export function createGraphqlFormatError(
 
   return (formattedError, error) => {
     const gqlError = (error ?? undefined) as GraphqlErrorShape | undefined;
-    const httpException = findHttpException(gqlError);
+    const source = findProblemSource(gqlError);
 
-    // Derive status + problem body from the underlying HttpException. Apollo only copies the
-    // exception's .message into the formatted error and defaults extensions.code to
-    // INTERNAL_SERVER_ERROR — it never reads getResponse() — so we read it ourselves here.
+    // Derive status + problem body from the underlying problem source — a NestJS HttpException OR a plain
+    // RFC 9457 object leaked across a transport (e.g. a NATS microservice rejection). Apollo only copies
+    // the .message into the formatted error and defaults extensions.code to INTERNAL_SERVER_ERROR — it
+    // never reads the body — so we read the real status/detail ourselves here.
     let status = 500;
     let detail: string | undefined;
     let label: string | undefined;
     let fieldErrors: Array<{ field: string; message: string }> = [];
 
-    if (httpException) {
-      status = httpException.getStatus();
-      const extracted = extractProblemFromResponse(
-        httpException.getResponse(),
-        httpException.message ?? getHttpStatusTitle(status),
-      );
+    if (source) {
+      status = source.status;
+      const extracted = extractProblemFromResponse(source.response, source.fallback);
       detail = extracted.detail;
       label = extracted.label;
       fieldErrors = extracted.errors;
