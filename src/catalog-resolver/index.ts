@@ -9,6 +9,12 @@ export {
 } from './bu-matrix.builder';
 export { buildBuCatalog, buildBuRoles, isPlanMember, unlockedCodes } from './catalog.builder';
 export {
+  type ComposedRoleGrant,
+  type ComposeRoleGrantsParams,
+  composeRoleGrants,
+  type RevokedGrants,
+} from './compose-role-grants';
+export {
   type ClientPlatform,
   type LockedPermission,
   type PermissionFeature,
