@@ -1,4 +1,14 @@
-export type FilterOperator = 'equals' | 'notEquals' | 'contains' | 'notContains' | 'gt' | 'gte' | 'lt' | 'lte' | 'isAnyOf' | 'isNotAnyOf';
+export type FilterOperator =
+  | 'equals'
+  | 'notEquals'
+  | 'contains'
+  | 'notContains'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte'
+  | 'isAnyOf'
+  | 'isNotAnyOf';
 
 export const FilterOperators = {
   EQUALS: 'equals',

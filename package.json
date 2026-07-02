@@ -1,7 +1,7 @@
 {
   "name": "@vritti/api-sdk",
   "type": "module",
-  "version": "0.2.10",
+  "version": "0.3.0",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -104,6 +104,46 @@
       "require": {
         "types": "./dist/icons.d.cts",
         "default": "./dist/icons.cjs"
+      }
+    },
+    "./catalog-resolver": {
+      "import": {
+        "types": "./dist/catalog-resolver.d.ts",
+        "default": "./dist/catalog-resolver.js"
+      },
+      "require": {
+        "types": "./dist/catalog-resolver.d.cts",
+        "default": "./dist/catalog-resolver.cjs"
+      }
+    },
+    "./license": {
+      "import": {
+        "types": "./dist/license.d.ts",
+        "default": "./dist/license.js"
+      },
+      "require": {
+        "types": "./dist/license.d.cts",
+        "default": "./dist/license.cjs"
+      }
+    },
+    "./cache": {
+      "import": {
+        "types": "./dist/cache.d.ts",
+        "default": "./dist/cache.js"
+      },
+      "require": {
+        "types": "./dist/cache.d.cts",
+        "default": "./dist/cache.cjs"
+      }
+    },
+    "./email": {
+      "import": {
+        "types": "./dist/email.d.ts",
+        "default": "./dist/email.js"
+      },
+      "require": {
+        "types": "./dist/email.d.cts",
+        "default": "./dist/email.cjs"
       }
     }
   },

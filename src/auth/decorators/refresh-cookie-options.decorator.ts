@@ -1,6 +1,6 @@
 import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
-import { UnauthorizedException } from '../../exceptions';
 import { getRequestFromContext } from '../../context';
+import { UnauthorizedException } from '../../exceptions';
 import { AUTH_CONFIG_DEFAULTS, type CookieConfig, type CookieSerializeOptions } from '../auth.config';
 
 // Builds cookie serialize options from the given cookie config

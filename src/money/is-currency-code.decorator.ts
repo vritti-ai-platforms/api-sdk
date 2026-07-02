@@ -1,5 +1,5 @@
 import { registerDecorator, type ValidationArguments, type ValidationOptions } from 'class-validator';
-import { SUPPORTED_CURRENCIES } from '../money';
+import { SUPPORTED_CURRENCIES } from './money';
 
 export function IsCurrencyCode(validationOptions?: ValidationOptions): PropertyDecorator {
   return (target: object, propertyName: string | symbol) => {

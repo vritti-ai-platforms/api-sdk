@@ -34,7 +34,7 @@ See `.claude/rules/error-handling.md`. Exceptions use `ProblemOptions`:
 
 ### Build Output
 
-Entry points defined in `tsup.config.ts`: `src/index.ts`, `src/drizzle-orm.ts`, `src/drizzle-pg-core.ts`, `src/xlsx.ts`.
+Entry points are defined in `tsup.config.ts` — one per subpath in the package.json `exports` map (`.`, `./migrate`, `./nats`, `./decimal`, `./drizzle-orm`, `./drizzle-pg-core`, `./xlsx`, `./lodash`, `./money`, `./icons`, `./catalog-resolver`, `./license`, `./cache`, `./email`). Heavy or optional dependencies (ioredis, @getbrevo/brevo, dinero.js, xlsx, nats, icon-names.json) stay off the main barrel — new modules with such deps get their own subpath.
 
 ## Structure
 

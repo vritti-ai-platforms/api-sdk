@@ -167,7 +167,7 @@ import {
   ZMW,
   ZWG,
 } from 'dinero.js/bigint/currencies';
-import { ValidationException } from './exceptions/validation.exception';
+import { ValidationException } from '../exceptions/validation.exception';
 
 export * from 'dinero.js/bigint';
 

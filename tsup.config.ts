@@ -11,10 +11,14 @@ export default defineConfig({
     'drizzle-pg-core': 'src/drizzle-pg-core.ts',
     xlsx: 'src/xlsx.ts',
     lodash: 'src/lodash.ts',
-    money: 'src/money.ts',
+    money: 'src/money/index.ts',
     // Dedicated entry so the large icon-names.json (~352KB) only loads via the
     // './icons' subpath, never bundled into the main barrel.
     icons: 'src/icons/index.ts',
+    'catalog-resolver': 'src/catalog-resolver/index.ts',
+    license: 'src/license/index.ts',
+    cache: 'src/cache/index.ts',
+    email: 'src/email/index.ts',
   },
 
   // Output formats

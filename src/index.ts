@@ -23,9 +23,8 @@ export {
 export { SKIP_CSRF_KEY, SkipCsrf } from './auth/decorators/skip-csrf.decorator';
 // Token service — generation, validation, and binding verification
 export { TokenService } from './auth/services/token.service';
-export type { ICacheProvider } from './cache';
-// Cache module (Redis provider + ICacheProvider contract)
-export { CACHE_PROVIDER, CacheModule, CacheService, RedisCacheProvider } from './cache';
+// Cache module moved to the './cache' subpath (@vritti/api-sdk/cache) so the main barrel never imports ioredis.
+// Catalog resolver moved to the './catalog-resolver' subpath (@vritti/api-sdk/catalog-resolver).
 // Context module — transport-agnostic request/response access + extensible transport registry
 export * from './context';
 // Data table module (views + ephemeral state)
@@ -81,26 +80,22 @@ export type {
   SelectQueryOption,
   SelectQueryResult,
 } from './database/types';
-export { IsCurrency } from './decorators/is-currency.decorator';
-export { IsCurrencyCode } from './decorators/is-currency-code.decorator';
 export { IsDateTime } from './decorators/is-date-time.decorator';
 // Decorators
 export { UploadedFile, type UploadedFileResult, UploadedFiles } from './decorators/uploaded-file.decorator';
-export { CurrencyAmountDto } from './dto/currency-amount.dto';
 // Icon-name validation (IsIconName, ICON_NAMES, isIconName) is intentionally NOT re-exported
 // here — import it from the '@vritti/api-sdk/icons' subpath so the large icon-names.json (~352KB)
 // stays out of the main bundle and only loads where it's used.
-// Email module
-export { EmailModule } from './email/email.module';
-export { EmailService } from './email/email.service';
+// Email module moved to the './email' subpath (@vritti/api-sdk/email) so the main barrel never imports @getbrevo/brevo.
 // Exceptions
 export * from './exceptions';
 // RFC 7807 Filters (includes HttpExceptionFilter)
 export * from './filters';
+// License module moved to the './license' subpath (@vritti/api-sdk/license).
 // Logger utilities
 export * from './logger';
-export type { Currency, CurrencyCode } from './money';
-export { majorToMinor, minorToMajor, SUPPORTED_CURRENCIES } from './money';
+// Money module (utilities, IsCurrency, IsCurrencyCode, CurrencyAmountDto) lives on the './money'
+// subpath (@vritti/api-sdk/money) — the only entry that touches dinero.js.
 // NATS / microservice exports moved to the './nats' subpath (@vritti/api-sdk/nats) so the main
 // barrel never imports @nestjs/microservices. Non-NATS consumers (cloud-server) stay clean.
 // Root module (health check + CSRF)

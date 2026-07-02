@@ -1,4 +1,4 @@
-import { type CurrencyCode, minorToMajor } from '../money';
+import { type CurrencyCode, minorToMajor } from './money';
 
 export class CurrencyAmountDto {
   currency: string;

@@ -1,5 +1,5 @@
 import { registerDecorator, type ValidationArguments, type ValidationOptions } from 'class-validator';
-import { type CurrencyCode, majorToMinor, SUPPORTED_CURRENCIES } from '../money';
+import { type CurrencyCode, majorToMinor, SUPPORTED_CURRENCIES } from './money';
 
 // Self-contained validator for `{currency, value}` payloads. Intentionally does NOT compose
 // `@ValidateNested()` + `@Type(() => CurrencyAmountDto)` — api-sdk and the consuming app each
