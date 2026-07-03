@@ -3,7 +3,8 @@ export function parseExpiryToMs(expiry: string): number {
   const match = expiry.match(/^(\d+)([smhdwy])$/);
   if (!match) throw new Error(`Invalid expiry format: ${expiry}`);
 
-  const value = Number.parseInt(match[1]!, 10);
+  const [, digits = '', unit = ''] = match;
+  const value = Number.parseInt(digits, 10);
   const multipliers: Record<string, number> = {
     s: 1000,
     m: 60_000,
@@ -13,5 +14,8 @@ export function parseExpiryToMs(expiry: string): number {
     y: 31_536_000_000,
   };
 
-  return value * multipliers[match[2]!]!;
+  const multiplier = multipliers[unit];
+  if (multiplier === undefined) throw new Error(`Invalid expiry format: ${expiry}`);
+
+  return value * multiplier;
 }
