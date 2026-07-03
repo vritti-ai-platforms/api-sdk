@@ -7,36 +7,36 @@ export {
   type BuMatrixPermission,
   buildBuMatrix,
 } from './bu-matrix.builder';
-export { buildBuCatalog, buildBuRoles, isBuLockedOnPlatform, isPlanMember, unlockedCodes } from './catalog.builder';
-export {
-  type ComposedRoleGrant,
-  type ComposeRoleGrantsParams,
-  composeRoleGrants,
-  type RevokedGrants,
-} from './compose-role-grants';
+export { buildBuCatalog, buildBuRoles, isBuLockedOnPlatform, isPlanMember } from './catalog.builder';
+export { type ComposeRoleGrantsParams, composeRoleGrants, type RevokedGrants } from './compose-role-grants';
 export {
   type ClientPlatform,
   type LockedPermission,
   type PermissionFeature,
   pickRouteForPlatform,
   type ResolveUserFeaturesParams,
-  type RoleFeatureGrant,
   resolveUserFeatures,
 } from './resolve-user-features';
-export type {
-  BuFeatureLocks,
-  CatalogPermission,
-  FeatureCatalogEntry,
-  LockReason,
-  RoleItem,
-  SnapshotApp,
-  SnapshotBusiness,
-  SnapshotFeature,
-  SnapshotMicrofrontendMobile,
-  SnapshotMicrofrontends,
-  SnapshotMicrofrontendWeb,
-  SnapshotPermission,
-  SnapshotPlan,
-  SnapshotRoleTemplate,
-  VersionSnapshot,
+export {
+  type BuFeatureLocks,
+  type CatalogPermission,
+  type FeatureCatalogEntry,
+  type FeatureUnlocks,
+  type LockReason,
+  PLATFORMS,
+  type PlatformBucket,
+  type PlatformCodes,
+  type PlatformDenyCodes,
+  type RoleItem,
+  SNAPSHOT_SCHEMA_VERSION,
+  type SnapshotApp,
+  type SnapshotBusiness,
+  type SnapshotFeature,
+  type SnapshotMicrofrontendMobile,
+  type SnapshotMicrofrontends,
+  type SnapshotMicrofrontendWeb,
+  type SnapshotPermission,
+  type SnapshotPlan,
+  type SnapshotRoleTemplate,
+  type VersionSnapshot,
 } from './types';

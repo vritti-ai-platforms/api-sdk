@@ -56,7 +56,7 @@ const snapshot: VersionSnapshot = {
     RETAIL: {
       name: 'Retail',
       apps: [{ code: 'pos', name: 'POS', icon: 'store', sortOrder: 1, features: ['sales', 'reports'] }],
-      roleTemplates: [],
+      roleTemplates: {},
       plans: {
         PRO: {
           code: 'PRO',

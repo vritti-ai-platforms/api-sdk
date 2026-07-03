@@ -57,7 +57,7 @@ const snapshot: VersionSnapshot = {
     RETAIL: {
       name: 'Retail',
       apps: [{ code: 'pos', name: 'POS', icon: 'store', sortOrder: 1, features: ['sales', 'reports'] }],
-      roleTemplates: [],
+      roleTemplates: {},
       plans: {
         BASIC: {
           code: 'BASIC',
@@ -88,7 +88,7 @@ describe('resolveUserFeatures', () => {
       businessCode: 'RETAIL',
       planCode: 'BASIC',
       buLocks: undefined,
-      roleFeatures: { sales: { app: 'pos', web: ['sales.view', 'sales.create'] } },
+      roleFeatures: { sales: { web: ['sales.view', 'sales.create'] } },
       platform: 'web',
     });
 
@@ -114,7 +114,7 @@ describe('resolveUserFeatures', () => {
       businessCode: 'RETAIL',
       planCode: 'BASIC',
       buLocks: undefined,
-      roleFeatures: { reports: { app: 'pos', web: ['reports.view'] } },
+      roleFeatures: { reports: { web: ['reports.view'] } },
       platform: 'web',
     });
 
@@ -130,7 +130,7 @@ describe('resolveUserFeatures', () => {
       businessCode: 'RETAIL',
       planCode: 'PRO',
       buLocks: undefined,
-      roleFeatures: { sales: { app: 'pos', mobile: ['sales.view'] }, reports: { app: 'pos', web: ['reports.view'] } },
+      roleFeatures: { sales: { mobile: ['sales.view'] }, reports: { web: ['reports.view'] } },
     };
     const ios = resolveUserFeatures({ ...params, platform: 'ios' });
     const android = resolveUserFeatures({ ...params, platform: 'android' });
@@ -147,7 +147,7 @@ describe('resolveUserFeatures', () => {
       businessCode: 'RETAIL',
       planCode: 'PRO',
       buLocks: { sales: { web: ['sales.create'], mobile: null } },
-      roleFeatures: { sales: { app: 'pos', web: ['sales.view', 'sales.create'] } },
+      roleFeatures: { sales: { web: ['sales.view', 'sales.create'] } },
       platform: 'web',
     });
 
@@ -161,7 +161,7 @@ describe('resolveUserFeatures', () => {
       businessCode: 'RETAIL',
       planCode: 'PRO',
       buLocks: undefined,
-      roleFeatures: { sales: { app: 'pos', web: ['sales.view', 'sales.create', 'sales.void'] } },
+      roleFeatures: { sales: { web: ['sales.view', 'sales.create', 'sales.void'] } },
       platform: 'web',
     });
 
@@ -175,7 +175,7 @@ describe('resolveUserFeatures', () => {
       businessCode: 'RETAIL',
       planCode: 'PRO',
       buLocks: { sales: { web: ['sales.view'] } },
-      roleFeatures: { sales: { app: 'pos', web: ['sales.view'], mobile: ['sales.view'] } },
+      roleFeatures: { sales: { web: ['sales.view'], mobile: ['sales.view'] } },
     };
     const web = resolveUserFeatures({ ...params, platform: 'web' as const });
     const mobile = resolveUserFeatures({ ...params, platform: 'ios' as const });
@@ -191,7 +191,7 @@ describe('resolveUserFeatures', () => {
       businessCode: 'RETAIL',
       planCode: 'BASIC',
       buLocks: { sales: { web: ['sales.create'], mobile: ['sales.create'] } },
-      roleFeatures: { sales: { app: 'pos', web: ['sales.view', 'sales.create'] } },
+      roleFeatures: { sales: { web: ['sales.view', 'sales.create'] } },
       platform: 'web',
     });
 
@@ -204,7 +204,7 @@ describe('resolveUserFeatures', () => {
       businessCode: 'RETAIL',
       planCode: 'PRO',
       buLocks: { sales: { web: null, mobile: null } },
-      roleFeatures: { reports: { app: 'pos', web: ['reports.view'] } },
+      roleFeatures: { reports: { web: ['reports.view'] } },
       platform: 'web',
     });
 
@@ -218,26 +218,12 @@ describe('resolveUserFeatures', () => {
       businessCode: 'RETAIL',
       planCode: 'PRO',
       buLocks: { sales: { web: null, mobile: null } },
-      roleFeatures: { sales: { app: 'pos', web: ['sales.view', 'sales.create', 'sales.void'] } },
+      roleFeatures: { sales: { web: ['sales.view', 'sales.create', 'sales.void'] } },
       platform: 'web',
     });
 
     assert.equal(features[0].locked, true);
     assert.equal(features[0].lockReason, 'BU');
     assert.deepEqual(features[0].unlockPlans, []);
-  });
-
-  it('tolerates the legacy flat string[] grant shape', () => {
-    const features = resolveUserFeatures({
-      snapshot,
-      businessCode: 'RETAIL',
-      planCode: 'PRO',
-      buLocks: undefined,
-      roleFeatures: { sales: ['sales.view'] },
-      platform: 'web',
-    });
-
-    assert.equal(features.length, 1);
-    assert.deepEqual(features[0].permissions, ['sales.view']);
   });
 });

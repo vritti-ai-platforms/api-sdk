@@ -1,24 +1,12 @@
-import type { RoleFeatureGrant } from './resolve-user-features';
+import { type FeatureUnlocks, PLATFORMS, type PlatformCodes, type PlatformDenyCodes } from './types';
 
-export type RevokedGrants = Record<string, { web?: string[] | null; mobile?: string[] | null }>;
-
-export interface ComposedRoleGrant {
-  app?: string;
-  web?: string[];
-  mobile?: string[];
-}
+// Grants removed from a base template — same deny algebra as BU locks
+export type RevokedGrants = Record<string, PlatformDenyCodes>;
 
 export interface ComposeRoleGrantsParams {
-  baseFeatures: Record<string, RoleFeatureGrant> | undefined;
-  additions: Record<string, RoleFeatureGrant>;
+  baseFeatures: FeatureUnlocks | undefined;
+  additions: FeatureUnlocks;
   revoked: RevokedGrants | undefined;
-}
-
-// Normalizes a grant to the per-platform object shape — legacy flat string[] counts as both-platform codes
-function normalizeGrant(grant: RoleFeatureGrant | undefined): { app?: string; web?: string[]; mobile?: string[] } {
-  if (grant === undefined) return {};
-  if (Array.isArray(grant)) return { web: grant, mobile: grant };
-  return grant;
 }
 
 // Deduped union of two optional code lists — undefined on both sides means no platform membership
@@ -30,23 +18,19 @@ function unionBucket(base: string[] | undefined, add: string[] | undefined): str
 // Composes a based custom role's effective grants: merge(base ∪ additions) − revoked (design doc §10).
 // Platform membership survives a code revoke (may leave [] = view-only); a null revoke removes the
 // platform entirely; a feature with no surviving platform disappears. Inputs are never mutated.
-export function composeRoleGrants(params: ComposeRoleGrantsParams): Record<string, ComposedRoleGrant> {
+export function composeRoleGrants(params: ComposeRoleGrantsParams): FeatureUnlocks {
   const { baseFeatures, additions, revoked } = params;
 
-  const result: Record<string, ComposedRoleGrant> = {};
+  const result: FeatureUnlocks = {};
   const featureCodes = new Set([...Object.keys(baseFeatures ?? {}), ...Object.keys(additions ?? {})]);
 
   for (const code of featureCodes) {
-    const base = normalizeGrant(baseFeatures?.[code]);
-    const add = normalizeGrant(additions?.[code]);
+    const base = baseFeatures?.[code] ?? {};
+    const add = additions?.[code] ?? {};
     const revokes = revoked?.[code];
 
-    const composed: ComposedRoleGrant = {};
-    // App comes from the base template first, else the role's own additions
-    const app = base.app ?? add.app;
-    if (app !== undefined) composed.app = app;
-
-    for (const bucket of ['web', 'mobile'] as const) {
+    const composed: PlatformCodes = {};
+    for (const bucket of PLATFORMS) {
       const merged = unionBucket(base[bucket], add[bucket]);
       if (merged === undefined) continue;
       const revoke = revokes?.[bucket];

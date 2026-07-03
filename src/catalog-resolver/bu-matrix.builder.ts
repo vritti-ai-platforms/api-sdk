@@ -1,9 +1,5 @@
 import { isBuLockedOnPlatform, isPlanMember } from './catalog.builder';
-import type { BuFeatureLocks, SnapshotPlan, VersionSnapshot } from './types';
-
-// UI platform keys — the snapshot's microfrontend keys (lowercase), not the storage AppPlatform enum
-type Platform = 'web' | 'mobile';
-const PLATFORMS: Platform[] = ['web', 'mobile'];
+import { type BuFeatureLocks, PLATFORMS, type PlatformBucket, type SnapshotPlan, type VersionSnapshot } from './types';
 
 // A single (permission, platform) cell. null ⇒ the feature doesn't ship on that platform.
 export interface BuMatrixCell {
@@ -23,7 +19,7 @@ export interface BuMatrixFeature {
   code: string;
   name: string;
   icon: string | null;
-  platforms: Platform[]; // platforms the feature ships on
+  platforms: PlatformBucket[]; // platforms the feature ships on
   inPlan: boolean; // FEATURE-level: is this feature a member of the org's plan at all?
   availableIn: string[]; // plans that include the feature — upsell when !inPlan
   permissions: BuMatrixPermission[];
@@ -41,6 +37,8 @@ export interface BuMatrixApp {
 export interface BuMatrix {
   plan: { code: string; name: string };
   apps: BuMatrixApp[];
+  // The stored BU deny-list verbatim — lock editors seed from this, never from derived selected flags
+  locks: BuFeatureLocks;
 }
 
 // Builds the full apps/features/permissions matrix from the version snapshot — NOT filtered to plan members.
@@ -56,7 +54,8 @@ export function buildBuMatrix(
   const plans = business?.plans ?? {};
   const plan = planCode ? plans[planCode] : undefined;
   const planMeta = { code: planCode ?? '', name: plan?.name ?? planCode ?? '' };
-  if (!business || !plan) return { plan: planMeta, apps: [] };
+  const locks = buLocks ?? {};
+  if (!business || !plan) return { plan: planMeta, apps: [], locks };
 
   const apps: BuMatrixApp[] = [];
   for (const app of business.apps) {
@@ -77,7 +76,7 @@ export function buildBuMatrix(
       const permissions: BuMatrixPermission[] = (feature.permissions ?? [])
         .filter((p) => p.isGlobal || p.businesses.includes(businessCode ?? ''))
         .map((p) => {
-          const cell = (plat: Platform): BuMatrixCell | null => {
+          const cell = (plat: PlatformBucket): BuMatrixCell | null => {
             if (!platforms.includes(plat)) return null;
             const planCodes = membership?.[plat];
             const inPlan = featureInPlan && planCodes !== undefined && planCodes.includes(p.code);
@@ -105,7 +104,7 @@ export function buildBuMatrix(
     apps.push({ code: app.code, name: app.name, icon: app.icon ?? null, unlockedCount, totalCount, features });
   }
 
-  return { plan: planMeta, apps };
+  return { plan: planMeta, apps, locks };
 }
 
 // Names of other plans (excluding the org's own) that unlock this feature+permission on the given platform
@@ -113,7 +112,7 @@ function plansUnlockingPerm(
   plans: Record<string, SnapshotPlan>,
   featureCode: string,
   permCode: string,
-  platform: Platform,
+  platform: PlatformBucket,
   excludeCode: string | undefined,
 ): string[] {
   const names: string[] = [];

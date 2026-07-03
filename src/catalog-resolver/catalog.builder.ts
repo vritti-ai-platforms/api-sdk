@@ -3,14 +3,13 @@ import type {
   CatalogPermission,
   FeatureCatalogEntry,
   LockReason,
+  PlatformBucket,
+  PlatformCodes,
   RoleItem,
   SnapshotFeature,
   SnapshotPlan,
   VersionSnapshot,
 } from './types';
-
-// UI platform bucket — plan unlocks, BU locks, and role grants are all stored per platform
-export type PlatformBucket = 'web' | 'mobile';
 
 // Builds the per-BU catalog for ONE platform bucket. The plan is the ceiling (membership + unlocks); buLocks is a
 // deny-list within the plan (undefined or absent entries ⇒ fully available). Each permission carries
@@ -92,21 +91,15 @@ export function buildBuCatalog(
 }
 
 // A feature is a plan member when its unlock entry exists on at least one platform (even with zero actions)
-export function isPlanMember(entry: { web?: string[]; mobile?: string[] } | undefined): boolean {
+export function isPlanMember(entry: PlatformCodes | undefined): boolean {
   return !!entry && (entry.web !== undefined || entry.mobile !== undefined);
-}
-
-// Flattens a feature's per-platform unlock entry into the union of unlocked permission codes
-export function unlockedCodes(entry: { web?: string[]; mobile?: string[] } | undefined): string[] {
-  if (!entry) return [];
-  return [...new Set([...(entry.web ?? []), ...(entry.mobile ?? [])])];
 }
 
 // Per-platform BU-lock primitive: platform null locks the whole feature there; string[] locks those codes;
 // entry/platform absent ⇒ not locked
 export function isBuLockedOnPlatform(
   entry: BuFeatureLocks[string] | undefined,
-  platform: 'web' | 'mobile',
+  platform: PlatformBucket,
   code: string,
 ): boolean {
   const locks = entry?.[platform];
@@ -118,7 +111,7 @@ export function isBuLockedOnPlatform(
 function buildPermissions(
   feature: SnapshotFeature,
   businessCode: string,
-  planMembership: { web?: string[]; mobile?: string[] } | undefined,
+  planMembership: PlatformCodes | undefined,
   buLocks: BuFeatureLocks | undefined,
   plans: Record<string, SnapshotPlan>,
   bucket: PlatformBucket,
@@ -166,14 +159,10 @@ function plansIncludingFeature(
   return result;
 }
 
-// Maps the business's role templates into provisionable role items for core (global grants)
+// The business's role templates as provisionable role items for core (identical shapes)
 export function buildBuRoles(snapshot: VersionSnapshot, businessCode: string | undefined): RoleItem[] {
   if (!businessCode) return [];
   const business = snapshot.businesses?.[businessCode];
   if (!business) return [];
-  return business.roleTemplates.map((r) => ({
-    name: r.name,
-    code: r.code,
-    features: r.features,
-  }));
+  return Object.values(business.roleTemplates ?? {});
 }

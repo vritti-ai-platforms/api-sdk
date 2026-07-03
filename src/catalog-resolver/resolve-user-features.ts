@@ -1,5 +1,5 @@
 import { buildBuCatalog } from './catalog.builder';
-import type { BuFeatureLocks, LockReason, VersionSnapshot } from './types';
+import type { BuFeatureLocks, FeatureUnlocks, LockReason, PlatformBucket, VersionSnapshot } from './types';
 
 // Client surface requesting resolution — web picks the WEB route block, ios/android pick the MOBILE block per-OS
 export type ClientPlatform = 'web' | 'ios' | 'android';
@@ -34,17 +34,14 @@ export interface PermissionFeature {
   appSortOrder: number;
 }
 
-// A role's grant for one feature — tolerates the legacy flat string[] shape during re-provisioning
-export type RoleFeatureGrant = { app?: string; web?: string[]; mobile?: string[] } | string[];
-
 export interface ResolveUserFeaturesParams {
   snapshot: VersionSnapshot;
   businessCode: string;
   planCode: string | undefined;
   // undefined = nothing BU-locked (the full plan is available)
   buLocks: BuFeatureLocks | undefined;
-  // The user's single role's grants: featureCode -> { app?, web?: [permCode…], mobile?: [permCode…] }
-  roleFeatures: Record<string, RoleFeatureGrant>;
+  // The user's composed role grants: featureCode -> { web?: [permCode…], mobile?: [permCode…] }
+  roleFeatures: FeatureUnlocks;
   platform: ClientPlatform;
 }
 
@@ -59,7 +56,7 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
 
   // Plan unlocks, BU locks, and role grants are all stored per platform; resolve only the requesting
   // surface's bucket. web → 'web'; ios/android → 'mobile'. (platform still drives the per-OS route below.)
-  const bucket: 'web' | 'mobile' = platform === 'web' ? 'web' : 'mobile';
+  const bucket: PlatformBucket = platform === 'web' ? 'web' : 'mobile';
 
   // Plan ∧ BU overlay for this bucket — emits EVERY business feature (plan non-members come out fully locked)
   const catalog = buildBuCatalog(snapshot, businessCode, planCode, buLocks, bucket);
@@ -68,9 +65,8 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
   // Granted permission set per feature, taking only this platform's grants
   const grantedFeatures = new Map<string, Set<string>>();
   for (const [code, grant] of Object.entries(roleFeatures ?? {})) {
-    // Tolerate the legacy flat shape (string[]) during re-provisioning
-    const granted = Array.isArray(grant) ? grant : grant?.[bucket];
     // Membership is the gate: undefined = not a member on this platform; [] = member with no actions (view-only)
+    const granted = grant?.[bucket];
     if (granted === undefined) continue;
     if (!grantedFeatures.has(code)) grantedFeatures.set(code, new Set());
     for (const perm of granted) grantedFeatures.get(code)?.add(perm);
