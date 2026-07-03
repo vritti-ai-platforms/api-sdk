@@ -75,8 +75,9 @@ export interface VersionSnapshot {
 // Why a permission/feature is locked: PLAN (org's plan doesn't unlock it) or BU (this BU restricts it)
 export type LockReason = 'PLAN' | 'BU';
 
-// A BU's per-feature allow-list (subset of the plan). Undefined ⇒ the BU inherits the full plan.
-export type BuFeatureUnlocks = Record<string, { web?: string[]; mobile?: string[] }>;
+// BU deny-list: platform null locks the whole feature on that platform; string[] locks those codes;
+// feature/platform absent = fully available within the plan
+export type BuFeatureLocks = Record<string, { web?: string[] | null; mobile?: string[] | null }>;
 
 // A catalog permission: its lock state + reason + (when plan-locked) the plans that would unlock it (upsell)
 export interface CatalogPermission {
@@ -109,7 +110,8 @@ export interface FeatureCatalogEntry {
   appName: string;
   appIcon: string | null;
   appSortOrder: number;
-  // Feature-level lock = every permission locked (whole feature greyed)
+  // Feature-level lock is explicit — plan non-membership or a BU whole-platform lock (never derived from
+  // permission-code locks, which only disable individual actions)
   locked: boolean;
   lockReason: LockReason | null;
   // Plans (in the business) that would unlock the feature when it's plan-locked — for upsell

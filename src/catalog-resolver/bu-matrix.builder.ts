@@ -1,5 +1,5 @@
-import { isPlanMember } from './catalog.builder';
-import type { BuFeatureUnlocks, SnapshotPlan, VersionSnapshot } from './types';
+import { isBuLockedOnPlatform, isPlanMember } from './catalog.builder';
+import type { BuFeatureLocks, SnapshotPlan, VersionSnapshot } from './types';
 
 // UI platform keys — the snapshot's microfrontend keys (lowercase), not the storage AppPlatform enum
 type Platform = 'web' | 'mobile';
@@ -45,12 +45,12 @@ export interface BuMatrix {
 
 // Builds the full apps/features/permissions matrix from the version snapshot — NOT filtered to plan members.
 // Every app/feature/permission renders; plan-locked items carry inPlan=false + availableIn (the upsell plans).
-// buUnlocks layers the BU's selection within the plan (undefined ⇒ the BU inherits the full plan).
+// buLocks layers the BU's deny-list within the plan (undefined or absent entries ⇒ the full plan is selected).
 export function buildBuMatrix(
   snapshot: VersionSnapshot,
   businessCode: string | undefined,
   planCode: string | undefined,
-  buUnlocks: BuFeatureUnlocks | undefined,
+  buLocks: BuFeatureLocks | undefined,
 ): BuMatrix {
   const business = businessCode ? snapshot.businesses?.[businessCode] : undefined;
   const plans = business?.plans ?? {};
@@ -72,7 +72,7 @@ export function buildBuMatrix(
 
       const membership = plan.unlockedPermissions?.[code];
       const featureInPlan = isPlanMember(membership);
-      const buEntry = buUnlocks === undefined ? undefined : buUnlocks[code];
+      const buEntry = buLocks?.[code];
 
       const permissions: BuMatrixPermission[] = (feature.permissions ?? [])
         .filter((p) => p.isGlobal || p.businesses.includes(businessCode ?? ''))
@@ -81,11 +81,8 @@ export function buildBuMatrix(
             if (!platforms.includes(plat)) return null;
             const planCodes = membership?.[plat];
             const inPlan = featureInPlan && planCodes !== undefined && planCodes.includes(p.code);
-            const selected = !inPlan
-              ? false
-              : buUnlocks === undefined
-                ? true
-                : (buEntry?.[plat] ?? []).includes(p.code);
+            // Deny-list: an in-plan cell is selected unless the BU locks it on this platform
+            const selected = inPlan && !isBuLockedOnPlatform(buEntry, plat, p.code);
             const availableIn = inPlan ? [] : plansUnlockingPerm(plans, code, p.code, plat, planCode);
             totalCount += 1;
             if (inPlan) unlockedCount += 1;

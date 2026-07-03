@@ -87,7 +87,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'BASIC',
-      buUnlocks: undefined,
+      buLocks: undefined,
       roleFeatures: { sales: { app: 'pos', web: ['sales.view', 'sales.create'] } },
       platform: 'web',
     });
@@ -113,7 +113,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'BASIC',
-      buUnlocks: undefined,
+      buLocks: undefined,
       roleFeatures: { reports: { app: 'pos', web: ['reports.view'] } },
       platform: 'web',
     });
@@ -129,7 +129,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      buUnlocks: undefined,
+      buLocks: undefined,
       roleFeatures: { sales: { app: 'pos', mobile: ['sales.view'] }, reports: { app: 'pos', web: ['reports.view'] } },
     };
     const ios = resolveUserFeatures({ ...params, platform: 'ios' });
@@ -141,17 +141,90 @@ describe('resolveUserFeatures', () => {
     assert.equal(android[0].route.remoteEntry, 'https://android/remote.js');
   });
 
-  it('applies BU unlocks as a restriction within the plan', () => {
+  it('applies BU locks as a deny-list on the resolving platform', () => {
     const features = resolveUserFeatures({
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      buUnlocks: { sales: { web: ['sales.view'] } },
+      buLocks: { sales: { web: ['sales.create'], mobile: null } },
       roleFeatures: { sales: { app: 'pos', web: ['sales.view', 'sales.create'] } },
       platform: 'web',
     });
 
+    // sales.create: locked on web (code) + mobile (feature null) → BU-locked; sales.view stays open via web
     assert.deepEqual(features[0].lockedPermissions, [{ code: 'sales.create', reason: 'BU', unlockPlans: [] }]);
+  });
+
+  it('leaves everything available when the BU overlay is absent', () => {
+    const features = resolveUserFeatures({
+      snapshot,
+      businessCode: 'RETAIL',
+      planCode: 'PRO',
+      buLocks: undefined,
+      roleFeatures: { sales: { app: 'pos', web: ['sales.view', 'sales.create', 'sales.void'] } },
+      platform: 'web',
+    });
+
+    assert.equal(features[0].locked, false);
+    assert.deepEqual(features[0].lockedPermissions, []);
+  });
+
+  it('locks a code on the platform it is locked on, leaving the other platform open', () => {
+    const params = {
+      snapshot,
+      businessCode: 'RETAIL',
+      planCode: 'PRO',
+      buLocks: { sales: { web: ['sales.view'] } },
+      roleFeatures: { sales: { app: 'pos', web: ['sales.view'], mobile: ['sales.view'] } },
+    };
+    const web = resolveUserFeatures({ ...params, platform: 'web' as const });
+    const mobile = resolveUserFeatures({ ...params, platform: 'ios' as const });
+
+    // The lock covers web only → BU-locked on web, untouched on mobile
+    assert.deepEqual(web[0].lockedPermissions, [{ code: 'sales.view', reason: 'BU', unlockPlans: [] }]);
+    assert.deepEqual(mobile[0].lockedPermissions, []);
+  });
+
+  it('treats a BU lock on an out-of-plan code as inert (PLAN reason + upsell win)', () => {
+    const features = resolveUserFeatures({
+      snapshot,
+      businessCode: 'RETAIL',
+      planCode: 'BASIC',
+      buLocks: { sales: { web: ['sales.create'], mobile: ['sales.create'] } },
+      roleFeatures: { sales: { app: 'pos', web: ['sales.view', 'sales.create'] } },
+      platform: 'web',
+    });
+
+    assert.deepEqual(features[0].lockedPermissions, [{ code: 'sales.create', reason: 'PLAN', unlockPlans: ['PRO'] }]);
+  });
+
+  it('resolves a feature missing from the locks overlay as fully available (no staleness)', () => {
+    const features = resolveUserFeatures({
+      snapshot,
+      businessCode: 'RETAIL',
+      planCode: 'PRO',
+      buLocks: { sales: { web: null, mobile: null } },
+      roleFeatures: { reports: { app: 'pos', web: ['reports.view'] } },
+      platform: 'web',
+    });
+
+    assert.equal(features[0].locked, false);
+    assert.deepEqual(features[0].lockedPermissions, []);
+  });
+
+  it('locks the whole feature with reason BU when every shipped platform is null-locked', () => {
+    const features = resolveUserFeatures({
+      snapshot,
+      businessCode: 'RETAIL',
+      planCode: 'PRO',
+      buLocks: { sales: { web: null, mobile: null } },
+      roleFeatures: { sales: { app: 'pos', web: ['sales.view', 'sales.create', 'sales.void'] } },
+      platform: 'web',
+    });
+
+    assert.equal(features[0].locked, true);
+    assert.equal(features[0].lockReason, 'BU');
+    assert.deepEqual(features[0].unlockPlans, []);
   });
 
   it('tolerates the legacy flat string[] grant shape', () => {
@@ -159,7 +232,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      buUnlocks: undefined,
+      buLocks: undefined,
       roleFeatures: { sales: ['sales.view'] },
       platform: 'web',
     });

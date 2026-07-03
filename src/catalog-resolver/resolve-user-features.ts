@@ -1,5 +1,5 @@
 import { buildBuCatalog } from './catalog.builder';
-import type { BuFeatureUnlocks, LockReason, VersionSnapshot } from './types';
+import type { BuFeatureLocks, LockReason, VersionSnapshot } from './types';
 
 // Client surface requesting resolution — web picks the WEB route block, ios/android pick the MOBILE block per-OS
 export type ClientPlatform = 'web' | 'ios' | 'android';
@@ -41,8 +41,8 @@ export interface ResolveUserFeaturesParams {
   snapshot: VersionSnapshot;
   businessCode: string;
   planCode: string | undefined;
-  // undefined = inherit the full plan
-  buUnlocks: BuFeatureUnlocks | undefined;
+  // undefined = nothing BU-locked (the full plan is available)
+  buLocks: BuFeatureLocks | undefined;
   // The user's single role's grants: featureCode -> { app?, web?: [permCode…], mobile?: [permCode…] }
   roleFeatures: Record<string, RoleFeatureGrant>;
   platform: ClientPlatform;
@@ -55,15 +55,15 @@ export interface ResolveUserFeaturesParams {
 //   'android' → MOBILE block, remoteEntry = remoteEntryAndroid
 // Features missing the requested platform's block are filtered out.
 export function resolveUserFeatures(params: ResolveUserFeaturesParams): PermissionFeature[] {
-  const { snapshot, businessCode, planCode, buUnlocks, roleFeatures, platform } = params;
+  const { snapshot, businessCode, planCode, buLocks, roleFeatures, platform } = params;
 
-  // Plan ∧ BU overlay — emits EVERY business feature (plan non-members come out fully locked with routes)
-  const catalog = buildBuCatalog(snapshot, businessCode, planCode, buUnlocks);
-  const catalogMap = new Map(catalog.map((f) => [f.code, f]));
-
-  // Role grants are stored per platform; resolve only the requesting surface's bucket.
-  // web → 'web'; ios/android → 'mobile'. (platform still drives the per-OS route below.)
+  // Plan unlocks, BU locks, and role grants are all stored per platform; resolve only the requesting
+  // surface's bucket. web → 'web'; ios/android → 'mobile'. (platform still drives the per-OS route below.)
   const bucket: 'web' | 'mobile' = platform === 'web' ? 'web' : 'mobile';
+
+  // Plan ∧ BU overlay for this bucket — emits EVERY business feature (plan non-members come out fully locked)
+  const catalog = buildBuCatalog(snapshot, businessCode, planCode, buLocks, bucket);
+  const catalogMap = new Map(catalog.map((f) => [f.code, f]));
 
   // Granted permission set per feature, taking only this platform's grants
   const grantedFeatures = new Map<string, Set<string>>();

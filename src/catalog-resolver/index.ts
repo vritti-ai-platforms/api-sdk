@@ -7,7 +7,7 @@ export {
   type BuMatrixPermission,
   buildBuMatrix,
 } from './bu-matrix.builder';
-export { buildBuCatalog, buildBuRoles, isPlanMember, unlockedCodes } from './catalog.builder';
+export { buildBuCatalog, buildBuRoles, isBuLockedOnPlatform, isPlanMember, unlockedCodes } from './catalog.builder';
 export {
   type ComposedRoleGrant,
   type ComposeRoleGrantsParams,
@@ -24,7 +24,7 @@ export {
   resolveUserFeatures,
 } from './resolve-user-features';
 export type {
-  BuFeatureUnlocks,
+  BuFeatureLocks,
   CatalogPermission,
   FeatureCatalogEntry,
   LockReason,
