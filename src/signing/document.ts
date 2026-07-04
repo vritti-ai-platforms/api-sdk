@@ -1,9 +1,13 @@
 import { createPrivateKey, createPublicKey, generateKeyPairSync, sign, verify } from 'node:crypto';
 import { canonicalStringify } from './canonical';
-import type { SignedDocument } from './types';
+
+export interface SignedDocument<T> {
+  payload: T;
+  signature: string;
+}
 
 // Generates an Ed25519 key pair as base64 DER strings (pkcs8 private / spki public)
-export function generateLicenseKeyPair(): { privateKey: string; publicKey: string } {
+export function generateSigningKeyPair(): { privateKey: string; publicKey: string } {
   const { privateKey, publicKey } = generateKeyPairSync('ed25519');
   return {
     privateKey: privateKey.export({ type: 'pkcs8', format: 'der' }).toString('base64'),

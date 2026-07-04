@@ -17,6 +17,7 @@ export default defineConfig({
     icons: 'src/icons/index.ts',
     'catalog-resolver': 'src/catalog-resolver/index.ts',
     license: 'src/license/index.ts',
+    signing: 'src/signing/index.ts',
     cache: 'src/cache/index.ts',
     email: 'src/email/index.ts',
   },

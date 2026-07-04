@@ -1,9 +1,6 @@
 import type { VersionSnapshot } from '../catalog-resolver/types';
 
-export interface SignedDocument<T> {
-  payload: T;
-  signature: string;
-}
+export type { SignedDocument } from '../signing/document';
 
 export interface CatalogLicense {
   deploymentId: string;

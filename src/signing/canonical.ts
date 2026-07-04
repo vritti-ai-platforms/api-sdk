@@ -1,13 +1,6 @@
-import { createHash } from 'node:crypto';
-
 // Serializes a value as deterministic JSON: object keys recursively sorted, arrays keep their order
 export function canonicalStringify(value: unknown): string {
   return JSON.stringify(sortKeysDeep(value));
-}
-
-// Computes the sha256 hex digest of a value's canonical JSON
-export function hashSnapshot(value: unknown): string {
-  return createHash('sha256').update(canonicalStringify(value), 'utf8').digest('hex');
 }
 
 // Recursively rebuilds objects with sorted keys so JSON.stringify output is order-independent

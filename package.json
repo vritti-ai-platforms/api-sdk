@@ -1,7 +1,7 @@
 {
   "name": "@vritti/api-sdk",
   "type": "module",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -124,6 +124,16 @@
       "require": {
         "types": "./dist/license.d.cts",
         "default": "./dist/license.cjs"
+      }
+    },
+    "./signing": {
+      "import": {
+        "types": "./dist/signing.d.ts",
+        "default": "./dist/signing.js"
+      },
+      "require": {
+        "types": "./dist/signing.d.cts",
+        "default": "./dist/signing.cjs"
       }
     },
     "./cache": {
