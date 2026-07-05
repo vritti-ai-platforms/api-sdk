@@ -1,4 +1,4 @@
-export { CacheModule, type CacheModuleOptions } from './cache.module';
+export { CacheModule, type CacheModuleAsyncOptions, type CacheModuleOptions } from './cache.module';
 export { CacheService } from './cache.service';
 export { CACHE_PROVIDER, DEFAULT_LRU_MAX, LRU_CACHE_OPTIONS } from './constants';
 export type { ICacheProvider } from './interfaces/cache-provider.interface';
