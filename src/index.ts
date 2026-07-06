@@ -65,7 +65,7 @@ export type {
   TableViewState,
 } from './database/filter/filter.types';
 export { FilterOperators } from './database/filter/filter.types';
-export { type KeysetOrderBy, KeysetProcessor } from './database/filter/keyset.processor';
+export { type KeysetOrderBy, KeysetProcessor, keysetSignature, MAX_PAGE_SIZE } from './database/filter/keyset.processor';
 // Interfaces
 export * from './database/interfaces';
 // Repositories
@@ -94,8 +94,11 @@ export * from './filters';
 // License module moved to the './license' subpath (@vritti/api-sdk/license).
 // Logger utilities
 export * from './logger';
-// Money module (utilities, IsCurrency, IsCurrencyCode, CurrencyAmountDto) lives on the './money'
-// subpath (@vritti/api-sdk/money) — the only entry that touches dinero.js.
+// Money module lives on the './money' subpath (@vritti/api-sdk/money) — the only entry that touches
+// dinero.js. Its public surface is ALSO re-exported here for the ~60 server consumers that import these
+// from the root; this is a backwards-compat convenience (server lib, so no bundle-size cost). New code
+// should prefer the './money' subpath.
+export * from './money';
 // NATS / microservice exports moved to the './nats' subpath (@vritti/api-sdk/nats) so the main
 // barrel never imports @nestjs/microservices. Non-NATS consumers (cloud-server) stay clean.
 // Root module (health check + CSRF)

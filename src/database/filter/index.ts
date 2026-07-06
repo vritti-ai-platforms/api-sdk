@@ -10,4 +10,4 @@ export type {
   TableViewState,
 } from './filter.types';
 export { FilterOperators } from './filter.types';
-export { type KeysetOrderBy, KeysetProcessor } from './keyset.processor';
+export { type KeysetOrderBy, KeysetProcessor, keysetSignature, MAX_PAGE_SIZE } from './keyset.processor';

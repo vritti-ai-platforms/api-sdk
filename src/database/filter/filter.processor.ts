@@ -19,7 +19,9 @@ import {
 import type { FilterCondition, FilterOperator, SearchState, SortCondition } from './filter.types';
 
 export type FieldDefinition =
-  | { column: Column; type: 'string' | 'number' | 'boolean' }
+  // `nulls` declares NULL sort placement for a nullable column when used as a keyset sort key; omit for
+  // NOT NULL columns (the common case).
+  | { column: Column; type: 'string' | 'number' | 'boolean'; nulls?: 'first' | 'last' }
   | { expression: (value: string | number, operator: FilterOperator) => SQL; type: 'string' | 'number' | 'boolean' };
 export type FieldMap = Record<string, FieldDefinition>;
 

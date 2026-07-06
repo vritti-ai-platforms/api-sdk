@@ -9,6 +9,7 @@ export * from './conflict.exception';
 export * from './forbidden.exception';
 export * from './gone.exception';
 export * from './internal-server-error.exception';
+export * from './invalid-cursor.exception';
 export * from './method-not-allowed.exception';
 export * from './not-acceptable.exception';
 export * from './not-found.exception';

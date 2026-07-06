@@ -19,6 +19,7 @@ import {
 import type { PgColumn, PgSequence, PgTable, SelectedFields } from 'drizzle-orm/pg-core';
 import type { AnyPgAsyncSelect } from 'drizzle-orm/pg-core/async';
 import { PgViewBase } from 'drizzle-orm/pg-core/view-base';
+import { MAX_PAGE_SIZE } from '../filter';
 import type { TypedDrizzleClient } from '../schema.registry';
 import { PrimaryDatabaseService } from '../services/primary-database.service';
 import type { FindForSelectConfig, SelectQueryResult } from '../types';
@@ -280,12 +281,15 @@ export abstract class PrimaryBaseRepository<
     leftJoins?: { table: PgTable; on: SQL | undefined }[];
     groupBy?: (PgColumn | SQL)[];
   }): Promise<{ rows: TResult[]; hasMore: boolean }> {
+    // Clamp the requested page to [1, MAX_PAGE_SIZE] so a client can never pull an unbounded page,
+    // regardless of what the caller passed through. Fetch limit+1 to detect hasMore, then trim.
+    const limit = Math.min(Math.max(1, Math.trunc(options.limit) || 1), MAX_PAGE_SIZE);
     const rows = (await this.buildSelectQuery({
       ...options,
-      limit: options.limit + 1,
+      limit: limit + 1,
     })) as unknown as TResult[];
-    const hasMore = rows.length > options.limit;
-    return { rows: hasMore ? rows.slice(0, options.limit) : rows, hasMore };
+    const hasMore = rows.length > limit;
+    return { rows: hasMore ? rows.slice(0, limit) : rows, hasMore };
   }
 
   // Updates a record by ID and returns the updated record
