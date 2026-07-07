@@ -11,6 +11,12 @@ export interface LockedPermission {
   unlockPlans: string[];
 }
 
+// One unlocking plan and the extra feature names it would add beyond the current plan (for the upsell screen)
+export interface PlanUpsell {
+  plan: string;
+  features: string[];
+}
+
 export interface PermissionFeature {
   code: string;
   name: string;
@@ -23,6 +29,8 @@ export interface PermissionFeature {
   lockReason: LockReason | null;
   unlockPlans: string[];
   lockedPermissions: LockedPermission[];
+  // For plan-locked features: per unlocking plan, the extra features that plan adds vs the current plan (empty otherwise)
+  upsell: PlanUpsell[];
   route: {
     remoteEntry: string;
     exposedModule: string;
@@ -62,6 +70,26 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
   const catalog = buildBuCatalog(snapshot, businessCode, planCode, buLocks, bucket);
   const catalogMap = new Map(catalog.map((f) => [f.code, f]));
 
+  // Per-plan feature-name delta vs the current plan — feeds the plan-locked upsell screen
+  const businessPlans = snapshot.businesses[businessCode]?.plans ?? {};
+  const currentUnlockedCodes = new Set<string>();
+  if (planCode && businessPlans[planCode]) {
+    for (const [featureCode, platforms] of Object.entries(businessPlans[planCode].unlockedPermissions ?? {})) {
+      if (platforms?.[bucket] !== undefined) currentUnlockedCodes.add(featureCode);
+    }
+  }
+  const planAdds = new Map<string, Array<{ code: string; name: string }>>();
+  for (const [planKey, plan] of Object.entries(businessPlans)) {
+    if (planKey === planCode) continue;
+    const adds: Array<{ code: string; name: string }> = [];
+    for (const [featureCode, platforms] of Object.entries(plan.unlockedPermissions ?? {})) {
+      if (platforms?.[bucket] === undefined || currentUnlockedCodes.has(featureCode)) continue;
+      const name = snapshot.features[featureCode]?.name;
+      if (name) adds.push({ code: featureCode, name });
+    }
+    planAdds.set(planKey, adds);
+  }
+
   // Granted permission set per feature, taking only this platform's grants
   const grantedFeatures = new Map<string, Set<string>>();
   for (const [code, grant] of Object.entries(roleFeatures ?? {})) {
@@ -90,6 +118,17 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
       .filter((p): p is NonNullable<typeof p> => !!p?.locked)
       .map((p) => ({ code: p.code, reason: p.lockReason ?? null, unlockPlans: p.unlockPlans ?? [] }));
 
+    // For a plan-locked feature, list the extra features each unlocking plan would add (excluding this feature)
+    const upsell: PlanUpsell[] =
+      catalogEntry.locked && catalogEntry.lockReason === 'PLAN'
+        ? (catalogEntry.unlockPlans ?? [])
+            .map((plan) => ({
+              plan,
+              features: (planAdds.get(plan) ?? []).filter((f) => f.code !== code).map((f) => f.name),
+            }))
+            .filter((group) => group.features.length > 0)
+        : [];
+
     features.push({
       code,
       name: catalogEntry.name,
@@ -101,6 +140,7 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
       lockReason: catalogEntry.lockReason ?? null,
       unlockPlans: catalogEntry.unlockPlans ?? [],
       lockedPermissions,
+      upsell,
       route,
       appCode: catalogEntry.appCode,
       appName: catalogEntry.appName,
