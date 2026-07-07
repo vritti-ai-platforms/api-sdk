@@ -1,4 +1,5 @@
 import { buildBuCatalog } from './catalog.builder';
+import { buildDependsMap, filterGrantedByDeps } from './permission-deps';
 import type { BuFeatureLocks, FeatureUnlocks, LockReason, PlatformBucket, VersionSnapshot } from './types';
 
 // Client surface requesting resolution — web picks the WEB route block, ios/android pick the MOBILE block per-OS
@@ -110,9 +111,11 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
     // Feature isn't published to this platform — omit so client doesn't see an unloadable tile.
     if (!route) continue;
 
+    // Drop granted permissions whose intra-feature prerequisites aren't also granted (e.g. add needs view)
+    const featureDeps = buildDependsMap(snapshot.features[code]?.permissions ?? []);
     // Plan/BU lock a subset of permissions; surface which GRANTED ones are locked + why + how to unlock (upsell)
     const permByCode = new Map((catalogEntry.permissions ?? []).map((p) => [p.code, p]));
-    const grantedPerms = [...permsSet];
+    const grantedPerms = [...filterGrantedByDeps(permsSet, featureDeps)];
     const lockedPermissions: LockedPermission[] = grantedPerms
       .map((c) => permByCode.get(c))
       .filter((p): p is NonNullable<typeof p> => !!p?.locked)

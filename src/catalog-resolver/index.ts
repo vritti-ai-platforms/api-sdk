@@ -10,6 +10,13 @@ export {
 export { buildBuCatalog, buildBuRoles, isBuLockedOnPlatform, isPlanMember } from './catalog.builder';
 export { type ComposeRoleGrantsParams, composeRoleGrants, type RevokedGrants } from './compose-role-grants';
 export {
+  buildDependsMap,
+  cascadeLocked,
+  type DependsMap,
+  filterGrantedByDeps,
+  prereqClosure,
+} from './permission-deps';
+export {
   type ClientPlatform,
   type LockedPermission,
   type PermissionFeature,

@@ -30,6 +30,8 @@ export interface SnapshotPermission {
   label: string;
   isGlobal: boolean;
   businesses: string[];
+  // Direct intra-feature prerequisite codes (e.g. add -> [view]); empty = root. Transitive closure via recursion.
+  dependsOn: string[];
 }
 // WEB microfrontend route — a single remote entry. All non-null: a WEB microfrontend row is
 // CHECK-constrained to have remoteEntry set, and the feature↔MF link's module/route are NOT NULL.

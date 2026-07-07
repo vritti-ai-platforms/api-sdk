@@ -11,6 +11,8 @@ export interface BuMatrixCell {
 export interface BuMatrixPermission {
   code: string;
   label: string;
+  // Direct intra-feature prerequisite codes — feeds the matrix auto-toggle (add needs view, view needs dim.view)
+  dependsOn: string[];
   web: BuMatrixCell | null;
   mobile: BuMatrixCell | null;
 }
@@ -87,7 +89,7 @@ export function buildBuMatrix(
             if (inPlan) unlockedCount += 1;
             return { inPlan, selected, availableIn };
           };
-          return { code: p.code, label: p.label, web: cell('web'), mobile: cell('mobile') };
+          return { code: p.code, label: p.label, dependsOn: p.dependsOn ?? [], web: cell('web'), mobile: cell('mobile') };
         });
 
       features.push({

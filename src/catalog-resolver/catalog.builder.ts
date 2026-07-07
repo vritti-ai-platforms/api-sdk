@@ -1,3 +1,4 @@
+import { buildDependsMap, cascadeLocked, prereqClosure } from './permission-deps';
 import type {
   BuFeatureLocks,
   CatalogPermission,
@@ -119,29 +120,44 @@ function buildPermissions(
   const planUnlocked = new Set(planMembership?.[bucket] ?? []);
   const lockEntry = buLocks?.[feature.code];
 
-  return (feature.permissions ?? [])
-    .filter((p) => p.isGlobal || p.businesses.includes(businessCode))
-    .map((p) => {
-      const planAllows = planUnlocked.has(p.code);
-      const buAllows = !isBuLockedOnPlatform(lockEntry, bucket, p.code);
-      const locked = !planAllows || !buAllows;
-      // Plan is the ceiling, so a plan-lock wins over a BU-lock when reporting the reason
-      const lockReason: LockReason | null = !planAllows ? 'PLAN' : !buAllows ? 'BU' : null;
-      const unlockPlans = lockReason === 'PLAN' ? plansUnlockingPermission(plans, feature.code, p.code, bucket) : [];
-      return { code: p.code, locked, lockReason, unlockPlans };
-    });
+  const perms = (feature.permissions ?? []).filter((p) => p.isGlobal || p.businesses.includes(businessCode));
+  const deps = buildDependsMap(perms);
+  const codes = perms.map((p) => p.code);
+
+  // Direct plan/BU locks, then cascade so a locked prerequisite (e.g. view) locks its dependents (add/edit/delete)
+  const directlyPlanLocked = new Set<string>();
+  const directlyBuLocked = new Set<string>();
+  for (const p of perms) {
+    if (!planUnlocked.has(p.code)) directlyPlanLocked.add(p.code);
+    if (isBuLockedOnPlatform(lockEntry, bucket, p.code)) directlyBuLocked.add(p.code);
+  }
+  const directlyLocked = new Set<string>([...directlyPlanLocked, ...directlyBuLocked]);
+  const lockedSet = cascadeLocked(codes, directlyLocked, deps);
+
+  return perms.map((p) => {
+    const locked = lockedSet.has(p.code);
+    // A permission is enabled only if it AND its whole prerequisite closure are unlocked — reason/upsell reflect that
+    const closure = [p.code, ...prereqClosure(p.code, deps)];
+    const planReason = closure.some((c) => directlyPlanLocked.has(c));
+    const buReason = closure.some((c) => directlyBuLocked.has(c));
+    // Plan is the ceiling, so a plan-lock anywhere in the closure wins over a BU-lock when reporting the reason
+    const lockReason: LockReason | null = !locked ? null : planReason ? 'PLAN' : buReason ? 'BU' : null;
+    const unlockPlans = locked && lockReason === 'PLAN' ? plansUnlockingClosure(plans, feature.code, closure, bucket) : [];
+    return { code: p.code, locked, lockReason, unlockPlans };
+  });
 }
 
-// Plan codes (in the business) whose unlocked set includes this feature+permission on the bucket — upsell targets
-function plansUnlockingPermission(
+// Plan codes (in the business) whose unlocked set includes the permission AND its whole prerequisite closure — upsell targets
+function plansUnlockingClosure(
   plans: Record<string, SnapshotPlan>,
   featureCode: string,
-  permCode: string,
+  closure: string[],
   bucket: PlatformBucket,
 ): string[] {
   const result: string[] = [];
   for (const [code, plan] of Object.entries(plans)) {
-    if (plan.unlockedPermissions?.[featureCode]?.[bucket]?.includes(permCode)) result.push(code);
+    const unlocked = plan.unlockedPermissions?.[featureCode]?.[bucket];
+    if (unlocked && closure.every((c) => unlocked.includes(c))) result.push(code);
   }
   return result;
 }
