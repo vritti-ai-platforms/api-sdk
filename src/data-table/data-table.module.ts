@@ -1,7 +1,7 @@
 import { type DynamicModule, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { CacheModule } from '@vritti/api-sdk/cache';
 import type { PgTable } from 'drizzle-orm/pg-core';
-import { CacheModule } from '../cache/cache.module';
 import { DATA_TABLE_VIEWS_TABLE } from './data-table.constants';
 import { DataTableStateController } from './state/controllers/data-table-state.controller';
 import { DataTableStateService } from './state/services/data-table-state.service';

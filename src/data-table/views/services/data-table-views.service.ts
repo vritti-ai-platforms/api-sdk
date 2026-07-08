@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { CacheService } from '../../../cache/cache.service';
+import { CacheService } from '@vritti/api-sdk/cache';
 import { BadRequestException, ConflictException, NotFoundException } from '../../../exceptions';
 import type { DataTableViewRecord } from '../../schema/data-table-views.table';
 import { DataTableViewDto } from '../dto/entity/data-table-view.dto';

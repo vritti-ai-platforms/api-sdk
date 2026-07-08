@@ -5,6 +5,12 @@
     "moduleResolution": "bundler",
     "lib": ["ES2022"],
 
+    /* Self-referencing subpath imports (cross-entry DI singletons) resolve to source for type-checking;
+       tsup keeps them external at bundle time via the '@vritti/api-sdk/' external pattern. */
+    "paths": {
+      "@vritti/api-sdk/*": ["./src/*/index.ts", "./src/*.ts"]
+    },
+
     /* Output */
     "outDir": "./dist",
     "rootDir": "./src",

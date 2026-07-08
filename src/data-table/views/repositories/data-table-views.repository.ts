@@ -1,8 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
-import { PrimaryBaseRepository } from '../../../database/repositories/primary-base.repository';
-import { PrimaryDatabaseService } from '../../../database/services/primary-database.service';
+import { PrimaryBaseRepository, PrimaryDatabaseService } from '@vritti/api-sdk/database';
 import { DATA_TABLE_VIEWS_TABLE } from '../../data-table.constants';
 import type { DataTableViewRecord, NewDataTableViewRecord } from '../../schema/data-table-views.table';
 

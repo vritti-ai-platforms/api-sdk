@@ -5,9 +5,11 @@ export {
   AUTH_CONFIG_DEFAULTS,
   type AuthConfig,
   type CookieConfig,
+  type CookieSerializeOptions,
   type DecodedAccessToken,
   type DecodedRefreshToken,
   type GuardConfig,
+  type OnAuthenticatedCallback,
   type RefreshTokenPayload,
   type TokenExpiry,
   type TokenExpiryString,
@@ -25,6 +27,7 @@ export * from './decorators/refresh-token-cookie.decorator';
 export * from './decorators/require-session.decorator';
 export type { SessionInfo } from './decorators/session-data.decorator';
 export { SessionData } from './decorators/session-data.decorator';
+export { SKIP_CSRF_KEY, SkipCsrf } from './decorators/skip-csrf.decorator';
 export * from './decorators/subdomain.decorator';
 export * from './decorators/user-agent.decorator';
 export * from './decorators/user-id.decorator';
