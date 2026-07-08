@@ -41,6 +41,15 @@ export default defineConfig({
     resolve: false,
     compilerOptions: {
       skipLibCheck: true,
+      // Resolve self-subpath imports (@vritti/api-sdk/*) to source during declaration
+      // emit — otherwise the DTS pass (which uses tsconfig.build.json with empty paths)
+      // falls back to node resolution and hits the yet-unbuilt dist/*.js (TS7016).
+      // resolve:false keeps the import external in the emitted .d.ts, so cross-entry
+      // types still reference the sibling subpath rather than being inlined.
+      baseUrl: '.',
+      paths: {
+        '@vritti/api-sdk/*': ['./src/*/index.ts', './src/*.ts'],
+      },
     },
   },
 
