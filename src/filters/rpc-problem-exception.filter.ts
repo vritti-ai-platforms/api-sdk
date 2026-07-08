@@ -34,7 +34,11 @@ export class RpcProblemExceptionFilter {
     if (this.isHttpException(exception)) {
       const status = exception.getStatus();
       const response = exception.getResponse();
-      return throwError(() => this.toProblemPayload(response, status));
+      const payload = this.toProblemPayload(response, status);
+      // Log 4xx/5xx so the microservice terminal shows what actually failed (previously silent)
+      const log = status >= HttpStatus.INTERNAL_SERVER_ERROR ? this.logger.error : this.logger.warn;
+      log.call(this.logger, `RPC ${status}: ${payload.detail}`);
+      return throwError(() => payload);
     }
 
     if (exception instanceof Error) {
@@ -83,7 +87,16 @@ export class RpcProblemExceptionFilter {
     }
 
     const obj = (response ?? {}) as Record<string, unknown>;
-    const detail = typeof obj.detail === 'string' ? obj.detail : 'Request failed';
+    // Prefer RFC 9457 `detail`, then Nest/@nestjs-common's `message` (string or class-validator array),
+    // so exceptions thrown as `@nestjs/common` errors still surface their real message across NATS.
+    const detail =
+      typeof obj.detail === 'string'
+        ? obj.detail
+        : typeof obj.message === 'string'
+          ? obj.message
+          : Array.isArray(obj.message)
+            ? obj.message.join(', ')
+            : 'Request failed';
     return {
       type: typeof obj.type === 'string' ? obj.type : 'about:blank',
       label: typeof obj.label === 'string' ? obj.label : undefined,
