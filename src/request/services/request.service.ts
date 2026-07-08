@@ -11,8 +11,7 @@ export class RequestService {
     @Inject(AUTH_CONFIG) private readonly config: AuthConfig,
   ) {}
 
-  // For GraphQL, @Inject(REQUEST) is the { req, reply } context wrapper, not the Fastify request;
-  // unwrap so every accessor below works identically across both transports.
+  // Unwraps the GraphQL { req, reply } context wrapper so every accessor below works across both transports
   private get request(): FastifyRequest {
     return resolveInjectedRequest(this.injectedRequest);
   }

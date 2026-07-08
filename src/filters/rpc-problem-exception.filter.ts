@@ -23,8 +23,7 @@ export class RpcProblemExceptionFilter {
   private readonly logger = new Logger(RpcProblemExceptionFilter.name);
 
   catch(exception: unknown, _host: ArgumentsHost): Observable<never> {
-    // Translate raw Postgres errors (e.g. 23505 unique_violation from an unguarded INSERT in
-    // a NATS handler) into a ConflictException before the rest of the filter handles them.
+    // Translate raw Postgres errors into a ConflictException before the rest of the filter handles them.
     const translatedPgError = tryTranslatePgError(exception);
     if (translatedPgError) exception = translatedPgError;
 

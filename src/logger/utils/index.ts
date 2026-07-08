@@ -3,9 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { FastifyReply } from 'fastify';
 import type { CorrelationContext } from '../types';
 
-// ============================================================================
 // Async Context Management (AsyncLocalStorage)
-// ============================================================================
 
 export const correlationStorage = new AsyncLocalStorage<CorrelationContext>();
 
@@ -27,9 +25,7 @@ export function updateCorrelationContext(updates: Partial<CorrelationContext>): 
   }
 }
 
-// ============================================================================
 // Correlation ID Management
-// ============================================================================
 
 export const DEFAULT_CORRELATION_HEADER = 'x-correlation-id';
 

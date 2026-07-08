@@ -1,21 +1,14 @@
 import { and, type Column, eq, gt, isNotNull, isNull, lt, or, type SQL, sql } from 'drizzle-orm';
 
-// Hard ceiling on rows a single keyset page may request. The default page size stays small (callers
-// pass their own default, typically 20); this only clamps oversized requests so a client can't pull the
-// whole table in one page. Referenced by the repository clamp (findKeyset) and the GraphQL @Max.
 export const MAX_PAGE_SIZE = 100;
 
 export interface KeysetOrderBy {
   column: Column;
   direction: 'asc' | 'desc';
-  // Set ONLY for a nullable sort column, declaring where its NULLs sort. Omit for NOT NULL columns (the
-  // common case) — then the clean, index-friendly comparison is used and the column must never be null.
   nulls?: 'first' | 'last';
 }
 
-// Stable signature of an ORDER BY, used to bind a cursor to the sort that produced it. Two paginations
-// with different sorts get different signatures, so a cursor minted under one sort is rejected under
-// another — preventing boundary values from being silently applied to the wrong columns.
+// Stable signature of an ORDER BY, used to bind a cursor to the sort that produced it.
 export function keysetSignature(entries: { key: string; direction: 'asc' | 'desc' }[]): string {
   return entries.map((e) => `${e.key}:${e.direction}`).join(',');
 }
@@ -25,8 +18,7 @@ export class KeysetProcessor {
   static buildAfter(orderBy: KeysetOrderBy[], values: unknown[]): SQL {
     const first = orderBy[0];
     if (!first) return sql`true`;
-    // Fast path: uniform direction + all NOT NULL columns (>= 2 cols) → a Postgres row-value comparison,
-    // which plans tighter against a matching composite index than the OR-expansion.
+    // Fast path: uniform direction + all NOT NULL columns (>= 2 cols) → a Postgres row-value comparison.
     const uniform = orderBy.every((o) => o.direction === first.direction);
     const anyNullable = orderBy.some((o) => o.nulls !== undefined);
     if (uniform && !anyNullable && orderBy.length >= 2) {
@@ -49,8 +41,7 @@ export class KeysetProcessor {
     return sql`(${cols}) ${op} (${vals})`;
   }
 
-  // Lexicographic OR-expansion: OR over i of [ AND over j<i of tie(col_j) AND strictlyAfter(col_i) ].
-  // NULL-aware per column when a `nulls` placement is declared.
+  // Lexicographic OR-expansion, NULL-aware per column when a `nulls` placement is declared.
   private static buildOrExpansion(orderBy: KeysetOrderBy[], values: unknown[]): SQL {
     const groups: SQL[] = [];
     for (let i = 0; i < orderBy.length; i++) {
@@ -83,7 +74,6 @@ export class KeysetProcessor {
     }
     const nullsLast = o.nulls === 'last';
     // A NULL boundary value: only rows on the "far" side of the NULL group are strictly after it.
-    // NULLS LAST → nothing follows a trailing NULL; NULLS FIRST → every non-NULL follows a leading NULL.
     if (value === null || value === undefined) {
       return (nullsLast ? sql`false` : isNotNull(o.column)) as SQL;
     }

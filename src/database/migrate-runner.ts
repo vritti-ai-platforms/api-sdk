@@ -2,11 +2,8 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Pool } from 'pg';
 
-// Options for runMigrationsAndGrants — supplied by each app's thin migrate entry.
 export interface MigrateRunnerOptions {
-  // Absolute path to the Drizzle migrations folder (each app resolves this from its own dist).
   migrationsFolder: string;
-  // Per-app migration bookkeeping table — must match the app's drizzle.config.ts.
   migrationsTable: string;
 }
 
@@ -27,9 +24,7 @@ function requiredEnv(name: string): string {
   return value;
 }
 
-// Applies Drizzle migrations as the owner (PRIMARY_DB_DATABASE_DIRECT_URL), then idempotently
-// grants the runtime app role (PRIMARY_DB_USERNAME) access to the schema. Intended to run as a
-// release-phase one-shot before the application containers roll.
+// Applies Drizzle migrations as the owner, then idempotently grants the runtime app role schema access.
 export async function runMigrationsAndGrants(options: MigrateRunnerOptions): Promise<void> {
   const directUrl = requiredEnv('PRIMARY_DB_DATABASE_DIRECT_URL');
   const dbSchema = requiredEnv('PRIMARY_DB_SCHEMA');
@@ -52,8 +47,7 @@ export async function runMigrationsAndGrants(options: MigrateRunnerOptions): Pro
     const role = quoteIdent(appRole);
     console.log(`[migrate] granting ${dbSchema} privileges to ${appRole}`);
 
-    // All statements are idempotent — safe on every deploy. ALTER DEFAULT PRIVILEGES auto-grants
-    // future tables/sequences/functions the owner creates. No-op when appRole equals the owner.
+    // All statements are idempotent — safe on every deploy; ALTER DEFAULT PRIVILEGES auto-grants future objects.
     await pool.query(`
       GRANT USAGE ON SCHEMA ${schema} TO ${role};
       GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES   IN SCHEMA ${schema} TO ${role};

@@ -117,8 +117,7 @@ export class HttpLoggerInterceptor implements NestInterceptor {
         response?: unknown;
       };
       const statusCode = err.status ?? err.statusCode ?? response.statusCode ?? 500;
-      // Drizzle wraps pg errors in DrizzleQueryError whose `.message` is only the failed query —
-      // the real reason (e.g. "permission denied for table") lives on `.cause`. Unwrap it.
+      // Drizzle wraps pg errors in DrizzleQueryError whose `.message` is only the failed query — unwrap the real reason from `.cause`.
       const pgCause = findPgError(error);
       let errorMessage = err.message || err.detail || 'Unknown error';
       if (pgCause?.message && pgCause.message !== err.message) {

@@ -19,8 +19,6 @@ export interface CacheModuleAsyncOptions {
   useFactory: (...args: AnyList) => CacheModuleOptions | Promise<CacheModuleOptions>;
 }
 
-// Bare import defaults to the Redis provider (kept for existing consumers).
-// Use CacheModule.forRoot({ driver: 'lru' }) to bind CacheService to the in-memory LRU provider instead.
 @Module({
   imports: [ConfigModule],
   providers: [
@@ -56,9 +54,7 @@ export class CacheModule {
     };
   }
 
-  // Same driver selection as forRoot, but the options (and thus the driver) resolve via a factory —
-  // e.g. useFactory: (config: ConfigService) => ({ driver: config.get('CACHE_DRIVER') ?? 'lru' }).
-  // Both providers are declared but RedisCacheProvider connects lazily, so the unused one is inert.
+  // Same driver selection as forRoot, but options (and the driver) resolve via a factory
   static forRootAsync(options: CacheModuleAsyncOptions): DynamicModule {
     const optionsProvider: Provider = {
       provide: CACHE_MODULE_OPTIONS,

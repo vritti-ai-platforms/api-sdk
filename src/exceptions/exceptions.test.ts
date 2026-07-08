@@ -502,8 +502,7 @@ describe('RFC 9457 Problem Details Format - HttpExceptionFilter', () => {
 
       filter.catch(exception, mockArgumentsHost);
 
-      // When message is an array, the filter treats it as class-validator format
-      // If no items have property/constraints, errors array is empty and detail defaults to 'Validation failed'
+      // An array message is treated as class-validator format; with no property/constraints, detail defaults to 'Validation failed'
       assert.equal(sentResponse.detail, 'Validation failed');
       assert.deepEqual(sentResponse.errors, []);
     });

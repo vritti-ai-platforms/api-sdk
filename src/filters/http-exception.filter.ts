@@ -22,8 +22,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<FastifyReply>();
     const request = ctx.getRequest<FastifyRequest>();
 
-    // Translate raw Postgres errors (e.g. 23505 unique_violation from an unguarded INSERT)
-    // into a ConflictException before the rest of the filter classifies it as 500.
+    // Translate raw Postgres errors (e.g. 23505 unique_violation) into a ConflictException before classifying as 500.
     const translatedPgError = tryTranslatePgError(exception);
     if (translatedPgError) exception = translatedPgError;
 
@@ -41,8 +40,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       const extracted = extractProblemFromResponse(exceptionResponse, exception.message ?? getHttpStatusTitle(status));
       type = extracted.type;
       label = extracted.label;
-      // An object body that matched no known shape leaves detail undefined; keep the
-      // initial 'Internal server error' to preserve byte-identical HTTP output.
+      // Keep the initial 'Internal server error' when the body matched no known shape (byte-identical HTTP output).
       detail = extracted.detail ?? detail;
       errors = extracted.errors;
     } else if (this.isProblemLikeObject(exception)) {

@@ -4,12 +4,10 @@ import { InvalidCursorException } from '../../exceptions';
 type SerializedValue = { __t: 'date'; v: string } | string | number | boolean | null;
 
 interface CursorEnvelope {
-  s: string; // sort signature the cursor was minted for (see keysetSignature)
-  v: SerializedValue[]; // ORDER BY boundary values, id tie-breaker last
+  s: string;
+  v: SerializedValue[];
 }
 
-// HMAC secret for cursor integrity. Provision KEYSET_CURSOR_SECRET per deployment; the dev fallback
-// keeps local/test runs working (tampering still fails because encode + decode share one secret).
 const CURSOR_SECRET = process.env.KEYSET_CURSOR_SECRET ?? 'vritti-dev-insecure-keyset-secret';
 
 function sign(body: string): string {
@@ -17,9 +15,7 @@ function sign(body: string): string {
 }
 
 export class CursorCodec {
-  // Encodes ORDER BY boundary values (id tie-breaker last) into a tamper-evident base64url token of the
-  // form `<body>.<hmac>`. `signature` binds the cursor to the sort that produced it; pass '' (default)
-  // for fixed-sort feeds whose ORDER BY never varies.
+  // Encodes ORDER BY boundary values into a tamper-evident base64url token bound to the sort signature.
   static encode(values: unknown[], signature = ''): string {
     const serialized = values.map<SerializedValue>((v) => {
       if (v instanceof Date) return { __t: 'date', v: v.toISOString() };
@@ -32,9 +28,7 @@ export class CursorCodec {
     return `${body}.${sign(body)}`;
   }
 
-  // Decodes a cursor back into ordered boundary values, rehydrating ISO strings as Dates. Throws
-  // InvalidCursorException (RFC 9457 400) when the cursor is malformed, fails its HMAC, or was minted
-  // for a different sort than `expectedSignature`.
+  // Decodes a cursor back into ordered boundary values, throwing InvalidCursorException on any tamper or sort mismatch.
   static decode(cursor: string, expectedSignature = ''): unknown[] {
     const dot = cursor.lastIndexOf('.');
     if (dot <= 0) throw new InvalidCursorException('Malformed pagination cursor.');

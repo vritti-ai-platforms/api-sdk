@@ -1,7 +1,6 @@
 import { HttpStatus } from '@nestjs/common';
 import type { FieldError } from '../types/error-response.types';
 
-// Shape of the @vritti/api-sdk HttpProblemException response body (type/label/detail/errors[]).
 interface ProblemExceptionResponse {
   type?: string;
   label?: string;
@@ -9,13 +8,11 @@ interface ProblemExceptionResponse {
   errors?: FieldError[];
 }
 
-// Shape of a class-validator ValidationPipe error body (message is an array of constraints).
 interface ValidationExceptionResponse {
   message: Array<string | { property: string; constraints: Record<string, string> }>;
   error?: string;
 }
 
-// Shape of a standard NestJS exception body (message is a string or string[]).
 interface StandardExceptionResponse {
   message: string | string[];
   error?: string;
@@ -23,10 +20,6 @@ interface StandardExceptionResponse {
 
 type ExceptionResponseObject = ProblemExceptionResponse | ValidationExceptionResponse | StandardExceptionResponse;
 
-// Normalized problem information extracted from a NestJS HttpException's response body.
-// Shared by HttpExceptionFilter (RFC 9457 HTTP responses) and the GraphQL formatError so the
-// SAME label/detail/field-errors surface across both transports. `detail` is undefined when the
-// response body carried no usable detail, letting each caller apply its own fallback.
 export interface ExtractedProblem {
   type: string;
   label?: string;
@@ -50,8 +43,7 @@ export function getHttpStatusTitle(status: number): string {
     .join(' ');
 }
 
-// Extracts field-specific errors from a class-validator ValidationPipe message array. Mirrors the
-// RFC 9457 errors[] that the HTTP filter produces so GraphQL fieldErrors carry the same info.
+// Extracts field-specific errors from a class-validator ValidationPipe message array, mirroring the RFC 9457 errors[].
 function extractValidationFieldErrors(
   message: Array<string | { property: string; constraints: Record<string, string> }>,
 ): FieldError[] {
@@ -70,12 +62,7 @@ function extractValidationFieldErrors(
     .filter((error): error is FieldError => error !== null);
 }
 
-// Parses a NestJS HttpException response body into normalized problem fields. Handles the three
-// body shapes the SDK encounters: custom HttpProblemException, class-validator errors, and
-// standard NestJS exceptions. `problemFallbackDetail` supplies the detail for the
-// HttpProblemException branch when its body omits one (mirrors the HTTP filter's prior
-// `problemResponse.detail ?? exception.message ?? title`). `detail` is left undefined for an
-// object body that matches no known shape, so the caller keeps its own initial detail.
+// Parses a NestJS HttpException response body into normalized problem fields across the SDK's three body shapes.
 export function extractProblemFromResponse(
   exceptionResponse: string | object,
   problemFallbackDetail: string,

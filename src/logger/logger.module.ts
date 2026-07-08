@@ -12,9 +12,7 @@ import { CorrelationIdMiddleware } from './middleware/correlation-id.middleware'
 import { LoggerService } from './services/logger.service';
 import type { LoggerModuleAsyncOptions, LoggerModuleOptions, LoggerOptionsFactory } from './types';
 
-// ============================================================================
 // Constants (inline from constants.ts)
-// ============================================================================
 
 export const LOGGER_MODULE_OPTIONS = Symbol('LOGGER_MODULE_OPTIONS');
 
@@ -26,9 +24,7 @@ const DEFAULT_LOGGER_OPTIONS = {
   maxFiles: '14d',
 } as const;
 
-// ============================================================================
-// Environment Presets (NEW - replaces process.env auto-detection)
-// ============================================================================
+// Environment Presets (replaces process.env auto-detection)
 
 const ENVIRONMENT_PRESETS: Record<string, Partial<LoggerModuleOptions>> = {
   development: {
@@ -83,9 +79,7 @@ const ENVIRONMENT_PRESETS: Record<string, Partial<LoggerModuleOptions>> = {
   },
 } as const;
 
-// ============================================================================
-// Configuration Merging (refactored to use presets instead of process.env)
-// ============================================================================
+// Configuration Merging (uses presets instead of process.env)
 
 // Merges user-provided options with default and environment preset values
 function mergeWithDefaults(options: LoggerModuleOptions = {}): LoggerModuleOptions {
@@ -115,9 +109,7 @@ function mergeWithDefaults(options: LoggerModuleOptions = {}): LoggerModuleOptio
   return merged;
 }
 
-// ============================================================================
 // Provider Factories (inline from logging.providers.ts)
-// ============================================================================
 
 // Creates the default NestJS Logger provider with optional log level configuration
 function createDefaultLoggerProvider(options: LoggerModuleOptions): Provider {
@@ -210,10 +202,6 @@ function getLevelsUpTo(level: string): NestLogLevel[] {
   return allLevels.slice(0, levelIndex + 1);
 }
 
-// ============================================================================
-// Logger Module
-// ============================================================================
-
 @Global()
 @Module({})
 export class LoggerModule implements NestModule {
@@ -291,8 +279,7 @@ export class LoggerModule implements NestModule {
 
   // Middleware registration is handled globally in main.ts via Fastify hooks
   configure(_consumer: MiddlewareConsumer): void {
-    // Middleware is registered globally in main.ts using Fastify's addHook('onRequest')
-    // This avoids DI issues with the middleware constructor
+    // Middleware is registered globally in main.ts via Fastify's addHook('onRequest') to avoid DI issues with the constructor.
   }
 
   // Creates async providers for dynamic module configuration

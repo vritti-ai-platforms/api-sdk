@@ -9,10 +9,6 @@ export interface RlsAwarePoolOptions extends PoolConfig {
   applyRlsContext?: ApplyRlsContextFn;
 }
 
-// pg.Pool subclass that auto-wraps each promise-form query in BEGIN; SET LOCAL …; <query>; COMMIT;
-// when a request-scoped RLS context is present in `rlsAls` and no explicit transaction is active in `txAls`.
-// Subclassing (not composition) is required because drizzle-orm's transaction path does
-// `this.client instanceof Pool` to decide whether to checkout a PoolClient.
 export class RlsAwarePool extends Pool {
   private readonly rlsAls: AsyncLocalStorage<unknown>;
   private readonly txAls: AsyncLocalStorage<unknown>;

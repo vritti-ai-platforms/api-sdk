@@ -28,22 +28,17 @@ export interface GuardConfig {
   authHeaderName: string;
   tokenPrefix: string;
   csrfExemptSessionTypes?: string[];
-  // Transports (matched against ExecutionContext.getType(), e.g. 'graphql') that skip the
-  // cookie-based CSRF check entirely — for bearer-token, cookie-less transports where CSRF
-  // does not apply. Skips CSRF for both @Public() and authenticated requests on that transport.
   csrfExemptTransports?: string[];
   refreshTokenBindingExemptSessionTypes?: string[];
   onAuthenticated?: OnAuthenticatedCallback;
 }
 
-// Complete auth configuration — token expiry, cookie, and guard settings
 export interface AuthConfig {
   tokenExpiry: TokenExpiry;
   cookie: CookieConfig;
   guard: GuardConfig;
 }
 
-// Default values for cookie and guard config — servers only override what they need
 export const AUTH_CONFIG_DEFAULTS = {
   cookie: {
     refreshCookieName: 'vritti_refresh',
@@ -76,13 +71,11 @@ export enum TokenType {
   REFRESH = 'refresh',
 }
 
-// JWT claims added automatically by the library on every signed token
 interface JwtClaims {
   exp: number;
   iat: number;
 }
 
-// Access token — signed payload + JWT claims
 export interface AccessTokenPayload {
   sessionType: string;
   tokenType: TokenType.ACCESS;
@@ -93,7 +86,6 @@ export interface AccessTokenPayload {
 
 export type DecodedAccessToken = AccessTokenPayload & JwtClaims;
 
-// Refresh token — signed payload + JWT claims
 export interface RefreshTokenPayload {
   sessionType: string;
   tokenType: TokenType.REFRESH;

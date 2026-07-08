@@ -1,17 +1,15 @@
 import { isBuLockedOnPlatform, isPlanMember } from './catalog.builder';
 import { type BuFeatureLocks, PLATFORMS, type PlatformBucket, type SnapshotPlan, type VersionSnapshot } from './types';
 
-// A single (permission, platform) cell. null ⇒ the feature doesn't ship on that platform.
 export interface BuMatrixCell {
-  inPlan: boolean; // the org's plan unlocks this (feature, platform, permission)
-  selected: boolean; // the BU currently has it enabled (never true when !inPlan)
-  availableIn: string[]; // other plan names that unlock it — upsell; only when !inPlan
+  inPlan: boolean;
+  selected: boolean;
+  availableIn: string[];
 }
 
 export interface BuMatrixPermission {
   code: string;
   label: string;
-  // Direct intra-feature prerequisite codes — feeds the matrix auto-toggle (add needs view, view needs dim.view)
   dependsOn: string[];
   web: BuMatrixCell | null;
   mobile: BuMatrixCell | null;
@@ -21,9 +19,9 @@ export interface BuMatrixFeature {
   code: string;
   name: string;
   icon: string | null;
-  platforms: PlatformBucket[]; // platforms the feature ships on
-  inPlan: boolean; // FEATURE-level: is this feature a member of the org's plan at all?
-  availableIn: string[]; // plans that include the feature — upsell when !inPlan
+  platforms: PlatformBucket[];
+  inPlan: boolean;
+  availableIn: string[];
   permissions: BuMatrixPermission[];
 }
 
@@ -31,21 +29,18 @@ export interface BuMatrixApp {
   code: string;
   name: string;
   icon: string | null;
-  unlockedCount: number; // (feature × platform × permission) cells the plan unlocks
-  totalCount: number; // all possible cells in this app
+  unlockedCount: number;
+  totalCount: number;
   features: BuMatrixFeature[];
 }
 
 export interface BuMatrix {
   plan: { code: string; name: string };
   apps: BuMatrixApp[];
-  // The stored BU deny-list verbatim — lock editors seed from this, never from derived selected flags
   locks: BuFeatureLocks;
 }
 
-// Builds the full apps/features/permissions matrix from the version snapshot — NOT filtered to plan members.
-// Every app/feature/permission renders; plan-locked items carry inPlan=false + availableIn (the upsell plans).
-// buLocks layers the BU's deny-list within the plan (undefined or absent entries ⇒ the full plan is selected).
+// Builds the full apps/features/permissions matrix from the snapshot — not filtered to plan members; plan-locked items carry inPlan=false + availableIn
 export function buildBuMatrix(
   snapshot: VersionSnapshot,
   businessCode: string | undefined,

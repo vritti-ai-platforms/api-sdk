@@ -44,8 +44,7 @@ export class VrittiAuthGuard implements CanActivate {
     // Attach auth config to request so decorators can access it without injection
     request.authConfig = this.config;
 
-    // CSRF is skipped via @SkipCsrf(), or when the request transport is CSRF-exempt (e.g. 'graphql'
-    // — a bearer-token, cookie-less transport where the cookie-based CSRF check does not apply).
+    // CSRF is skipped via @SkipCsrf() or when the request transport is CSRF-exempt (e.g. 'graphql')
     const csrfExemptTransports = this.config.guard.csrfExemptTransports ?? [];
     const skipCsrf =
       this.reflector.getAllAndOverride<boolean>(SKIP_CSRF_KEY, [context.getHandler(), context.getClass()]) ||

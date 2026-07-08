@@ -21,13 +21,10 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
   private pool: RlsAwarePool | null = null;
   private db: TypedDrizzleClient | null = null;
 
-  // Per-request RLS context values (e.g. { orgId, buId, ... }). Read by RlsAwarePool on each
-  // auto-wrapped query and by runInTransaction at BEGIN to apply SET LOCAL once for the txn body.
+  // Per-request RLS context read by RlsAwarePool per query and by runInTransaction at BEGIN.
   private readonly rlsAls = new AsyncLocalStorage<unknown>();
 
-  // Active Drizzle transaction client when inside runInTransaction. Repository queries via
-  // drizzleClient resolve to this so they participate in the transaction instead of getting
-  // their own mini-transaction via the pool wrapper.
+  // Active Drizzle transaction client so repository queries participate in the transaction.
   private readonly txAls = new AsyncLocalStorage<TypedDrizzleClient>();
 
   constructor(
@@ -77,9 +74,7 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  // Returns the active Drizzle client. When inside runInTransaction, returns the pinned tx so
-  // repository queries participate in the transaction. Otherwise returns the pool-backed Drizzle
-  // whose individual queries auto-wrap in mini-transactions via RlsAwarePool.
+  // Returns the active Drizzle client — the pinned tx inside runInTransaction, else the pool-backed one.
   get drizzleClient(): TypedDrizzleClient {
     const pinned = this.txAls.getStore();
     if (pinned) return pinned;
@@ -89,16 +84,12 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
     return this.db;
   }
 
-  // Stashes per-request RLS context (any shape) in AsyncLocalStorage. Each downstream query via
-  // RlsAwarePool reads it and applies SET LOCAL on the connection inside a mini-transaction.
-  // No DB connection is held by this scope itself — only during each individual query.
+  // Stashes per-request RLS context in AsyncLocalStorage for downstream queries to apply via SET LOCAL.
   runWithRlsContext<T>(rls: unknown, fn: () => Promise<T>): Promise<T> {
     return this.rlsAls.run(rls, fn);
   }
 
-  // Opens a transaction and pins all queries inside `fn` to one connection. Applies the RLS
-  // context once at BEGIN via SET LOCAL so it persists for the entire transaction body.
-  // Nested calls reuse the pinned tx and emit a SAVEPOINT (via Drizzle's tx.transaction).
+  // Opens a transaction pinning all queries in `fn` to one connection, applying RLS once at BEGIN.
   async runInTransaction<T>(fn: () => Promise<T>): Promise<T> {
     const pinned = this.txAls.getStore();
     if (pinned) {
@@ -113,8 +104,7 @@ export class PrimaryDatabaseService implements OnModuleInit, OnModuleDestroy {
 
     return this.db.transaction(async (tx) => {
       if (rls !== undefined && applyRls) {
-        // Drizzle's NodePgSession stores the checked-out PoolClient at session.client.
-        // We need the raw client to issue SET LOCAL with parameter binding via client.query(text, params).
+        // Drizzle's NodePgSession exposes the checked-out PoolClient at session.client for SET LOCAL binding.
         // biome-ignore lint/suspicious/noExplicitAny: drizzle internal session shape, stable across recent versions
         const sessionClient = (tx as any)?.session?.client as PoolClient | undefined;
         if (sessionClient) {

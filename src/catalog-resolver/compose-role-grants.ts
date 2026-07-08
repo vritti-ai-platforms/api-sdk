@@ -1,6 +1,5 @@
 import { type FeatureUnlocks, PLATFORMS, type PlatformCodes, type PlatformDenyCodes } from './types';
 
-// Grants removed from a base template — same deny algebra as BU locks
 export type RevokedGrants = Record<string, PlatformDenyCodes>;
 
 export interface ComposeRoleGrantsParams {
@@ -15,9 +14,7 @@ function unionBucket(base: string[] | undefined, add: string[] | undefined): str
   return [...new Set([...(base ?? []), ...(add ?? [])])];
 }
 
-// Composes a based custom role's effective grants: merge(base ∪ additions) − revoked (design doc §10).
-// Platform membership survives a code revoke (may leave [] = view-only); a null revoke removes the
-// platform entirely; a feature with no surviving platform disappears. Inputs are never mutated.
+// Composes a custom role's effective grants: merge(base ∪ additions) − revoked (design doc §10); inputs are never mutated
 export function composeRoleGrants(params: ComposeRoleGrantsParams): FeatureUnlocks {
   const { baseFeatures, additions, revoked } = params;
 

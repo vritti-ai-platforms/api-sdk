@@ -28,23 +28,6 @@ async function collectFiles(
   return { files: matched, consumed: true };
 }
 
-/**
- * Extracts a single uploaded file from a Fastify multipart request.
- * Pass an optional field name to match a specific form key.
- *
- * Requires `@fastify/multipart` to be registered on the Fastify instance.
- * Throws `BadRequestException` if no file is present in the request.
- *
- * @example
- * ```typescript
- * @Post('upload')
- * @ApiConsumes('multipart/form-data')
- * async upload(
- *   @UploadedFile() file: UploadedFileResult,          // grabs first file
- *   @UploadedFile('avatar') avatar: UploadedFileResult, // grabs file with key "avatar"
- * ) {}
- * ```
- */
 export const UploadedFile = createParamDecorator(
   async (fieldName: string | undefined, ctx: ExecutionContext): Promise<UploadedFileResult> => {
     const request = ctx.switchToHttp().getRequest<FastifyRequest>();
@@ -65,23 +48,6 @@ export const UploadedFile = createParamDecorator(
   },
 );
 
-/**
- * Extracts multiple uploaded files from a Fastify multipart request.
- * Pass an optional field name to match only files under a specific form key.
- *
- * Requires `@fastify/multipart` to be registered on the Fastify instance.
- * Throws `BadRequestException` if no files are present in the request.
- *
- * @example
- * ```typescript
- * @Post('upload')
- * @ApiConsumes('multipart/form-data')
- * async upload(
- *   @UploadedFiles() files: UploadedFileResult[],              // grabs all files
- *   @UploadedFiles('documents') docs: UploadedFileResult[],    // grabs files with key "documents"
- * ) {}
- * ```
- */
 export const UploadedFiles = createParamDecorator(
   async (fieldName: string | undefined, ctx: ExecutionContext): Promise<UploadedFileResult[]> => {
     const request = ctx.switchToHttp().getRequest<FastifyRequest>();

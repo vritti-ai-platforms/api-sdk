@@ -83,9 +83,7 @@ export type {
 export { IsDateTime } from './decorators/is-date-time.decorator';
 // Decorators
 export { UploadedFile, type UploadedFileResult, UploadedFiles } from './decorators/uploaded-file.decorator';
-// Icon-name validation (IsIconName, ICON_NAMES, isIconName) is intentionally NOT re-exported
-// here — import it from the '@vritti/api-sdk/icons' subpath so the large icon-names.json (~352KB)
-// stays out of the main bundle and only loads where it's used.
+// Icon-name validation is NOT re-exported here — import from '@vritti/api-sdk/icons' to keep icon-names.json out of the main bundle.
 // Email module moved to the './email' subpath (@vritti/api-sdk/email) so the main barrel never imports @getbrevo/brevo.
 // Exceptions
 export * from './exceptions';
@@ -94,13 +92,9 @@ export * from './filters';
 // License module moved to the './license' subpath (@vritti/api-sdk/license).
 // Logger utilities
 export * from './logger';
-// Money module lives on the './money' subpath (@vritti/api-sdk/money) — the only entry that touches
-// dinero.js. Its public surface is ALSO re-exported here for the ~60 server consumers that import these
-// from the root; this is a backwards-compat convenience (server lib, so no bundle-size cost). New code
-// should prefer the './money' subpath.
+// Money module lives on the './money' subpath; re-exported here for backwards-compat (server lib, no bundle cost) — new code should prefer './money'.
 export * from './money';
-// NATS / microservice exports moved to the './nats' subpath (@vritti/api-sdk/nats) so the main
-// barrel never imports @nestjs/microservices. Non-NATS consumers (cloud-server) stay clean.
+// NATS exports moved to the './nats' subpath so the main barrel never imports @nestjs/microservices.
 // Root module (health check + CSRF)
 export { RootModule } from './root/root.module';
 // RFC 7807 Types (using named exports to avoid conflicts)

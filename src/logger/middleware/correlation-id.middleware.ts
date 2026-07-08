@@ -49,9 +49,7 @@ export class CorrelationIdMiddleware implements NestMiddleware {
       addCorrelationIdToResponse(reply, correlationId, this.responseHeader);
     }
 
-    // Store in AsyncLocalStorage for the request lifecycle
-    // Note: We don't wrap in runWithCorrelationContext here because
-    // Fastify's async context tracking handles it automatically
+    // Store in AsyncLocalStorage — no runWithCorrelationContext wrap needed, Fastify's async context tracking handles it.
     const store = correlationStorage.getStore();
     if (!store) {
       // Initialize new store

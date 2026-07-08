@@ -1,21 +1,13 @@
 export { HttpLoggerInterceptor } from './interceptors/http-logger.interceptor';
-// ============================================================================
-// Main Module (Import this in your AppModule)
-// ============================================================================
+// Main Module (import this in your AppModule)
 export { LOGGER_MODULE_OPTIONS, LoggerModule } from './logger.module';
 
-// ============================================================================
 // Middleware & Interceptors
-// ============================================================================
 export { CorrelationIdMiddleware } from './middleware/correlation-id.middleware';
-// ============================================================================
-// Main Service (Inject this in your services)
-// ============================================================================
+// Main Service (inject this in your services)
 export { LoggerService } from './services/logger.service';
 
-// ============================================================================
 // Type Definitions
-// ============================================================================
 export type {
   CorrelationContext,
   HttpLoggerOptions,
@@ -27,9 +19,7 @@ export type {
   LogMetadata,
 } from './types';
 
-// ============================================================================
 // Utility Functions
-// ============================================================================
 export {
   addCorrelationIdToResponse,
   // AsyncLocalStorage management

@@ -34,9 +34,7 @@ export class LoggerService implements NestLoggerService {
     const level = opts.level ?? 'debug';
     const logFormat = opts.format ?? 'text';
 
-    // Base formatters
-    // Winston automatically merges metadata into the info object, so all properties
-    // (context, correlationId, etc.) are already at the top level
+    // Base formatters — Winston merges metadata into the info object, so all properties are already at the top level.
     const baseFormatters = [format.timestamp({ format: 'YYYY-MM-DDTHH:mm:ss.SSSZ' }), format.errors({ stack: true })];
 
     // Console transport
@@ -179,7 +177,6 @@ export class LoggerService implements NestLoggerService {
     if ('format' in this.activeLogger && 'transports' in this.activeLogger) {
       const winstonLogger = this.activeLogger as WinstonLogger;
       const winstonLevel = level === 'log' ? 'info' : level;
-      // const enriched = this.enrichMetadata(metadata, ctx);
       // Winston merges all properties into the info object when using object syntax
       winstonLogger.log({ level: winstonLevel, message: this.formatMessage(message), ...metadata });
     } else {

@@ -12,9 +12,7 @@ import type {
   VersionSnapshot,
 } from './types';
 
-// Builds the per-BU catalog for ONE platform bucket. The plan is the ceiling (membership + unlocks); buLocks is a
-// deny-list within the plan (undefined or absent entries ⇒ fully available). Each permission carries
-// locked + lockReason + unlockPlans, all evaluated against the requested bucket only.
+// Builds the per-BU catalog for ONE platform bucket — plan is the ceiling, buLocks is a deny-list within it; each permission carries locked + lockReason + unlockPlans
 export function buildBuCatalog(
   snapshot: VersionSnapshot,
   businessCode: string | undefined,
@@ -37,19 +35,15 @@ export function buildBuCatalog(
 
     if (businessAppFeatures.length === 0) continue;
 
-    // Emit EVERY business feature so a role's grant on a plan-omitted feature still resolves (rendered as a locked
-    // tile with an upsell) instead of vanishing. Core filters the catalog down to what the user's role grants.
+    // Emit EVERY business feature so a role's grant on a plan-omitted feature still resolves as a locked tile instead of vanishing
     for (const feature of businessAppFeatures) {
       const membership = plan?.unlockedPermissions?.[feature.code];
-      // Routes are exposed wherever the feature SHIPS — membership never hides them. A role grant on a
-      // plan-omitted (feature or platform) still resolves as a locked tile with an upsell instead of vanishing.
+      // Routes are exposed wherever the feature SHIPS — membership never hides them
       const web = feature.microfrontends?.web;
       const mobile = feature.microfrontends?.mobile;
 
       const permissions = buildPermissions(feature, businessCode, membership, buLocks, plans, bucket);
-      // Feature-level lock is EXPLICIT, never derived from permission locks: the plan must include the feature
-      // on this bucket (membership) and the BU must not null-lock the platform. Permission-code locks only
-      // disable individual actions — the feature still renders (sidebar/tile stays enabled).
+      // Feature-level lock is EXPLICIT: plan must include the feature on this bucket and the BU must not null-lock the platform
       const memberOnBucket = membership?.[bucket] !== undefined;
       const buPlatformLocked = buLocks?.[feature.code]?.[bucket] === null;
       const locked = !memberOnBucket || buPlatformLocked;
@@ -96,8 +90,7 @@ export function isPlanMember(entry: PlatformCodes | undefined): boolean {
   return !!entry && (entry.web !== undefined || entry.mobile !== undefined);
 }
 
-// Per-platform BU-lock primitive: platform null locks the whole feature there; string[] locks those codes;
-// entry/platform absent ⇒ not locked
+// Per-platform BU-lock primitive: null locks the whole feature, string[] locks those codes, absent = not locked
 export function isBuLockedOnPlatform(
   entry: BuFeatureLocks[string] | undefined,
   platform: PlatformBucket,
@@ -107,8 +100,7 @@ export function isBuLockedOnPlatform(
   return locks === null || (locks?.includes(code) ?? false);
 }
 
-// A feature's business-scoped permissions, each tagged with locked + reason against the plan and the BU deny-list.
-// Everything is bucket-scoped: a web resolution ignores mobile unlocks and mobile locks entirely.
+// A feature's business-scoped permissions, each tagged with locked + reason against the plan and BU deny-list (bucket-scoped)
 function buildPermissions(
   feature: SnapshotFeature,
   businessCode: string,

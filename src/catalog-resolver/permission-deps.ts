@@ -1,8 +1,5 @@
-// Intra-feature permission prerequisites: e.g. add/edit/delete depend on view, and view depends on dim.view.
-// Only DIRECT edges are declared per permission; the transitive closure is computed by recursion here.
-// All traversals are cycle-guarded so a malformed (cyclic) graph degrades gracefully instead of hanging.
+// Intra-feature permission prerequisites — only DIRECT edges are declared; the transitive closure is computed by recursion, cycle-guarded
 
-// Permission code -> the codes it DIRECTLY depends on (within the same feature)
 export type DependsMap = Map<string, string[]>;
 
 // Builds a dependency map from a feature's permissions, keeping only edges to codes present in the set
@@ -35,8 +32,7 @@ export function prereqClosure(code: string, deps: DependsMap): string[] {
   return [...out];
 }
 
-// Codes locked after cascade: a code is locked if it is directly locked OR any (transitive) prerequisite is.
-// On a cycle, a revisited node returns false (does not propagate a phantom lock).
+// Codes locked after cascade: a code is locked if directly locked or any transitive prerequisite is (cycle-safe)
 export function cascadeLocked(codes: string[], directlyLocked: Set<string>, deps: DependsMap): Set<string> {
   const locked = new Set<string>();
   const visiting = new Set<string>();
@@ -57,8 +53,7 @@ export function cascadeLocked(codes: string[], directlyLocked: Set<string>, deps
   return locked;
 }
 
-// Keeps only codes whose FULL prerequisite closure is also present — drops a dependent missing any prerequisite.
-// On a cycle, a revisited node returns true (does not drop the whole chain).
+// Keeps only codes whose FULL prerequisite closure is also present — drops a dependent missing any prerequisite (cycle-safe)
 export function filterGrantedByDeps(granted: Set<string>, deps: DependsMap): Set<string> {
   const ok = new Set<string>();
   const visiting = new Set<string>();

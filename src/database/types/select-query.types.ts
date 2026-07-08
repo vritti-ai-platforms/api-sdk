@@ -47,10 +47,7 @@ export interface FindForSelectConfig {
   groupTable?: PgTable;
   groupLabelKey?: string;
   groupTableIdKey?: string;
-  // Optional JOINs on the base table
   joins?: FindForSelectJoin[];
-  // Additional raw SQL conditions (for joined table columns)
   conditions?: SQL[];
-  // Use SELECT DISTINCT instead of SELECT (for deduplication across versions)
   distinct?: boolean;
 }

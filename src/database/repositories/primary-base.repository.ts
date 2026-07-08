@@ -94,7 +94,6 @@ export abstract class PrimaryBaseRepository<
     },
   ) {
     // Convert snake_case table/view name to camelCase to match Drizzle query object keys
-    // Example: 'email_verifications' -> 'emailVerifications'
     this.isView = is(table, PgViewBase);
     const dbTableName = this.isView ? getViewName(table as PgViewBase) : getTableName(table as PgTable);
     this.tableName = snakeToCamel(dbTableName);
@@ -171,9 +170,7 @@ export abstract class PrimaryBaseRepository<
     leftJoins?: { table: PgTable; on: SQL | undefined }[];
     groupBy?: (PgColumn | SQL)[];
   }) {
-    // Drizzle's dynamic query builder methods (leftJoin, where, groupBy, etc.) return union types
-    // that include Omit<...> variants, making precise type annotations impractical for mutable query
-    // building. We type the variable as the concrete async select and cast each reassignment.
+    // Type as the concrete async select and cast each reassignment — Drizzle's dynamic builder returns union types.
     let query = (
       options?.select
         ? this.db.select(options.select as SelectedFields).from(this.table as PgTable)
@@ -220,8 +217,7 @@ export abstract class PrimaryBaseRepository<
     let countResultPromise: Promise<{ count: number }[]>;
 
     if (options?.groupBy?.length) {
-      // When groupBy is active, wrap the grouped query in a subquery so we count
-      // distinct groups rather than raw join rows.
+      // When groupBy is active, wrap the grouped query in a subquery so we count distinct groups.
       let subq = this.db
         .select({ _: sql`1` })
         .from(this.table as PgTable)
@@ -270,8 +266,7 @@ export abstract class PrimaryBaseRepository<
     return { result, count: (countResult[0] as { count: number }).count };
   }
 
-  // Fetches limit+1 rows for keyset/cursor pagination and trims, returning rows plus hasMore.
-  // The WHERE must already include the keyset "after" predicate; orderBy must be a total order.
+  // Fetches limit+1 rows for keyset pagination and trims, returning rows plus hasMore.
   async findKeyset<TResult = TSelect>(options: {
     select?: Record<string, unknown>;
     where?: SQL;
@@ -281,8 +276,7 @@ export abstract class PrimaryBaseRepository<
     leftJoins?: { table: PgTable; on: SQL | undefined }[];
     groupBy?: (PgColumn | SQL)[];
   }): Promise<{ rows: TResult[]; hasMore: boolean }> {
-    // Clamp the requested page to [1, MAX_PAGE_SIZE] so a client can never pull an unbounded page,
-    // regardless of what the caller passed through. Fetch limit+1 to detect hasMore, then trim.
+    // Clamp the requested page to [1, MAX_PAGE_SIZE], then fetch limit+1 to detect hasMore and trim.
     const limit = Math.min(Math.max(1, Math.trunc(options.limit) || 1), MAX_PAGE_SIZE);
     const rows = (await this.buildSelectQuery({
       ...options,
@@ -365,9 +359,7 @@ export abstract class PrimaryBaseRepository<
     return count > 0;
   }
 
-  // Executes the callback within a database transaction. Routes through PrimaryDatabaseService so
-  // the RLS context from AsyncLocalStorage is applied once at BEGIN and queries inside `callback`
-  // (whether they use the passed tx arg or `this.db` via ALS) all participate in the same txn.
+  // Executes the callback within a database transaction, applying the ALS RLS context once at BEGIN.
   async transaction<T>(callback: (tx: TypedDrizzleClient) => Promise<T>): Promise<T> {
     return this.database.runInTransaction(async () => callback(this.database.drizzleClient));
   }

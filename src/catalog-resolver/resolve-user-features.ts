@@ -2,17 +2,14 @@ import { buildBuCatalog } from './catalog.builder';
 import { buildDependsMap, filterGrantedByDeps } from './permission-deps';
 import type { BuFeatureLocks, FeatureUnlocks, LockReason, PlatformBucket, VersionSnapshot } from './types';
 
-// Client surface requesting resolution — web picks the WEB route block, ios/android pick the MOBILE block per-OS
 export type ClientPlatform = 'web' | 'ios' | 'android';
 
-// A granted permission that is locked, with why and which plans would unlock it (for upsell)
 export interface LockedPermission {
   code: string;
   reason: LockReason | null;
   unlockPlans: string[];
 }
 
-// One unlocking plan and the extra feature names it would add beyond the current plan (for the upsell screen)
 export interface PlanUpsell {
   plan: string;
   features: string[];
@@ -25,12 +22,10 @@ export interface PermissionFeature {
   sfSymbol: string;
   materialSymbol: string;
   permissions: string[];
-  // Lock overlay (for upsell): feature-level locked + reason + unlock plans, and the granted-but-locked permissions
   locked: boolean;
   lockReason: LockReason | null;
   unlockPlans: string[];
   lockedPermissions: LockedPermission[];
-  // For plan-locked features: per unlocking plan, the extra features that plan adds vs the current plan (empty otherwise)
   upsell: PlanUpsell[];
   route: {
     remoteEntry: string;
@@ -47,24 +42,16 @@ export interface ResolveUserFeaturesParams {
   snapshot: VersionSnapshot;
   businessCode: string;
   planCode: string | undefined;
-  // undefined = nothing BU-locked (the full plan is available)
   buLocks: BuFeatureLocks | undefined;
-  // The user's composed role grants: featureCode -> { web?: [permCode…], mobile?: [permCode…] }
   roleFeatures: FeatureUnlocks;
   platform: ClientPlatform;
 }
 
-// Resolves the features + MF config a user sees at a BU: plan ∧ BU catalog intersected with the role's grants.
-// platform picks which microfrontend block flows into PermissionFeature.route:
-//   'web'     → WEB block (remoteEntry + exposedModule + routePrefix)
-//   'ios'     → MOBILE block, remoteEntry = remoteEntryIos
-//   'android' → MOBILE block, remoteEntry = remoteEntryAndroid
-// Features missing the requested platform's block are filtered out.
+// Resolves the features + MF config a user sees at a BU: plan ∧ BU catalog intersected with the role's grants, filtered to the requested platform
 export function resolveUserFeatures(params: ResolveUserFeaturesParams): PermissionFeature[] {
   const { snapshot, businessCode, planCode, buLocks, roleFeatures, platform } = params;
 
-  // Plan unlocks, BU locks, and role grants are all stored per platform; resolve only the requesting
-  // surface's bucket. web → 'web'; ios/android → 'mobile'. (platform still drives the per-OS route below.)
+  // Plan unlocks, BU locks, and role grants are stored per platform; resolve only the requesting surface's bucket (web → 'web'; ios/android → 'mobile')
   const bucket: PlatformBucket = platform === 'web' ? 'web' : 'mobile';
 
   // Plan ∧ BU overlay for this bucket — emits EVERY business feature (plan non-members come out fully locked)
@@ -155,8 +142,7 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
   return features;
 }
 
-// Selects the route block from a catalog entry for the requested platform.
-// Returns null when the catalog entry doesn't publish to that platform.
+// Selects the route block from a catalog entry for the requested platform, or null when it doesn't publish there
 export function pickRouteForPlatform(
   entry: {
     web: {

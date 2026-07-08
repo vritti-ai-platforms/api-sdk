@@ -381,9 +381,7 @@ export function minorToMajor<TOutput = string>(
   return toDecimal(amount, ({ value, currency: resolvedCurrency }) => transform({ value, currency: resolvedCurrency }));
 }
 
-// Throws ValidationException (HTTP 422) instead of generic Error so the
-// NestJS error filter maps it to a field-level response automatically.
-// Callers pass `field` so the validation error binds to the right form field.
+// Converts a major-unit string to minor-unit bigint, throwing ValidationException (422) on invalid input
 export function majorToMinor(major: string, currencyCode: CurrencyCode, field = 'amount'): bigint {
   const { exponent } = resolveCurrency(currencyCode);
   const scale = typeof exponent === 'bigint' ? Number(exponent) : exponent;

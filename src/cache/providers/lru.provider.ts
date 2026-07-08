@@ -4,7 +4,6 @@ import { DEFAULT_LRU_MAX, LRU_CACHE_OPTIONS } from '../constants';
 import type { ICacheProvider } from '../interfaces/cache-provider.interface';
 
 export interface LruCacheOptions {
-  // Maximum number of entries before least-recently-used ones are evicted
   max?: number;
 }
 
@@ -17,8 +16,6 @@ function globToRegExp(pattern: string): RegExp {
   return new RegExp(`^${escaped}$`);
 }
 
-// In-memory cache provider backed by lru-cache — bounded (max entries + LRU eviction) with per-key TTL.
-// Single-instance only: not shared across replicas. For multi-instance, use RedisCacheProvider.
 @Injectable()
 export class LruCacheProvider implements ICacheProvider {
   private readonly cache: LRUCache<string, object>;

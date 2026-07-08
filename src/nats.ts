@@ -1,6 +1,4 @@
-// NATS + microservice exports — kept OUT of the main barrel (src/index.ts) so that
-// non-NATS consumers (e.g. cloud-server) never load @nestjs/microservices.
-// Consumers that use NATS import from '@vritti/api-sdk/nats' and provide @nestjs/microservices.
+// NATS + microservice exports — kept out of the main barrel so non-NATS consumers never load @nestjs/microservices
 
 // RPC exception filter (microservice side) — moved out of the main filters barrel
 export { RpcProblemExceptionFilter } from './filters/rpc-problem-exception.filter';

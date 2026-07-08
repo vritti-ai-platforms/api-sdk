@@ -1,3 +1,2 @@
-// Re-export lodash
-// lodash uses `export =` so we re-export the default namespace
+// Re-export lodash's default namespace (lodash uses `export =`).
 export { default } from 'lodash';

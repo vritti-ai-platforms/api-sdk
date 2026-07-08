@@ -1,5 +1,4 @@
-// Pulls the `declare module 'fastify'` augmentation (request.sessionInfo) into this entry's
-// dts graph — tsup builds each entry in isolation and otherwise drops the global augmentation.
+// Pulls the fastify module augmentation into this entry's dts graph — tsup builds each entry in isolation
 import '../types/fastify-augmentation';
 import { Inject, Injectable, Scope } from '@nestjs/common';
 import { REQUEST } from '@nestjs/core';
@@ -24,8 +23,7 @@ export class NatsClientService {
     @Inject(NATS_CLIENTS) private readonly clients: Map<string, ClientProxy>,
   ) {}
 
-  // For GraphQL, @Inject(REQUEST) is the { req, reply } context wrapper, not the Fastify request;
-  // unwrap so `sessionInfo` (set by the auth guard on the request) is visible across both transports.
+  // Unwraps the GraphQL { req, reply } context wrapper so sessionInfo is visible across both transports
   private get request(): FastifyRequest {
     return resolveInjectedRequest(this.injectedRequest);
   }

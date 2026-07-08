@@ -30,7 +30,6 @@ export function dataTableViewsIndexes(table: any) {
   ];
 }
 
-// Shape of a persisted table view record — used across service, repository, and DTO layers
 export interface DataTableViewRecord {
   id: string;
   userId: string;
@@ -42,7 +41,6 @@ export interface DataTableViewRecord {
   updatedAt: Date | null | undefined;
 }
 
-// Shape of a new table view record for insertion — server-generated fields omitted
 export interface NewDataTableViewRecord {
   userId: string;
   tableSlug: string;
