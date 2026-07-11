@@ -1,22 +1,18 @@
 export interface NatsHeaders {
   orgId: string;
   userId: string;
-  buId: string;
-  buTimezone: string;
-  buCurrencyCode: string;
-  buAncestorIds: string[];
-  buDescendantIds: string[];
+  siteId: string;
+  siteTimezone: string;
+  siteCurrencyCode: string;
 }
 
 // Header keys for NATS context transport
 export const NATS_HEADER_KEYS = {
   ORG_ID: 'x-org-id',
   USER_ID: 'x-user-id',
-  BU_ID: 'x-bu-id',
-  BU_TIMEZONE: 'x-bu-timezone',
-  BU_CURRENCY_CODE: 'x-bu-currency-code',
-  BU_ANCESTOR_IDS: 'x-bu-ancestor-ids',
-  BU_DESCENDANT_IDS: 'x-bu-descendant-ids',
+  SITE_ID: 'x-site-id',
+  SITE_TIMEZONE: 'x-site-timezone',
+  SITE_CURRENCY_CODE: 'x-site-currency-code',
 } as const;
 
 // Reads a header value from either a plain object or a NATS MsgHdrsImpl
@@ -30,23 +26,20 @@ function getHeader(headers: unknown, key: string): string | undefined {
   return (headers as Record<string, string>)[key];
 }
 
-// Parses NATS message headers into a NatsHeaders object
+// Parses NATS message headers into a NatsHeaders object — siteId is optional (empty for org-level contexts)
 export function parseNatsHeaders(headers: unknown): NatsHeaders | null {
   if (!headers) return null;
 
   const orgId = getHeader(headers, NATS_HEADER_KEYS.ORG_ID);
   const userId = getHeader(headers, NATS_HEADER_KEYS.USER_ID);
-  const buId = getHeader(headers, NATS_HEADER_KEYS.BU_ID);
 
-  if (!orgId || !userId || !buId) return null;
+  if (!orgId || !userId) return null;
 
   return {
     orgId,
     userId,
-    buId,
-    buTimezone: getHeader(headers, NATS_HEADER_KEYS.BU_TIMEZONE) || 'UTC',
-    buCurrencyCode: getHeader(headers, NATS_HEADER_KEYS.BU_CURRENCY_CODE) || '',
-    buAncestorIds: JSON.parse(getHeader(headers, NATS_HEADER_KEYS.BU_ANCESTOR_IDS) || '[]'),
-    buDescendantIds: JSON.parse(getHeader(headers, NATS_HEADER_KEYS.BU_DESCENDANT_IDS) || '[]'),
+    siteId: getHeader(headers, NATS_HEADER_KEYS.SITE_ID) || '',
+    siteTimezone: getHeader(headers, NATS_HEADER_KEYS.SITE_TIMEZONE) || 'UTC',
+    siteCurrencyCode: getHeader(headers, NATS_HEADER_KEYS.SITE_CURRENCY_CODE) || '',
   };
 }

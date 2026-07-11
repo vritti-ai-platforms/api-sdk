@@ -12,6 +12,8 @@ const snapshot: VersionSnapshot = {
       lucideIcon: 'shopping-cart',
       sfSymbol: 'cart',
       materialSymbol: 'shopping_cart',
+      scope: 'SITE',
+      applicableSiteTypes: ['OUTLET'],
       permissions: [
         { code: 'sales.view', label: 'View', isGlobal: true, businesses: [] },
         { code: 'sales.create', label: 'Create', isGlobal: true, businesses: [] },
@@ -41,6 +43,8 @@ const snapshot: VersionSnapshot = {
       lucideIcon: 'bar-chart',
       sfSymbol: 'chart.bar',
       materialSymbol: 'bar_chart',
+      scope: 'SITE',
+      applicableSiteTypes: ['OUTLET'],
       permissions: [{ code: 'reports.view', label: 'View', isGlobal: true, businesses: [] }],
       microfrontends: {
         web: {
@@ -52,28 +56,48 @@ const snapshot: VersionSnapshot = {
         },
       },
     },
+    dashboard: {
+      code: 'dashboard',
+      name: 'Dashboard',
+      lucideIcon: 'layout-dashboard',
+      sfSymbol: 'square.grid.2x2',
+      materialSymbol: 'dashboard',
+      scope: 'ORG',
+      applicableSiteTypes: [],
+      permissions: [{ code: 'dashboard.view', label: 'View', isGlobal: true, businesses: [] }],
+      microfrontends: {
+        web: {
+          code: 'mf-web',
+          name: 'Dashboard Web',
+          remoteEntry: 'https://web/remote.js',
+          exposedModule: './Dashboard',
+          routePrefix: '/dashboard',
+        },
+      },
+    },
   },
   businesses: {
     RETAIL: {
       name: 'Retail',
-      apps: [{ code: 'pos', name: 'POS', icon: 'store', sortOrder: 1, features: ['sales', 'reports'] }],
+      apps: [{ code: 'pos', name: 'POS', icon: 'store', sortOrder: 1, features: ['sales', 'reports', 'dashboard'] }],
       roleTemplates: {},
       plans: {
         BASIC: {
           code: 'BASIC',
           name: 'Basic',
           isCustom: false,
-          maxBusinessUnits: 1,
+          maxSites: 1,
           unlockedPermissions: { sales: { web: ['sales.view'], mobile: ['sales.view'] } },
         },
         PRO: {
           code: 'PRO',
           name: 'Pro',
           isCustom: false,
-          maxBusinessUnits: null,
+          maxSites: null,
           unlockedPermissions: {
             sales: { web: ['sales.view', 'sales.create', 'sales.void'], mobile: ['sales.view'] },
             reports: { web: ['reports.view'] },
+            dashboard: { web: ['dashboard.view'] },
           },
         },
       },
@@ -87,7 +111,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'BASIC',
-      buLocks: undefined,
+      siteLocks: undefined,
       roleFeatures: { sales: { web: ['sales.view', 'sales.create'] } },
       platform: 'web',
     });
@@ -113,7 +137,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'BASIC',
-      buLocks: undefined,
+      siteLocks: undefined,
       roleFeatures: { reports: { web: ['reports.view'] } },
       platform: 'web',
     });
@@ -129,7 +153,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      buLocks: undefined,
+      siteLocks: undefined,
       roleFeatures: { sales: { mobile: ['sales.view'] }, reports: { web: ['reports.view'] } },
     };
     const ios = resolveUserFeatures({ ...params, platform: 'ios' });
@@ -146,13 +170,13 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      buLocks: { sales: { web: ['sales.create'], mobile: null } },
+      siteLocks: { sales: { web: ['sales.create'], mobile: null } },
       roleFeatures: { sales: { web: ['sales.view', 'sales.create'] } },
       platform: 'web',
     });
 
     // sales.create: locked on web (code) + mobile (feature null) → BU-locked; sales.view stays open via web
-    assert.deepEqual(features[0].lockedPermissions, [{ code: 'sales.create', reason: 'BU', unlockPlans: [] }]);
+    assert.deepEqual(features[0].lockedPermissions, [{ code: 'sales.create', reason: 'SITE', unlockPlans: [] }]);
   });
 
   it('leaves everything available when the BU overlay is absent', () => {
@@ -160,7 +184,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      buLocks: undefined,
+      siteLocks: undefined,
       roleFeatures: { sales: { web: ['sales.view', 'sales.create', 'sales.void'] } },
       platform: 'web',
     });
@@ -174,14 +198,14 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      buLocks: { sales: { web: ['sales.view'] } },
+      siteLocks: { sales: { web: ['sales.view'] } },
       roleFeatures: { sales: { web: ['sales.view'], mobile: ['sales.view'] } },
     };
     const web = resolveUserFeatures({ ...params, platform: 'web' as const });
     const mobile = resolveUserFeatures({ ...params, platform: 'ios' as const });
 
     // The lock covers web only → BU-locked on web, untouched on mobile
-    assert.deepEqual(web[0].lockedPermissions, [{ code: 'sales.view', reason: 'BU', unlockPlans: [] }]);
+    assert.deepEqual(web[0].lockedPermissions, [{ code: 'sales.view', reason: 'SITE', unlockPlans: [] }]);
     assert.deepEqual(mobile[0].lockedPermissions, []);
   });
 
@@ -190,7 +214,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'BASIC',
-      buLocks: { sales: { web: ['sales.create'], mobile: ['sales.create'] } },
+      siteLocks: { sales: { web: ['sales.create'], mobile: ['sales.create'] } },
       roleFeatures: { sales: { web: ['sales.view', 'sales.create'] } },
       platform: 'web',
     });
@@ -203,7 +227,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      buLocks: { sales: { web: null, mobile: null } },
+      siteLocks: { sales: { web: null, mobile: null } },
       roleFeatures: { reports: { web: ['reports.view'] } },
       platform: 'web',
     });
@@ -217,13 +241,57 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      buLocks: { sales: { web: null, mobile: null } },
+      siteLocks: { sales: { web: null, mobile: null } },
       roleFeatures: { sales: { web: ['sales.view', 'sales.create', 'sales.void'] } },
       platform: 'web',
     });
 
     assert.equal(features[0].locked, true);
-    assert.equal(features[0].lockReason, 'BU');
+    assert.equal(features[0].lockReason, 'SITE');
     assert.deepEqual(features[0].unlockPlans, []);
+  });
+
+  it('resolves every granted feature regardless of scope when no scope is requested', () => {
+    const features = resolveUserFeatures({
+      snapshot,
+      businessCode: 'RETAIL',
+      planCode: 'PRO',
+      siteLocks: undefined,
+      roleFeatures: { sales: { web: ['sales.view'] }, dashboard: { web: ['dashboard.view'] } },
+      platform: 'web',
+    });
+
+    assert.deepEqual(features.map((f) => f.code).sort(), ['dashboard', 'sales']);
+  });
+
+  it('drops features whose scope differs from the requested workspace scope', () => {
+    const params = {
+      snapshot,
+      businessCode: 'RETAIL',
+      planCode: 'PRO',
+      siteLocks: undefined,
+      roleFeatures: { sales: { web: ['sales.view'] }, dashboard: { web: ['dashboard.view'] } },
+      platform: 'web' as const,
+    };
+    const site = resolveUserFeatures({ ...params, scope: 'SITE', siteType: 'OUTLET' });
+    const org = resolveUserFeatures({ ...params, scope: 'ORG' });
+
+    // SITE workspace only sees SITE-scoped features; ORG workspace only ORG-scoped ones
+    assert.deepEqual(site.map((f) => f.code), ['sales']);
+    assert.deepEqual(org.map((f) => f.code), ['dashboard']);
+  });
+
+  it('returns nothing for a scope with no matching features', () => {
+    const features = resolveUserFeatures({
+      snapshot,
+      businessCode: 'RETAIL',
+      planCode: 'PRO',
+      siteLocks: undefined,
+      roleFeatures: { sales: { web: ['sales.view'] } },
+      platform: 'web',
+      scope: 'LE',
+    });
+
+    assert.deepEqual(features, []);
   });
 });

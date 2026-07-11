@@ -1,6 +1,14 @@
-import { buildBuCatalog } from './catalog.builder';
+import { buildSiteCatalog } from './catalog.builder';
 import { buildDependsMap, filterGrantedByDeps } from './permission-deps';
-import type { BuFeatureLocks, FeatureUnlocks, LockReason, PlatformBucket, VersionSnapshot } from './types';
+import type {
+  SiteFeatureLocks,
+  FeatureUnlocks,
+  LockReason,
+  PlatformBucket,
+  ScopeType,
+  SiteType,
+  VersionSnapshot,
+} from './types';
 
 export type ClientPlatform = 'web' | 'ios' | 'android';
 
@@ -42,20 +50,22 @@ export interface ResolveUserFeaturesParams {
   snapshot: VersionSnapshot;
   businessCode: string;
   planCode: string | undefined;
-  buLocks: BuFeatureLocks | undefined;
+  siteLocks: SiteFeatureLocks | undefined;
   roleFeatures: FeatureUnlocks;
   platform: ClientPlatform;
+  siteType?: SiteType;
+  scope?: ScopeType;
 }
 
 // Resolves the features + MF config a user sees at a BU: plan ∧ BU catalog intersected with the role's grants, filtered to the requested platform
 export function resolveUserFeatures(params: ResolveUserFeaturesParams): PermissionFeature[] {
-  const { snapshot, businessCode, planCode, buLocks, roleFeatures, platform } = params;
+  const { snapshot, businessCode, planCode, siteLocks, roleFeatures, platform, siteType, scope } = params;
 
   // Plan unlocks, BU locks, and role grants are stored per platform; resolve only the requesting surface's bucket (web → 'web'; ios/android → 'mobile')
   const bucket: PlatformBucket = platform === 'web' ? 'web' : 'mobile';
 
-  // Plan ∧ BU overlay for this bucket — emits EVERY business feature (plan non-members come out fully locked)
-  const catalog = buildBuCatalog(snapshot, businessCode, planCode, buLocks, bucket);
+  // Plan ∧ BU overlay for this bucket, filtered to features that apply to this workspace scope and node type — emits EVERY applicable business feature (plan non-members come out fully locked)
+  const catalog = buildSiteCatalog(snapshot, businessCode, planCode, siteLocks, bucket, siteType, scope);
   const catalogMap = new Map(catalog.map((f) => [f.code, f]));
 
   // Per-plan feature-name delta vs the current plan — feeds the plan-locked upsell screen

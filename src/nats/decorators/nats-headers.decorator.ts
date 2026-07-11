@@ -8,18 +8,18 @@ export const RpcNatsHeaders = createParamDecorator((_data: unknown, ctx: Executi
   return parseNatsHeaders(rpcCtx.getHeaders());
 });
 
-// Extracts buId from NATS headers — throws if missing or empty
-export const RpcBuId = createParamDecorator((_data: unknown, ctx: ExecutionContext): string => {
+// Extracts siteId from NATS headers — throws if missing or empty
+export const RpcSiteId = createParamDecorator((_data: unknown, ctx: ExecutionContext): string => {
   const rpcCtx = ctx.switchToRpc().getContext<NatsContext>();
   const headers = parseNatsHeaders(rpcCtx.getHeaders());
-  if (!headers?.buId) throw new InternalServerErrorException('Missing buId in NATS headers.');
-  return headers.buId;
+  if (!headers?.siteId) throw new InternalServerErrorException('Missing siteId in NATS headers.');
+  return headers.siteId;
 });
 
-// Extracts buCurrencyCode from NATS headers — throws if missing or empty
-export const RpcBuCurrencyCode = createParamDecorator((_data: unknown, ctx: ExecutionContext): string => {
+// Extracts siteCurrencyCode from NATS headers — throws if missing or empty
+export const RpcSiteCurrencyCode = createParamDecorator((_data: unknown, ctx: ExecutionContext): string => {
   const rpcCtx = ctx.switchToRpc().getContext<NatsContext>();
   const headers = parseNatsHeaders(rpcCtx.getHeaders());
-  if (!headers?.buCurrencyCode) throw new InternalServerErrorException('Missing buCurrencyCode in NATS headers.');
-  return headers.buCurrencyCode;
+  if (!headers?.siteCurrencyCode) throw new InternalServerErrorException('Missing siteCurrencyCode in NATS headers.');
+  return headers.siteCurrencyCode;
 });

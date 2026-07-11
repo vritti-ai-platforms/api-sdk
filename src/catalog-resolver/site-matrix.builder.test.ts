@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
-import { type BuMatrix, type BuMatrixPermission, buildBuMatrix } from './bu-matrix.builder';
+import { type SiteMatrix, type SiteMatrixPermission, buildSiteMatrix } from './site-matrix.builder';
 import type { VersionSnapshot } from './types';
 
 // Minimal snapshot: one business, one app, sales (web+mobile) and reports (web-only)
@@ -12,6 +12,8 @@ const snapshot: VersionSnapshot = {
       lucideIcon: 'shopping-cart',
       sfSymbol: 'cart',
       materialSymbol: 'shopping_cart',
+      scope: 'SITE',
+      applicableSiteTypes: ['OUTLET'],
       permissions: [
         { code: 'sales.view', label: 'View', isGlobal: true, businesses: [] },
         { code: 'sales.create', label: 'Create', isGlobal: true, businesses: [] },
@@ -40,6 +42,8 @@ const snapshot: VersionSnapshot = {
       lucideIcon: 'bar-chart',
       sfSymbol: 'chart.bar',
       materialSymbol: 'bar_chart',
+      scope: 'SITE',
+      applicableSiteTypes: ['OUTLET'],
       permissions: [{ code: 'reports.view', label: 'View', isGlobal: true, businesses: [] }],
       microfrontends: {
         web: {
@@ -62,7 +66,7 @@ const snapshot: VersionSnapshot = {
           code: 'PRO',
           name: 'Pro',
           isCustom: false,
-          maxBusinessUnits: null,
+          maxSites: null,
           unlockedPermissions: {
             sales: { web: ['sales.view', 'sales.create'], mobile: ['sales.view'] },
             reports: { web: ['reports.view'] },
@@ -74,7 +78,7 @@ const snapshot: VersionSnapshot = {
 };
 
 // Finds a permission row by feature + permission code
-function findPerm(matrix: BuMatrix, featureCode: string, permCode: string): BuMatrixPermission {
+function findPerm(matrix: SiteMatrix, featureCode: string, permCode: string): SiteMatrixPermission {
   for (const app of matrix.apps) {
     for (const feature of app.features) {
       if (feature.code !== featureCode) continue;
@@ -85,9 +89,9 @@ function findPerm(matrix: BuMatrix, featureCode: string, permCode: string): BuMa
   throw new Error(`permission ${featureCode}/${permCode} not found`);
 }
 
-describe('buildBuMatrix', () => {
+describe('buildSiteMatrix', () => {
   it('selects every in-plan cell when the BU overlay is absent', () => {
-    const matrix = buildBuMatrix(snapshot, 'RETAIL', 'PRO', undefined);
+    const matrix = buildSiteMatrix(snapshot, 'RETAIL', 'PRO', undefined);
 
     assert.deepEqual(findPerm(matrix, 'sales', 'sales.view').web, { inPlan: true, selected: true, availableIn: [] });
     assert.deepEqual(findPerm(matrix, 'sales', 'sales.view').mobile, { inPlan: true, selected: true, availableIn: [] });
@@ -100,7 +104,7 @@ describe('buildBuMatrix', () => {
   });
 
   it('platform-null lock deselects the whole feature on that platform only', () => {
-    const matrix = buildBuMatrix(snapshot, 'RETAIL', 'PRO', { sales: { web: null } });
+    const matrix = buildSiteMatrix(snapshot, 'RETAIL', 'PRO', { sales: { web: null } });
 
     assert.deepEqual(findPerm(matrix, 'sales', 'sales.view').web, { inPlan: true, selected: false, availableIn: [] });
     assert.deepEqual(findPerm(matrix, 'sales', 'sales.create').web, {
@@ -113,7 +117,7 @@ describe('buildBuMatrix', () => {
   });
 
   it('code-array lock deselects single codes on that platform only', () => {
-    const matrix = buildBuMatrix(snapshot, 'RETAIL', 'PRO', { sales: { web: ['sales.create'] } });
+    const matrix = buildSiteMatrix(snapshot, 'RETAIL', 'PRO', { sales: { web: ['sales.create'] } });
 
     assert.deepEqual(findPerm(matrix, 'sales', 'sales.create').web, {
       inPlan: true,
@@ -125,7 +129,7 @@ describe('buildBuMatrix', () => {
   });
 
   it('a lock on an out-of-plan cell is inert', () => {
-    const matrix = buildBuMatrix(snapshot, 'RETAIL', 'PRO', { sales: { mobile: ['sales.create'] } });
+    const matrix = buildSiteMatrix(snapshot, 'RETAIL', 'PRO', { sales: { mobile: ['sales.create'] } });
 
     // The cell was already out of plan — unchanged by the lock
     assert.deepEqual(findPerm(matrix, 'sales', 'sales.create').mobile, {
@@ -138,7 +142,7 @@ describe('buildBuMatrix', () => {
   });
 
   it('a feature missing from the locks overlay stays fully selected (no staleness)', () => {
-    const matrix = buildBuMatrix(snapshot, 'RETAIL', 'PRO', { sales: { web: null, mobile: null } });
+    const matrix = buildSiteMatrix(snapshot, 'RETAIL', 'PRO', { sales: { web: null, mobile: null } });
 
     assert.deepEqual(findPerm(matrix, 'reports', 'reports.view').web, {
       inPlan: true,

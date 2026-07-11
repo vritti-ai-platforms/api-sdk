@@ -1,13 +1,19 @@
 // Catalog resolver — the single shared implementation of snapshot resolution (BU catalog, BU matrix, user features)
 export {
-  type BuMatrix,
-  type BuMatrixApp,
-  type BuMatrixCell,
-  type BuMatrixFeature,
-  type BuMatrixPermission,
-  buildBuMatrix,
-} from './bu-matrix.builder';
-export { buildBuCatalog, buildBuRoles, isBuLockedOnPlatform, isPlanMember } from './catalog.builder';
+  type SiteMatrix,
+  type SiteMatrixApp,
+  type SiteMatrixCell,
+  type SiteMatrixFeature,
+  type SiteMatrixPermission,
+  buildSiteMatrix,
+} from './site-matrix.builder';
+export {
+  buildSiteCatalog,
+  buildSiteRoles,
+  featureAppliesAtNode,
+  isSiteLockedOnPlatform,
+  isPlanMember,
+} from './catalog.builder';
 export { type ComposeRoleGrantsParams, composeRoleGrants, type RevokedGrants } from './compose-role-grants';
 export {
   buildDependsMap,
@@ -25,7 +31,8 @@ export {
   resolveUserFeatures,
 } from './resolve-user-features';
 export {
-  type BuFeatureLocks,
+  type FeatureLocks,
+  type SiteFeatureLocks,
   type CatalogPermission,
   type FeatureCatalogEntry,
   type FeatureUnlocks,
@@ -35,8 +42,13 @@ export {
   type PlatformCodes,
   type PlatformDenyCodes,
   type RoleItem,
+  SITE_TYPES,
+  type ScopeType,
+  type SiteType,
   SNAPSHOT_SCHEMA_VERSION,
   type SnapshotApp,
+  type BusinessVocabulary,
+  type VocabularyEntry,
   type SnapshotBusiness,
   type SnapshotFeature,
   type SnapshotMicrofrontendMobile,

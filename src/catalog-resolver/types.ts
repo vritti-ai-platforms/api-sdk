@@ -16,7 +16,8 @@ export interface PlatformDenyCodes {
 
 export type FeatureUnlocks = Record<string, PlatformCodes>;
 
-export type BuFeatureLocks = Record<string, PlatformDenyCodes>;
+export type FeatureLocks = Record<string, PlatformDenyCodes>;
+export type SiteFeatureLocks = FeatureLocks;
 
 // ——— Snapshot document shape — what gets stored in versions.snapshot and signed into the catalog license ———
 
@@ -46,12 +47,17 @@ export interface SnapshotMicrofrontends {
   web?: SnapshotMicrofrontendWeb;
   mobile?: SnapshotMicrofrontendMobile;
 }
+export type ScopeType = 'ORG' | 'LE' | 'SITE_GROUP' | 'SITE';
+export type SiteType = 'OUTLET' | 'WAREHOUSE' | 'PRODUCTION';
+export const SITE_TYPES: SiteType[] = ['OUTLET', 'WAREHOUSE', 'PRODUCTION'];
 export interface SnapshotFeature {
   code: string;
   name: string;
   lucideIcon: string;
   sfSymbol: string;
   materialSymbol: string;
+  scope: ScopeType;
+  applicableSiteTypes: SiteType[];
   permissions: SnapshotPermission[];
   microfrontends: SnapshotMicrofrontends;
 }
@@ -65,17 +71,31 @@ export interface SnapshotApp {
 export interface SnapshotRoleTemplate {
   name: string;
   code: string;
+  scope: ScopeType;
+  siteType: SiteType;
   features: FeatureUnlocks;
 }
 export interface SnapshotPlan {
   code: string;
   name: string;
   isCustom: boolean;
-  maxBusinessUnits: number | null;
+  maxSites: number | null;
   unlockedPermissions: FeatureUnlocks;
+}
+export interface VocabularyEntry {
+  singular: string;
+  plural: string;
+}
+export interface BusinessVocabulary {
+  site?: VocabularyEntry;
+  siteGroup?: VocabularyEntry;
+  outlet?: VocabularyEntry;
+  warehouse?: VocabularyEntry;
+  production?: VocabularyEntry;
 }
 export interface SnapshotBusiness {
   name: string;
+  vocabulary?: BusinessVocabulary;
   apps: SnapshotApp[];
   roleTemplates: Record<string, SnapshotRoleTemplate>;
   plans: Record<string, SnapshotPlan>;
@@ -88,7 +108,7 @@ export interface VersionSnapshot {
 
 export const SNAPSHOT_SCHEMA_VERSION = 1;
 
-export type LockReason = 'PLAN' | 'BU';
+export type LockReason = 'PLAN' | 'SITE';
 
 export interface CatalogPermission {
   code: string;
