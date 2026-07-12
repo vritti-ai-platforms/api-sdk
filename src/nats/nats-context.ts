@@ -2,6 +2,8 @@ export interface NatsHeaders {
   orgId: string;
   userId: string;
   siteId: string;
+  legalEntityId: string;
+  siteGroupId: string;
   siteTimezone: string;
   siteCurrencyCode: string;
 }
@@ -11,6 +13,8 @@ export const NATS_HEADER_KEYS = {
   ORG_ID: 'x-org-id',
   USER_ID: 'x-user-id',
   SITE_ID: 'x-site-id',
+  LE_ID: 'x-le-id',
+  SITE_GROUP_ID: 'x-sg-id',
   SITE_TIMEZONE: 'x-site-timezone',
   SITE_CURRENCY_CODE: 'x-site-currency-code',
 } as const;
@@ -39,6 +43,8 @@ export function parseNatsHeaders(headers: unknown): NatsHeaders | null {
     orgId,
     userId,
     siteId: getHeader(headers, NATS_HEADER_KEYS.SITE_ID) || '',
+    legalEntityId: getHeader(headers, NATS_HEADER_KEYS.LE_ID) || '',
+    siteGroupId: getHeader(headers, NATS_HEADER_KEYS.SITE_GROUP_ID) || '',
     siteTimezone: getHeader(headers, NATS_HEADER_KEYS.SITE_TIMEZONE) || 'UTC',
     siteCurrencyCode: getHeader(headers, NATS_HEADER_KEYS.SITE_CURRENCY_CODE) || '',
   };

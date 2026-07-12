@@ -57,8 +57,10 @@ function contextToHeaders(ctx: NatsHeaders): import('nats').MsgHdrs {
   const hdrs = natsHeaders();
   hdrs.set(NATS_HEADER_KEYS.ORG_ID, ctx.orgId);
   hdrs.set(NATS_HEADER_KEYS.USER_ID, ctx.userId);
-  hdrs.set(NATS_HEADER_KEYS.SITE_ID, ctx.siteId);
-  hdrs.set(NATS_HEADER_KEYS.SITE_TIMEZONE, ctx.siteTimezone);
-  hdrs.set(NATS_HEADER_KEYS.SITE_CURRENCY_CODE, ctx.siteCurrencyCode);
+  if (ctx.siteId) hdrs.set(NATS_HEADER_KEYS.SITE_ID, ctx.siteId);
+  if (ctx.legalEntityId) hdrs.set(NATS_HEADER_KEYS.LE_ID, ctx.legalEntityId);
+  if (ctx.siteGroupId) hdrs.set(NATS_HEADER_KEYS.SITE_GROUP_ID, ctx.siteGroupId);
+  if (ctx.siteTimezone) hdrs.set(NATS_HEADER_KEYS.SITE_TIMEZONE, ctx.siteTimezone);
+  if (ctx.siteCurrencyCode) hdrs.set(NATS_HEADER_KEYS.SITE_CURRENCY_CODE, ctx.siteCurrencyCode);
   return hdrs;
 }
