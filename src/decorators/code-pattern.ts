@@ -27,6 +27,6 @@ export function codePatternSource(options?: CodeOptions): string {
 // Human-readable validation message for the requested code variant
 export function codeMessage(property: string, options?: CodeOptions): string {
   return options?.dotted
-    ? `${property} must be dot-separated lowercase words (e.g. add.salt).`
-    : `${property} must be a single lowercase word, hyphens allowed (e.g. inventory-items).`;
+    ? `${property} must be lowercase words separated by dots.`
+    : `${property} must be lowercase letters, numbers, and hyphens only.`;
 }
