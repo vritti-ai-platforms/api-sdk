@@ -1,12 +1,12 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 import { resolveUserFeatures } from './resolve-user-features';
-import type { VersionSnapshot } from './types';
+import type { SnapshotFeature, VersionSnapshot } from './types';
 
 // Minimal snapshot: one business, one app, two features (sales web+mobile, reports web-only)
 const snapshot: VersionSnapshot = {
   features: {
-    sales: {
+    'SITE.sales': {
       code: 'sales',
       name: 'Sales',
       lucideIcon: 'shopping-cart',
@@ -15,9 +15,9 @@ const snapshot: VersionSnapshot = {
       scope: 'SITE',
       applicableSiteTypes: ['OUTLET'],
       permissions: [
-        { code: 'sales.view', label: 'View', isGlobal: true, businesses: [] },
-        { code: 'sales.create', label: 'Create', isGlobal: true, businesses: [] },
-        { code: 'sales.void', label: 'Void', isGlobal: false, businesses: ['RETAIL'] },
+        { code: 'sales.view', label: 'View', isGlobal: true, businesses: [], dependsOn: [] },
+        { code: 'sales.create', label: 'Create', isGlobal: true, businesses: [], dependsOn: [] },
+        { code: 'sales.void', label: 'Void', isGlobal: false, businesses: ['RETAIL'], dependsOn: [] },
       ],
       microfrontends: {
         web: {
@@ -37,7 +37,7 @@ const snapshot: VersionSnapshot = {
         },
       },
     },
-    reports: {
+    'SITE.reports': {
       code: 'reports',
       name: 'Reports',
       lucideIcon: 'bar-chart',
@@ -45,7 +45,7 @@ const snapshot: VersionSnapshot = {
       materialSymbol: 'bar_chart',
       scope: 'SITE',
       applicableSiteTypes: ['OUTLET'],
-      permissions: [{ code: 'reports.view', label: 'View', isGlobal: true, businesses: [] }],
+      permissions: [{ code: 'reports.view', label: 'View', isGlobal: true, businesses: [], dependsOn: [] }],
       microfrontends: {
         web: {
           code: 'mf-web',
@@ -56,7 +56,7 @@ const snapshot: VersionSnapshot = {
         },
       },
     },
-    dashboard: {
+    'ORG.dashboard': {
       code: 'dashboard',
       name: 'Dashboard',
       lucideIcon: 'layout-dashboard',
@@ -64,7 +64,7 @@ const snapshot: VersionSnapshot = {
       materialSymbol: 'dashboard',
       scope: 'ORG',
       applicableSiteTypes: [],
-      permissions: [{ code: 'dashboard.view', label: 'View', isGlobal: true, businesses: [] }],
+      permissions: [{ code: 'dashboard.view', label: 'View', isGlobal: true, businesses: [], dependsOn: [] }],
       microfrontends: {
         web: {
           code: 'mf-web',
@@ -79,7 +79,19 @@ const snapshot: VersionSnapshot = {
   businesses: {
     RETAIL: {
       name: 'Retail',
-      apps: [{ code: 'pos', name: 'POS', icon: 'store', sortOrder: 1, features: ['sales', 'reports', 'dashboard'] }],
+      apps: [
+        {
+          code: 'pos',
+          name: 'POS',
+          icon: 'store',
+          sortOrder: 1,
+          features: [
+            { code: 'sales', scope: 'SITE' },
+            { code: 'reports', scope: 'SITE' },
+            { code: 'dashboard', scope: 'ORG' },
+          ],
+        },
+      ],
       roleTemplates: {},
       plans: {
         BASIC: {
@@ -277,8 +289,14 @@ describe('resolveUserFeatures', () => {
     const org = resolveUserFeatures({ ...params, scope: 'ORG' });
 
     // SITE workspace only sees SITE-scoped features; ORG workspace only ORG-scoped ones
-    assert.deepEqual(site.map((f) => f.code), ['sales']);
-    assert.deepEqual(org.map((f) => f.code), ['dashboard']);
+    assert.deepEqual(
+      site.map((f) => f.code),
+      ['sales'],
+    );
+    assert.deepEqual(
+      org.map((f) => f.code),
+      ['dashboard'],
+    );
   });
 
   it('returns nothing for a scope with no matching features', () => {
@@ -293,5 +311,85 @@ describe('resolveUserFeatures', () => {
     });
 
     assert.deepEqual(features, []);
+  });
+
+  it('keeps same-code features at different scopes distinct (no collision)', () => {
+    const webMf = {
+      code: 'mf-web',
+      name: 'Inventory Web',
+      remoteEntry: 'https://web/remote.js',
+      exposedModule: './Inventory',
+      routePrefix: '/inventory-items',
+    };
+    const inventoryFeature = (name: string, scope: 'ORG' | 'SITE'): SnapshotFeature => ({
+      code: 'inventory-items',
+      name,
+      lucideIcon: 'boxes',
+      sfSymbol: 'shippingbox',
+      materialSymbol: 'inventory',
+      scope,
+      applicableSiteTypes: scope === 'SITE' ? ['OUTLET'] : [],
+      permissions: [{ code: 'view', label: 'View', isGlobal: true, businesses: [], dependsOn: [] }],
+      microfrontends: { web: webMf },
+    });
+    const collisionSnapshot: VersionSnapshot = {
+      features: {
+        // Same code, distinct composite keys — both variants survive
+        'ORG.inventory-items': inventoryFeature('Org Inventory', 'ORG'),
+        'SITE.inventory-items': inventoryFeature('Site Inventory', 'SITE'),
+      },
+      businesses: {
+        RETAIL: {
+          name: 'Retail',
+          apps: [
+            {
+              code: 'master',
+              name: 'Master',
+              icon: 'settings',
+              sortOrder: 1,
+              features: [{ code: 'inventory-items', scope: 'ORG' }],
+            },
+            {
+              code: 'inventory',
+              name: 'Inventory',
+              icon: 'boxes',
+              sortOrder: 2,
+              features: [{ code: 'inventory-items', scope: 'SITE' }],
+            },
+          ],
+          roleTemplates: {},
+          plans: {
+            PRO: {
+              code: 'PRO',
+              name: 'Pro',
+              isCustom: false,
+              maxSites: null,
+              unlockedPermissions: { 'inventory-items': { web: ['view'] } },
+            },
+          },
+        },
+      },
+    };
+    const params = {
+      snapshot: collisionSnapshot,
+      businessCode: 'RETAIL',
+      planCode: 'PRO',
+      siteLocks: undefined,
+      roleFeatures: { 'inventory-items': { web: ['view'] } },
+      platform: 'web' as const,
+    };
+
+    const org = resolveUserFeatures({ ...params, scope: 'ORG' });
+    const site = resolveUserFeatures({ ...params, scope: 'SITE', siteType: 'OUTLET' });
+
+    // Each scope resolves its OWN variant — correct name + owning app, not the collided last-write-wins one
+    assert.deepEqual(
+      org.map((f) => [f.name, f.appCode]),
+      [['Org Inventory', 'master']],
+    );
+    assert.deepEqual(
+      site.map((f) => [f.name, f.appCode]),
+      [['Site Inventory', 'inventory']],
+    );
   });
 });

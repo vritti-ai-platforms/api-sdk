@@ -13,10 +13,19 @@ import type {
   SnapshotPlan,
   VersionSnapshot,
 } from './types';
+import { snapshotFeatureKey } from './types';
 
 // Whether a feature with the given site-type applicability is exposed at this site type
 export function featureAppliesAtNode(applicableSiteTypes: SiteType[], siteType: SiteType): boolean {
   return applicableSiteTypes.includes(siteType);
+}
+
+// Scope-agnostic lookup of a feature by bare code — grants/locks key features by code alone, so the first scope-variant's shared metadata (permission graph) answers
+export function findFeatureByCode(snapshot: VersionSnapshot, code: string): SnapshotFeature | undefined {
+  for (const feature of Object.values(snapshot.features ?? {})) {
+    if (feature?.code === code) return feature;
+  }
+  return undefined;
 }
 
 // Builds the per-site catalog for ONE platform bucket — plan is the ceiling, siteLocks is a deny-list within it; each permission carries locked + lockReason + unlockPlans
@@ -37,14 +46,14 @@ export function buildSiteCatalog(
 
   const catalog: FeatureCatalogEntry[] = [];
   for (const app of business.apps) {
-    // The app's renderable features (each pins to one app), dropped when they don't belong to this workspace scope or node type (outlet vs container)
+    // The app's renderable features (each ref pins scope+code to one app), dropped when they don't belong to this workspace scope or node type (outlet vs container)
     const businessAppFeatures = app.features
-      .map((code) => snapshot.features?.[code])
+      .filter((ref) => scope === undefined || ref.scope === scope)
+      .map((ref) => snapshot.features?.[snapshotFeatureKey(ref.code, ref.scope)])
       .filter(
         (f): f is SnapshotFeature =>
           !!f &&
           !!(f.microfrontends?.web || f.microfrontends?.mobile) &&
-          (scope === undefined || f.scope === scope) &&
           (siteType === undefined || featureAppliesAtNode(f.applicableSiteTypes, siteType)),
       );
 

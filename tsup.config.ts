@@ -13,6 +13,7 @@ export default defineConfig({
     lodash: 'src/lodash.ts',
     exceptions: 'src/exceptions/index.ts',
     money: 'src/money/index.ts',
+    countries: 'src/countries/index.ts',
     // Dedicated entry so the large icon-names.json (~352KB) only loads via the
     // './icons' subpath, never bundled into the main barrel.
     icons: 'src/icons/index.ts',

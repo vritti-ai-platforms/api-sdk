@@ -1,10 +1,12 @@
 import { featureAppliesAtNode, isSiteLockedOnPlatform, isPlanMember } from './catalog.builder';
 import {
+  type ScopeType,
   type SiteFeatureLocks,
   type SiteType,
   PLATFORMS,
   type PlatformBucket,
   type SnapshotPlan,
+  snapshotFeatureKey,
   type VersionSnapshot,
 } from './types';
 
@@ -26,6 +28,7 @@ export interface SiteMatrixFeature {
   code: string;
   name: string;
   icon: string | null;
+  scope: ScopeType;
   applicableSiteTypes: SiteType[];
   platforms: PlatformBucket[];
   inPlan: boolean;
@@ -48,12 +51,34 @@ export interface SiteMatrix {
   locks: SiteFeatureLocks;
 }
 
-// Builds the full apps/features/permissions matrix from the snapshot — not filtered to plan members; plan-locked items carry inPlan=false + availableIn
+// Builds the SITE-only apps/features/permissions matrix — not filtered to plan members; plan-locked items carry inPlan=false + availableIn
 export function buildSiteMatrix(
   snapshot: VersionSnapshot,
   businessCode: string | undefined,
   planCode: string | undefined,
   siteLocks: SiteFeatureLocks | undefined,
+  siteType?: SiteType,
+): SiteMatrix {
+  return buildMatrix(snapshot, businessCode, planCode, siteLocks, false, siteType);
+}
+
+// Builds the all-scopes apps/features/permissions matrix — every scope's features included, each carrying its real scope; powers the Plan Overview + Create Custom Role picker
+export function buildPlanMatrix(
+  snapshot: VersionSnapshot,
+  businessCode: string | undefined,
+  planCode: string | undefined,
+  siteLocks?: SiteFeatureLocks,
+): SiteMatrix {
+  return buildMatrix(snapshot, businessCode, planCode, siteLocks, true);
+}
+
+// Shared matrix builder — allScopes=false keeps only SITE refs; allScopes=true includes every scope and emits each feature's real scope
+function buildMatrix(
+  snapshot: VersionSnapshot,
+  businessCode: string | undefined,
+  planCode: string | undefined,
+  siteLocks: SiteFeatureLocks | undefined,
+  allScopes: boolean,
   siteType?: SiteType,
 ): SiteMatrix {
   const business = businessCode ? snapshot.businesses?.[businessCode] : undefined;
@@ -69,10 +94,11 @@ export function buildSiteMatrix(
     let totalCount = 0;
     const features: SiteMatrixFeature[] = [];
 
-    for (const code of app.features) {
-      const feature = snapshot.features?.[code];
+    for (const ref of app.features) {
+      if (!allScopes && ref.scope !== 'SITE') continue;
+      const code = ref.code;
+      const feature = snapshot.features?.[snapshotFeatureKey(code, ref.scope)];
       if (!feature) continue;
-      if (feature.scope !== 'SITE') continue;
       if (siteType !== undefined && !featureAppliesAtNode(feature.applicableSiteTypes, siteType)) continue;
       const platforms = PLATFORMS.filter((p) => !!feature.microfrontends?.[p]);
       if (platforms.length === 0) continue;
@@ -108,6 +134,7 @@ export function buildSiteMatrix(
         code: feature.code,
         name: feature.name,
         icon: feature.lucideIcon ?? null,
+        scope: feature.scope,
         applicableSiteTypes: feature.applicableSiteTypes,
         platforms,
         inPlan: featureInPlan,

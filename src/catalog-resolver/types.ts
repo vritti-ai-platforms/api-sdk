@@ -61,12 +61,16 @@ export interface SnapshotFeature {
   permissions: SnapshotPermission[];
   microfrontends: SnapshotMicrofrontends;
 }
+export interface SnapshotAppFeatureRef {
+  code: string;
+  scope: ScopeType;
+}
 export interface SnapshotApp {
   code: string;
   name: string;
   icon: string;
   sortOrder: number;
-  features: string[];
+  features: SnapshotAppFeatureRef[];
 }
 export interface SnapshotRoleTemplate {
   name: string;
@@ -102,11 +106,17 @@ export interface SnapshotBusiness {
 }
 export interface VersionSnapshot {
   schemaVersion?: number;
+  // Flat feature dictionary keyed by `${scope}.${code}` (see snapshotFeatureKey) — same-code features at different scopes stay distinct
   features: Record<string, SnapshotFeature>;
   businesses: Record<string, SnapshotBusiness>;
 }
 
-export const SNAPSHOT_SCHEMA_VERSION = 1;
+// Composite key for the snapshot feature dictionary — feature identity is (scope, code)
+export function snapshotFeatureKey(code: string, scope: ScopeType): string {
+  return `${scope}.${code}`;
+}
+
+export const SNAPSHOT_SCHEMA_VERSION = 2;
 
 export type LockReason = 'PLAN' | 'SITE';
 

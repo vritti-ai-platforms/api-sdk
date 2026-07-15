@@ -6,11 +6,13 @@ export {
   type SiteMatrixFeature,
   type SiteMatrixPermission,
   buildSiteMatrix,
+  buildPlanMatrix,
 } from './site-matrix.builder';
 export {
   buildSiteCatalog,
   buildSiteRoles,
   featureAppliesAtNode,
+  findFeatureByCode,
   isSiteLockedOnPlatform,
   isPlanMember,
 } from './catalog.builder';
@@ -47,6 +49,7 @@ export {
   type SiteType,
   SNAPSHOT_SCHEMA_VERSION,
   type SnapshotApp,
+  type SnapshotAppFeatureRef,
   type BusinessVocabulary,
   type VocabularyEntry,
   type SnapshotBusiness,
@@ -57,5 +60,6 @@ export {
   type SnapshotPermission,
   type SnapshotPlan,
   type SnapshotRoleTemplate,
+  snapshotFeatureKey,
   type VersionSnapshot,
 } from './types';

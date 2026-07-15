@@ -1,4 +1,4 @@
-import { buildSiteCatalog } from './catalog.builder';
+import { buildSiteCatalog, findFeatureByCode } from './catalog.builder';
 import { buildDependsMap, filterGrantedByDeps } from './permission-deps';
 import type {
   SiteFeatureLocks,
@@ -9,6 +9,7 @@ import type {
   SiteType,
   VersionSnapshot,
 } from './types';
+import { snapshotFeatureKey } from './types';
 
 export type ClientPlatform = 'web' | 'ios' | 'android';
 
@@ -64,6 +65,10 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
   // Plan unlocks, BU locks, and role grants are stored per platform; resolve only the requesting surface's bucket (web → 'web'; ios/android → 'mobile')
   const bucket: PlatformBucket = platform === 'web' ? 'web' : 'mobile';
 
+  // Grants/plans/locks key features by bare code; resolve to the workspace scope's variant (or any variant when unscoped)
+  const featureByCode = (code: string) =>
+    scope ? snapshot.features?.[snapshotFeatureKey(code, scope)] : findFeatureByCode(snapshot, code);
+
   // Plan ∧ BU overlay for this bucket, filtered to features that apply to this workspace scope and node type — emits EVERY applicable business feature (plan non-members come out fully locked)
   const catalog = buildSiteCatalog(snapshot, businessCode, planCode, siteLocks, bucket, siteType, scope);
   const catalogMap = new Map(catalog.map((f) => [f.code, f]));
@@ -82,7 +87,7 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
     const adds: Array<{ code: string; name: string }> = [];
     for (const [featureCode, platforms] of Object.entries(plan.unlockedPermissions ?? {})) {
       if (platforms?.[bucket] === undefined || currentUnlockedCodes.has(featureCode)) continue;
-      const name = snapshot.features[featureCode]?.name;
+      const name = featureByCode(featureCode)?.name;
       if (name) adds.push({ code: featureCode, name });
     }
     planAdds.set(planKey, adds);
@@ -109,7 +114,7 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
     if (!route) continue;
 
     // Drop granted permissions whose intra-feature prerequisites aren't also granted (e.g. add needs view)
-    const featureDeps = buildDependsMap(snapshot.features[code]?.permissions ?? []);
+    const featureDeps = buildDependsMap(featureByCode(code)?.permissions ?? []);
     // Plan/BU lock a subset of permissions; surface which GRANTED ones are locked + why + how to unlock (upsell)
     const permByCode = new Map((catalogEntry.permissions ?? []).map((p) => [p.code, p]));
     const grantedPerms = [...filterGrantedByDeps(permsSet, featureDeps)];

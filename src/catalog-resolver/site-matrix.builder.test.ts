@@ -1,12 +1,18 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
-import { type SiteMatrix, type SiteMatrixPermission, buildSiteMatrix } from './site-matrix.builder';
+import {
+  buildPlanMatrix,
+  buildSiteMatrix,
+  type SiteMatrix,
+  type SiteMatrixFeature,
+  type SiteMatrixPermission,
+} from './site-matrix.builder';
 import type { VersionSnapshot } from './types';
 
 // Minimal snapshot: one business, one app, sales (web+mobile) and reports (web-only)
 const snapshot: VersionSnapshot = {
   features: {
-    sales: {
+    'SITE.sales': {
       code: 'sales',
       name: 'Sales',
       lucideIcon: 'shopping-cart',
@@ -15,8 +21,8 @@ const snapshot: VersionSnapshot = {
       scope: 'SITE',
       applicableSiteTypes: ['OUTLET'],
       permissions: [
-        { code: 'sales.view', label: 'View', isGlobal: true, businesses: [] },
-        { code: 'sales.create', label: 'Create', isGlobal: true, businesses: [] },
+        { code: 'sales.view', label: 'View', isGlobal: true, businesses: [], dependsOn: [] },
+        { code: 'sales.create', label: 'Create', isGlobal: true, businesses: [], dependsOn: [] },
       ],
       microfrontends: {
         web: {
@@ -36,7 +42,26 @@ const snapshot: VersionSnapshot = {
         },
       },
     },
-    reports: {
+    'ORG.catalog': {
+      code: 'catalog',
+      name: 'Catalog',
+      lucideIcon: 'book',
+      sfSymbol: 'book',
+      materialSymbol: 'book',
+      scope: 'ORG',
+      applicableSiteTypes: ['OUTLET'],
+      permissions: [{ code: 'catalog.view', label: 'View', isGlobal: true, businesses: [], dependsOn: [] }],
+      microfrontends: {
+        web: {
+          code: 'mf-web',
+          name: 'Catalog Web',
+          remoteEntry: 'https://web/remote.js',
+          exposedModule: './Catalog',
+          routePrefix: '/catalog',
+        },
+      },
+    },
+    'SITE.reports': {
       code: 'reports',
       name: 'Reports',
       lucideIcon: 'bar-chart',
@@ -44,7 +69,7 @@ const snapshot: VersionSnapshot = {
       materialSymbol: 'bar_chart',
       scope: 'SITE',
       applicableSiteTypes: ['OUTLET'],
-      permissions: [{ code: 'reports.view', label: 'View', isGlobal: true, businesses: [] }],
+      permissions: [{ code: 'reports.view', label: 'View', isGlobal: true, businesses: [], dependsOn: [] }],
       microfrontends: {
         web: {
           code: 'mf-web',
@@ -59,7 +84,19 @@ const snapshot: VersionSnapshot = {
   businesses: {
     RETAIL: {
       name: 'Retail',
-      apps: [{ code: 'pos', name: 'POS', icon: 'store', sortOrder: 1, features: ['sales', 'reports'] }],
+      apps: [
+        {
+          code: 'pos',
+          name: 'POS',
+          icon: 'store',
+          sortOrder: 1,
+          features: [
+            { code: 'catalog', scope: 'ORG' },
+            { code: 'sales', scope: 'SITE' },
+            { code: 'reports', scope: 'SITE' },
+          ],
+        },
+      ],
       roleTemplates: {},
       plans: {
         PRO: {
@@ -68,6 +105,7 @@ const snapshot: VersionSnapshot = {
           isCustom: false,
           maxSites: null,
           unlockedPermissions: {
+            catalog: { web: ['catalog.view'] },
             sales: { web: ['sales.view', 'sales.create'], mobile: ['sales.view'] },
             reports: { web: ['reports.view'] },
           },
@@ -87,6 +125,15 @@ function findPerm(matrix: SiteMatrix, featureCode: string, permCode: string): Si
     }
   }
   throw new Error(`permission ${featureCode}/${permCode} not found`);
+}
+
+// Finds a feature row by code across all apps
+function findFeature(matrix: SiteMatrix, featureCode: string): SiteMatrixFeature | undefined {
+  for (const app of matrix.apps) {
+    const feature = app.features.find((f) => f.code === featureCode);
+    if (feature) return feature;
+  }
+  return undefined;
 }
 
 describe('buildSiteMatrix', () => {
@@ -149,5 +196,38 @@ describe('buildSiteMatrix', () => {
       selected: true,
       availableIn: [],
     });
+  });
+
+  it('skips non-SITE features and tags emitted features with SITE scope', () => {
+    const matrix = buildSiteMatrix(snapshot, 'RETAIL', 'PRO', undefined);
+
+    // The ORG-scoped catalog feature is excluded from the SITE matrix
+    assert.equal(findFeature(matrix, 'catalog'), undefined);
+    // Every emitted SITE feature carries scope 'SITE'
+    assert.equal(findFeature(matrix, 'sales')?.scope, 'SITE');
+    assert.equal(findFeature(matrix, 'reports')?.scope, 'SITE');
+  });
+});
+
+describe('buildPlanMatrix', () => {
+  it('includes features of every scope, each with its real scope', () => {
+    const matrix = buildPlanMatrix(snapshot, 'RETAIL', 'PRO', undefined);
+
+    // ORG and SITE features are both present
+    assert.equal(findFeature(matrix, 'catalog')?.scope, 'ORG');
+    assert.equal(findFeature(matrix, 'sales')?.scope, 'SITE');
+    assert.equal(findFeature(matrix, 'reports')?.scope, 'SITE');
+  });
+
+  it('resolves plan membership for non-SITE features', () => {
+    const matrix = buildPlanMatrix(snapshot, 'RETAIL', 'PRO', undefined);
+
+    assert.deepEqual(findPerm(matrix, 'catalog', 'catalog.view').web, {
+      inPlan: true,
+      selected: true,
+      availableIn: [],
+    });
+    // catalog is web-only — no mobile cell
+    assert.equal(findPerm(matrix, 'catalog', 'catalog.view').mobile, null);
   });
 });
