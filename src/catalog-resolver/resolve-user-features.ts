@@ -154,6 +154,10 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
     });
   }
 
+  // Order app-alphabetically so the core-web sidebar (groups by app) renders apps sorted without any frontend re-sort;
+  // stable sort keeps each app's features in their existing relative order
+  features.sort((a, b) => a.appName.localeCompare(b.appName));
+
   return features;
 }
 

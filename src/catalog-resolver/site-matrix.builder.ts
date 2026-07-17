@@ -147,6 +147,9 @@ function buildMatrix(
     apps.push({ code: app.code, name: app.name, icon: app.icon ?? null, unlockedCount, totalCount, features });
   }
 
+  // Emit apps alphabetically by name so every consumer (Plan Overview, Role picker, all Locks screens) renders them sorted
+  apps.sort((a, b) => a.name.localeCompare(b.name));
+
   return { plan: planMeta, apps, locks };
 }
 
