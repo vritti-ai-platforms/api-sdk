@@ -1,7 +1,7 @@
 import { type CurrencyCode, minorToMajor } from './money';
 
 export class CurrencyAmountDto {
-  currency: string;
+  currency: CurrencyCode;
   value: string;
 
   static from(minor: bigint, currencyCode: string): CurrencyAmountDto;
@@ -9,7 +9,7 @@ export class CurrencyAmountDto {
   static from(minor: bigint | null | undefined, currencyCode: string): CurrencyAmountDto | null {
     if (minor == null) return null;
     const dto = new CurrencyAmountDto();
-    dto.currency = currencyCode;
+    dto.currency = currencyCode as CurrencyCode;
     dto.value = minorToMajor(minor, currencyCode as CurrencyCode);
     return dto;
   }

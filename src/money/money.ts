@@ -362,8 +362,16 @@ export type Currency = (typeof SUPPORTED_CURRENCIES)[CurrencyCode];
 
 export type MinorToMajorTransform<TOutput> = (props: { value: string; currency: Currency }) => TOutput;
 
-export function resolveCurrency(currencyCode: CurrencyCode): Currency {
-  return SUPPORTED_CURRENCIES[currencyCode];
+export function resolveCurrency(currencyCode: CurrencyCode, field?: string): Currency {
+  const currency = SUPPORTED_CURRENCIES[currencyCode];
+  if (!currency) {
+    throw new ValidationException({
+      label: 'Unsupported Currency',
+      detail: `Unsupported currency: "${currencyCode}".`,
+      ...(field ? { errors: [{ field, message: 'Unsupported currency.' }] } : {}),
+    });
+  }
+  return currency;
 }
 
 export function minorToMajor<TOutput = string>(
@@ -383,7 +391,7 @@ export function minorToMajor<TOutput = string>(
 
 // Converts a major-unit string to minor-unit bigint, throwing ValidationException (422) on invalid input
 export function majorToMinor(major: string, currencyCode: CurrencyCode, field = 'amount'): bigint {
-  const { exponent } = resolveCurrency(currencyCode);
+  const { exponent } = resolveCurrency(currencyCode, field);
   const scale = typeof exponent === 'bigint' ? Number(exponent) : exponent;
   const trimmed = major.trim();
 
