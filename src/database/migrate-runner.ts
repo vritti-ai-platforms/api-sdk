@@ -5,6 +5,8 @@ import { Pool } from 'pg';
 export interface MigrateRunnerOptions {
   migrationsFolder: string;
   migrationsTable: string;
+  schema: string;
+  migrationSchema: string;
 }
 
 // Validates and quotes a Postgres identifier (role/schema names can't be bound as query params).
@@ -27,8 +29,8 @@ function requiredEnv(name: string): string {
 // Applies Drizzle migrations as the owner, then idempotently grants the runtime app role schema access.
 export async function runMigrationsAndGrants(options: MigrateRunnerOptions): Promise<void> {
   const directUrl = requiredEnv('PRIMARY_DB_DATABASE_DIRECT_URL');
-  const dbSchema = requiredEnv('PRIMARY_DB_SCHEMA');
-  const migrationSchema = requiredEnv('PRIMARY_DB_MIGRATION_SCHEMA');
+  const dbSchema = options.schema;
+  const migrationSchema = options.migrationSchema;
   const appRole = requiredEnv('PRIMARY_DB_USERNAME');
 
   // Single connection as the owner role — runs both DDL and the grants below.
