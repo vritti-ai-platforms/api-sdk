@@ -50,6 +50,10 @@ export interface SnapshotMicrofrontends {
 export type ScopeType = 'ORG' | 'LE' | 'SITE_GROUP' | 'SITE';
 export type SiteType = 'OUTLET' | 'WAREHOUSE' | 'PRODUCTION';
 export const SITE_TYPES: SiteType[] = ['OUTLET', 'WAREHOUSE', 'PRODUCTION'];
+// External services a feature can depend on — the org must have the service provisioned before the feature
+// unlocks. Add new services here and nowhere else in this package; every lock path is service-agnostic.
+export const SERVICE_CODES = ['GITEA'] as const;
+export type ServiceCode = (typeof SERVICE_CODES)[number];
 export interface SnapshotFeature {
   code: string;
   name: string;
@@ -60,6 +64,8 @@ export interface SnapshotFeature {
   applicableSiteTypes: SiteType[];
   permissions: SnapshotPermission[];
   microfrontends: SnapshotMicrofrontends;
+  // Optional: snapshots built before service gating existed carry no services, which reads as "requires none"
+  requiredServices?: ServiceCode[];
 }
 export interface SnapshotAppFeatureRef {
   code: string;
@@ -118,13 +124,16 @@ export function snapshotFeatureKey(code: string, scope: ScopeType): string {
 
 export const SNAPSHOT_SCHEMA_VERSION = 2;
 
-export type LockReason = 'PLAN' | 'SITE';
+// SERVICE = the org has not provisioned an external service the feature declares; the specific services are
+// reported alongside in `missingServices` so callers never branch on a service code baked into this union
+export type LockReason = 'PLAN' | 'SITE' | 'SERVICE';
 
 export interface CatalogPermission {
   code: string;
   locked: boolean;
   lockReason: LockReason | null;
   unlockPlans: string[];
+  missingServices: ServiceCode[];
 }
 
 export interface FeatureCatalogEntry {
@@ -151,6 +160,7 @@ export interface FeatureCatalogEntry {
   locked: boolean;
   lockReason: LockReason | null;
   unlockPlans: string[];
+  missingServices: ServiceCode[];
   permissions: CatalogPermission[];
 }
 

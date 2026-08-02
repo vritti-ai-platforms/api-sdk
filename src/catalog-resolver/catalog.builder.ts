@@ -1,14 +1,15 @@
 import { buildDependsMap, cascadeLocked, prereqClosure } from './permission-deps';
 import type {
-  ScopeType,
-  SiteType,
-  SiteFeatureLocks,
   CatalogPermission,
   FeatureCatalogEntry,
   LockReason,
   PlatformBucket,
   PlatformCodes,
   RoleItem,
+  ScopeType,
+  ServiceCode,
+  SiteFeatureLocks,
+  SiteType,
   SnapshotFeature,
   SnapshotPlan,
   VersionSnapshot,
@@ -29,6 +30,7 @@ export function findFeatureByCode(snapshot: VersionSnapshot, code: string): Snap
 }
 
 // Builds the per-site catalog for ONE platform bucket — plan is the ceiling, siteLocks is a deny-list within it; each permission carries locked + lockReason + unlockPlans
+// availableServices defaults to none, so a caller that doesn't know the org's provisioned services locks every service-dependent feature rather than leaking it
 export function buildSiteCatalog(
   snapshot: VersionSnapshot,
   businessCode: string | undefined,
@@ -37,6 +39,7 @@ export function buildSiteCatalog(
   bucket: PlatformBucket,
   siteType?: SiteType,
   scope?: ScopeType,
+  availableServices: ServiceCode[] = [],
 ): FeatureCatalogEntry[] {
   if (!businessCode) return [];
   const business = snapshot.businesses?.[businessCode];
@@ -68,12 +71,24 @@ export function buildSiteCatalog(
       const web = feature.microfrontends?.web;
       const mobile = feature.microfrontends?.mobile;
 
-      const permissions = buildPermissions(feature, businessCode, membership, siteLocks, plans, bucket);
-      // Feature-level lock is EXPLICIT: plan must include the feature on this bucket and the site must not null-lock the platform
+      // Feature-level lock is EXPLICIT: plan must include the feature on this bucket, the site must not null-lock
+      // the platform, and every external service the feature declares must be provisioned for the org
       const memberOnBucket = membership?.[bucket] !== undefined;
       const sitePlatformLocked = siteLocks?.[feature.code]?.[bucket] === null;
-      const locked = !memberOnBucket || sitePlatformLocked;
-      const lockReason: LockReason | null = !memberOnBucket ? 'PLAN' : sitePlatformLocked ? 'SITE' : null;
+      const missingServices = unmetServices(feature, availableServices);
+      // Unmet services lock every permission too — otherwise the feature reads locked while its actions still
+      // report as available, which is not how plan and site locks behave
+      const permissions = buildPermissions(
+        feature,
+        businessCode,
+        membership,
+        siteLocks,
+        plans,
+        bucket,
+        missingServices,
+      );
+      const lockReason = resolveLockReason(!memberOnBucket, sitePlatformLocked, missingServices);
+      const locked = lockReason !== null;
       const unlockPlans = lockReason === 'PLAN' ? plansIncludingFeature(plans, feature.code, bucket) : [];
 
       catalog.push({
@@ -104,6 +119,7 @@ export function buildSiteCatalog(
         locked,
         lockReason,
         unlockPlans,
+        missingServices,
         permissions,
       });
     }
@@ -116,6 +132,25 @@ export function isPlanMember(entry: PlatformCodes | undefined): boolean {
   return !!entry && (entry.web !== undefined || entry.mobile !== undefined);
 }
 
+// The one place lock precedence is decided, for features and permissions alike; null means nothing locks.
+// Plan is the ceiling (an unentitled feature must upsell, not send the user to provision something they still
+// couldn't use), then the site deny-list, then any unprovisioned service.
+function resolveLockReason(
+  planLocked: boolean,
+  siteLocked: boolean,
+  missingServices: ServiceCode[],
+): LockReason | null {
+  if (planLocked) return 'PLAN';
+  if (siteLocked) return 'SITE';
+  if (missingServices.length > 0) return 'SERVICE';
+  return null;
+}
+
+// The services a feature declares that this org has not provisioned
+function unmetServices(feature: SnapshotFeature, availableServices: ServiceCode[]): ServiceCode[] {
+  return (feature.requiredServices ?? []).filter((service) => !availableServices.includes(service));
+}
+
 // Per-platform site-lock primitive: null locks the whole feature, string[] locks those codes, absent = not locked
 export function isSiteLockedOnPlatform(
   entry: SiteFeatureLocks[string] | undefined,
@@ -126,7 +161,8 @@ export function isSiteLockedOnPlatform(
   return locks === null || (locks?.includes(code) ?? false);
 }
 
-// A feature's business-scoped permissions, each tagged with locked + reason against the plan and site deny-list (bucket-scoped)
+// A feature's business-scoped permissions, each tagged with locked + reason against the plan and site deny-list
+// (bucket-scoped). Unmet services lock the whole set — an unprovisioned service blocks every action on the feature.
 function buildPermissions(
   feature: SnapshotFeature,
   businessCode: string,
@@ -134,6 +170,7 @@ function buildPermissions(
   siteLocks: SiteFeatureLocks | undefined,
   plans: Record<string, SnapshotPlan>,
   bucket: PlatformBucket,
+  missingServices: ServiceCode[] = [],
 ): CatalogPermission[] {
   const planUnlocked = new Set(planMembership?.[bucket] ?? []);
   const lockEntry = siteLocks?.[feature.code];
@@ -153,16 +190,15 @@ function buildPermissions(
   const lockedSet = cascadeLocked(codes, directlyLocked, deps);
 
   return perms.map((p) => {
-    const locked = lockedSet.has(p.code);
     // A permission is enabled only if it AND its whole prerequisite closure are unlocked — reason/upsell reflect that
     const closure = [p.code, ...prereqClosure(p.code, deps)];
-    const planReason = closure.some((c) => directlyPlanLocked.has(c));
-    const siteReason = closure.some((c) => directlySiteLocked.has(c));
-    // Plan is the ceiling, so a plan-lock anywhere in the closure wins over a site-lock when reporting the reason
-    const lockReason: LockReason | null = !locked ? null : planReason ? 'PLAN' : siteReason ? 'SITE' : null;
-    const unlockPlans =
-      locked && lockReason === 'PLAN' ? plansUnlockingClosure(plans, feature.code, closure, bucket) : [];
-    return { code: p.code, locked, lockReason, unlockPlans };
+    const cascaded = lockedSet.has(p.code);
+    const planReason = cascaded && closure.some((c) => directlyPlanLocked.has(c));
+    const siteReason = cascaded && closure.some((c) => directlySiteLocked.has(c));
+    const lockReason = resolveLockReason(planReason, siteReason, missingServices);
+    const locked = lockReason !== null;
+    const unlockPlans = lockReason === 'PLAN' ? plansUnlockingClosure(plans, feature.code, closure, bucket) : [];
+    return { code: p.code, locked, lockReason, unlockPlans, missingServices };
   });
 }
 

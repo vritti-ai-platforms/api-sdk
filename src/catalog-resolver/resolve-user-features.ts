@@ -1,11 +1,12 @@
 import { buildSiteCatalog, findFeatureByCode } from './catalog.builder';
 import { buildDependsMap, filterGrantedByDeps } from './permission-deps';
 import type {
-  SiteFeatureLocks,
   FeatureUnlocks,
   LockReason,
   PlatformBucket,
   ScopeType,
+  ServiceCode,
+  SiteFeatureLocks,
   SiteType,
   VersionSnapshot,
 } from './types';
@@ -17,6 +18,7 @@ export interface LockedPermission {
   code: string;
   reason: LockReason | null;
   unlockPlans: string[];
+  missingServices: ServiceCode[];
 }
 
 export interface PlanUpsell {
@@ -34,6 +36,8 @@ export interface PermissionFeature {
   locked: boolean;
   lockReason: LockReason | null;
   unlockPlans: string[];
+  // Which declared services the org has not provisioned — empty unless lockReason is 'SERVICE'
+  missingServices: ServiceCode[];
   lockedPermissions: LockedPermission[];
   upsell: PlanUpsell[];
   route: {
@@ -56,11 +60,14 @@ export interface ResolveUserFeaturesParams {
   platform: ClientPlatform;
   siteType?: SiteType;
   scope?: ScopeType;
+  // External services the org has provisioned; omitting it locks every service-dependent feature
+  availableServices?: ServiceCode[];
 }
 
 // Resolves the features + MF config a user sees at a BU: plan ∧ BU catalog intersected with the role's grants, filtered to the requested platform
 export function resolveUserFeatures(params: ResolveUserFeaturesParams): PermissionFeature[] {
-  const { snapshot, businessCode, planCode, siteLocks, roleFeatures, platform, siteType, scope } = params;
+  const { snapshot, businessCode, planCode, siteLocks, roleFeatures, platform, siteType, scope, availableServices } =
+    params;
 
   // Plan unlocks, BU locks, and role grants are stored per platform; resolve only the requesting surface's bucket (web → 'web'; ios/android → 'mobile')
   const bucket: PlatformBucket = platform === 'web' ? 'web' : 'mobile';
@@ -70,7 +77,16 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
     scope ? snapshot.features?.[snapshotFeatureKey(code, scope)] : findFeatureByCode(snapshot, code);
 
   // Plan ∧ BU overlay for this bucket, filtered to features that apply to this workspace scope and node type — emits EVERY applicable business feature (plan non-members come out fully locked)
-  const catalog = buildSiteCatalog(snapshot, businessCode, planCode, siteLocks, bucket, siteType, scope);
+  const catalog = buildSiteCatalog(
+    snapshot,
+    businessCode,
+    planCode,
+    siteLocks,
+    bucket,
+    siteType,
+    scope,
+    availableServices,
+  );
   const catalogMap = new Map(catalog.map((f) => [f.code, f]));
 
   // Per-plan feature-name delta vs the current plan — feeds the plan-locked upsell screen
@@ -121,7 +137,12 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
     const lockedPermissions: LockedPermission[] = grantedPerms
       .map((c) => permByCode.get(c))
       .filter((p): p is NonNullable<typeof p> => !!p?.locked)
-      .map((p) => ({ code: p.code, reason: p.lockReason ?? null, unlockPlans: p.unlockPlans ?? [] }));
+      .map((p) => ({
+        code: p.code,
+        reason: p.lockReason ?? null,
+        unlockPlans: p.unlockPlans ?? [],
+        missingServices: p.missingServices ?? [],
+      }));
 
     // For a plan-locked feature, list the extra features each unlocking plan would add (excluding this feature)
     const upsell: PlanUpsell[] =
@@ -144,6 +165,7 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
       locked: catalogEntry.locked ?? false,
       lockReason: catalogEntry.lockReason ?? null,
       unlockPlans: catalogEntry.unlockPlans ?? [],
+      missingServices: catalogEntry.missingServices ?? [],
       lockedPermissions,
       upsell,
       route,
