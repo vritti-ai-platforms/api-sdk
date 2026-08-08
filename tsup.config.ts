@@ -30,6 +30,7 @@ export default defineConfig({
     filters: 'src/filters/index.ts',
     logger: 'src/logger/index.ts',
     root: 'src/root/index.ts',
+    storage: 'src/storage/index.ts',
     types: 'src/types/index.ts',
     utils: 'src/utils/index.ts',
   },

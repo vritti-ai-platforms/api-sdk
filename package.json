@@ -256,6 +256,16 @@
         "default": "./dist/root.cjs"
       }
     },
+    "./storage": {
+      "import": {
+        "types": "./dist/storage.d.ts",
+        "default": "./dist/storage.js"
+      },
+      "require": {
+        "types": "./dist/storage.d.cts",
+        "default": "./dist/storage.cjs"
+      }
+    },
     "./types": {
       "import": {
         "types": "./dist/types.d.ts",
@@ -328,7 +338,9 @@
     "class-validator": "^0.14.0",
     "fastify": "5.7.4",
     "reflect-metadata": "^0.2.0",
-    "rxjs": "^7.8.0"
+    "rxjs": "^7.8.0",
+    "@aws-sdk/client-s3": "^3.997.0",
+    "@aws-sdk/s3-request-presigner": "^3.997.0"
   },
   "peerDependenciesMeta": {
     "@nestjs/graphql": {
@@ -345,9 +357,17 @@
     },
     "@nestjs/microservices": {
       "optional": true
+    },
+    "@aws-sdk/client-s3": {
+      "optional": true
+    },
+    "@aws-sdk/s3-request-presigner": {
+      "optional": true
     }
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "^3.1105.0",
+    "@aws-sdk/s3-request-presigner": "^3.1105.0",
     "@biomejs/biome": "2.4.2",
     "@fastify/multipart": "^9.4.0",
     "@nestjs/common": "11.1.13",

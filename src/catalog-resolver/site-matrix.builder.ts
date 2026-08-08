@@ -1,10 +1,10 @@
-import { featureAppliesAtNode, isSiteLockedOnPlatform, isPlanMember } from './catalog.builder';
+import { featureAppliesAtNode, isPlanMember, isSiteLockedOnPlatform } from './catalog.builder';
 import {
+  PLATFORMS,
+  type PlatformBucket,
   type ScopeType,
   type SiteFeatureLocks,
   type SiteType,
-  PLATFORMS,
-  type PlatformBucket,
   type SnapshotPlan,
   snapshotFeatureKey,
   type VersionSnapshot,
