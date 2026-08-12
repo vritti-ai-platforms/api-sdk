@@ -31,6 +31,21 @@ export interface StorageProvider {
   listObjects(bucket: string, continuationToken?: string): Promise<ListObjectsPage>;
 }
 
+export interface ScopedTokenResult {
+  id: string;
+  value: string;
+}
+
+// Generic storage-admin client — the org-agnostic mirror of StorageProvider (reads): create/delete buckets, toggle a
+// bucket's public domain, and mint/revoke bucket-scoped credentials. Naming and orchestration live in the caller.
+export interface StorageProvisioner {
+  createBucket(name: string): Promise<void>;
+  deleteBucket(name: string): Promise<void>;
+  enablePublicAccess(bucket: string): Promise<string>;
+  createScopedToken(name: string, buckets: string[]): Promise<ScopedTokenResult>;
+  deleteCredential(accessKeyId: string): Promise<void>;
+}
+
 export interface R2ProvisionerConfig {
   accountId: string;
   // Bearer token with Workers R2 Storage:Edit — creates and deletes buckets

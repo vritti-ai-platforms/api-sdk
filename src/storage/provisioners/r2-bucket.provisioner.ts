@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import type { R2ProvisionerConfig } from '../types';
+import type { R2ProvisionerConfig, ScopedTokenResult, StorageProvisioner } from '../types';
 
 const CF_API = 'https://api.cloudflare.com/client/v4';
 
@@ -16,7 +16,7 @@ interface CloudflareEnvelope<T> {
 // Generic R2 admin client: create/delete buckets, toggle a bucket's Cloudflare-managed public domain, and mint/revoke
 // bucket-scoped credentials. It has NO notion of organizations — bucket naming, which buckets a tenant gets, and how
 // the stored descriptor is assembled all live in the caller. Every operation is a Cloudflare REST call.
-export class R2BucketProvisioner {
+export class R2BucketProvisioner implements StorageProvisioner {
   private readonly logger = new Logger(R2BucketProvisioner.name);
   private readonly jurisdiction: string;
   private bucketItemWriteGroupId: string | null = null;
@@ -91,7 +91,7 @@ export class R2BucketProvisioner {
   // tenant's credential does not die with whichever Cloudflare user happened to create the parent token. Requires the
   // parent to hold `Account API Tokens Write`; a user-scoped `API Tokens: Edit` token is rejected here with 9109.
   // `name` is the token's display label; the value is returned by R2 exactly once.
-  async createScopedToken(name: string, buckets: string[]): Promise<{ id: string; value: string }> {
+  async createScopedToken(name: string, buckets: string[]): Promise<ScopedTokenResult> {
     const permissionGroupId = await this.resolveBucketItemWriteGroupId();
 
     // The jurisdiction is embedded in the resource key and must match the bucket's, or the token authenticates fine
