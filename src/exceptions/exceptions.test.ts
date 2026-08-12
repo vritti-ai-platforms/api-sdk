@@ -42,6 +42,12 @@ import {
   ValidationException,
 } from './index';
 
+// Narrows an indexed access to non-null for assertions (noUncheckedIndexedAccess); throws if absent.
+function must<T>(value: T | undefined | null): T {
+  assert.ok(value != null);
+  return value;
+}
+
 describe('RFC 9457 Problem Details Format - Exception Classes', () => {
   describe('BadRequestException', () => {
     describe('Constructor Signatures', () => {
@@ -434,7 +440,7 @@ describe('RFC 9457 Problem Details Format - HttpExceptionFilter', () => {
 
       filter.catch(validationException, mockArgumentsHost);
 
-      assert.equal(sentResponse.errors[0].message, 'email must be an email');
+      assert.equal(must(sentResponse.errors[0]).message, 'email must be an email');
     });
 
     it('should extract field name from property', () => {
@@ -452,7 +458,7 @@ describe('RFC 9457 Problem Details Format - HttpExceptionFilter', () => {
 
       filter.catch(validationException, mockArgumentsHost);
 
-      assert.equal(sentResponse.errors[0].field, 'username');
+      assert.equal(must(sentResponse.errors[0]).field, 'username');
     });
   });
 

@@ -1,0 +1,9 @@
+{
+  // Type-check / build project: library source only. tsconfig.json now includes tests (so the editor
+  // resolves their types), so the tsc scripts use this instead to keep the pre-existing test-only
+  // strict-index issues out of the build. Inherits everything from tsconfig.json — crucially the
+  // self-referencing `paths` (@vritti/api-sdk/* → source), which source imports depend on — and only
+  // narrows the file set back to source.
+  "extends": "./tsconfig.json",
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
+}

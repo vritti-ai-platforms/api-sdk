@@ -3,6 +3,12 @@ import { describe, it } from 'node:test';
 import { resolveUserFeatures } from './resolve-user-features';
 import type { SnapshotFeature, VersionSnapshot } from './types';
 
+// Narrows an indexed access to non-null for assertions (noUncheckedIndexedAccess); throws if absent.
+function must<T>(value: T | undefined | null): T {
+  assert.ok(value != null);
+  return value;
+}
+
 // Minimal snapshot: one business, one app, two features (sales web+mobile, reports web-only)
 const snapshot: VersionSnapshot = {
   features: {
@@ -151,7 +157,7 @@ describe('resolveUserFeatures', () => {
     });
 
     assert.equal(features.length, 1);
-    const sales = features[0];
+    const sales = must(features[0]);
     assert.equal(sales.code, 'sales');
     assert.deepEqual(sales.permissions, ['sales.view', 'sales.create']);
     assert.deepEqual(sales.route, {
@@ -179,9 +185,10 @@ describe('resolveUserFeatures', () => {
     });
 
     assert.equal(features.length, 1);
-    assert.equal(features[0].locked, true);
-    assert.equal(features[0].lockReason, 'PLAN');
-    assert.deepEqual(features[0].unlockPlans, ['PRO']);
+    const feature = must(features[0]);
+    assert.equal(feature.locked, true);
+    assert.equal(feature.lockReason, 'PLAN');
+    assert.deepEqual(feature.unlockPlans, ['PRO']);
   });
 
   it('locks a service-dependent feature when the org has not provisioned the service', () => {
@@ -196,15 +203,16 @@ describe('resolveUserFeatures', () => {
     });
 
     assert.equal(features.length, 1);
-    assert.equal(features[0].locked, true);
-    assert.equal(features[0].lockReason, 'SERVICE');
+    const feature = must(features[0]);
+    assert.equal(feature.locked, true);
+    assert.equal(feature.lockReason, 'SERVICE');
     // The reason stays generic; which services are missing is reported separately
-    assert.deepEqual(features[0].missingServices, ['GITEA']);
+    assert.deepEqual(feature.missingServices, ['GITEA']);
     // A service lock is not a plan problem — no plan would unlock it, so nothing to upsell
-    assert.deepEqual(features[0].unlockPlans, []);
-    assert.deepEqual(features[0].upsell, []);
+    assert.deepEqual(feature.unlockPlans, []);
+    assert.deepEqual(feature.upsell, []);
     // The granted permissions must report locked too, the way plan and site locks do
-    assert.deepEqual(features[0].lockedPermissions, [
+    assert.deepEqual(feature.lockedPermissions, [
       { code: 'repositories.view', reason: 'SERVICE', unlockPlans: [], missingServices: ['GITEA'] },
     ]);
   });
@@ -220,10 +228,11 @@ describe('resolveUserFeatures', () => {
       availableServices: ['GITEA'],
     });
 
-    assert.equal(features[0].locked, false);
-    assert.equal(features[0].lockReason, null);
-    assert.deepEqual(features[0].missingServices, []);
-    assert.deepEqual(features[0].lockedPermissions, []);
+    const feature = must(features[0]);
+    assert.equal(feature.locked, false);
+    assert.equal(feature.lockReason, null);
+    assert.deepEqual(feature.missingServices, []);
+    assert.deepEqual(feature.lockedPermissions, []);
   });
 
   it('omitting availableServices fails closed rather than leaking a service-dependent feature', () => {
@@ -236,9 +245,10 @@ describe('resolveUserFeatures', () => {
       platform: 'web',
     });
 
-    assert.equal(features[0].locked, true);
-    assert.equal(features[0].lockReason, 'SERVICE');
-    assert.deepEqual(features[0].missingServices, ['GITEA']);
+    const feature = must(features[0]);
+    assert.equal(feature.locked, true);
+    assert.equal(feature.lockReason, 'SERVICE');
+    assert.deepEqual(feature.missingServices, ['GITEA']);
   });
 
   it('reports a plan lock ahead of a service lock so the user sees an upgrade, not a setup prompt', () => {
@@ -252,9 +262,10 @@ describe('resolveUserFeatures', () => {
       availableServices: [],
     });
 
-    assert.equal(features[0].locked, true);
-    assert.equal(features[0].lockReason, 'PLAN');
-    assert.deepEqual(features[0].unlockPlans, ['PRO']);
+    const feature = must(features[0]);
+    assert.equal(feature.locked, true);
+    assert.equal(feature.lockReason, 'PLAN');
+    assert.deepEqual(feature.unlockPlans, ['PRO']);
   });
 
   it('gates membership per platform and picks the per-OS mobile remote entry', () => {
@@ -270,8 +281,8 @@ describe('resolveUserFeatures', () => {
 
     // reports has no mobile grant bucket and no mobile MF → only sales resolves
     assert.equal(ios.length, 1);
-    assert.equal(ios[0].route.remoteEntry, 'https://ios/remote.js');
-    assert.equal(android[0].route.remoteEntry, 'https://android/remote.js');
+    assert.equal(must(ios[0]).route.remoteEntry, 'https://ios/remote.js');
+    assert.equal(must(android[0]).route.remoteEntry, 'https://android/remote.js');
   });
 
   it('applies BU locks as a deny-list on the resolving platform', () => {
@@ -285,7 +296,7 @@ describe('resolveUserFeatures', () => {
     });
 
     // sales.create: locked on web (code) + mobile (feature null) → BU-locked; sales.view stays open via web
-    assert.deepEqual(features[0].lockedPermissions, [
+    assert.deepEqual(must(features[0]).lockedPermissions, [
       { code: 'sales.create', reason: 'SITE', unlockPlans: [], missingServices: [] },
     ]);
   });
@@ -300,8 +311,9 @@ describe('resolveUserFeatures', () => {
       platform: 'web',
     });
 
-    assert.equal(features[0].locked, false);
-    assert.deepEqual(features[0].lockedPermissions, []);
+    const feature = must(features[0]);
+    assert.equal(feature.locked, false);
+    assert.deepEqual(feature.lockedPermissions, []);
   });
 
   it('locks a code on the platform it is locked on, leaving the other platform open', () => {
@@ -316,10 +328,10 @@ describe('resolveUserFeatures', () => {
     const mobile = resolveUserFeatures({ ...params, platform: 'ios' as const });
 
     // The lock covers web only → BU-locked on web, untouched on mobile
-    assert.deepEqual(web[0].lockedPermissions, [
+    assert.deepEqual(must(web[0]).lockedPermissions, [
       { code: 'sales.view', reason: 'SITE', unlockPlans: [], missingServices: [] },
     ]);
-    assert.deepEqual(mobile[0].lockedPermissions, []);
+    assert.deepEqual(must(mobile[0]).lockedPermissions, []);
   });
 
   it('treats a BU lock on an out-of-plan code as inert (PLAN reason + upsell win)', () => {
@@ -332,7 +344,7 @@ describe('resolveUserFeatures', () => {
       platform: 'web',
     });
 
-    assert.deepEqual(features[0].lockedPermissions, [
+    assert.deepEqual(must(features[0]).lockedPermissions, [
       { code: 'sales.create', reason: 'PLAN', unlockPlans: ['PRO'], missingServices: [] },
     ]);
   });
@@ -347,8 +359,9 @@ describe('resolveUserFeatures', () => {
       platform: 'web',
     });
 
-    assert.equal(features[0].locked, false);
-    assert.deepEqual(features[0].lockedPermissions, []);
+    const feature = must(features[0]);
+    assert.equal(feature.locked, false);
+    assert.deepEqual(feature.lockedPermissions, []);
   });
 
   it('locks the whole feature with reason BU when every shipped platform is null-locked', () => {
@@ -361,9 +374,10 @@ describe('resolveUserFeatures', () => {
       platform: 'web',
     });
 
-    assert.equal(features[0].locked, true);
-    assert.equal(features[0].lockReason, 'SITE');
-    assert.deepEqual(features[0].unlockPlans, []);
+    const feature = must(features[0]);
+    assert.equal(feature.locked, true);
+    assert.equal(feature.lockReason, 'SITE');
+    assert.deepEqual(feature.unlockPlans, []);
   });
 
   it('resolves every granted feature regardless of scope when no scope is requested', () => {

@@ -11,6 +11,7 @@ export default defineConfig({
     'drizzle-pg-core': 'src/drizzle-pg-core.ts',
     xlsx: 'src/xlsx.ts',
     lodash: 'src/lodash.ts',
+    pluralize: 'src/pluralize.ts',
     exceptions: 'src/exceptions/index.ts',
     money: 'src/money/index.ts',
     countries: 'src/countries/index.ts',

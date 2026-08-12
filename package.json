@@ -1,7 +1,7 @@
 {
   "name": "@vritti/api-sdk",
   "type": "module",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -104,6 +104,16 @@
       "require": {
         "types": "./dist/money.d.cts",
         "default": "./dist/money.cjs"
+      }
+    },
+    "./pluralize": {
+      "import": {
+        "types": "./dist/pluralize.d.ts",
+        "default": "./dist/pluralize.js"
+      },
+      "require": {
+        "types": "./dist/pluralize.d.cts",
+        "default": "./dist/pluralize.cjs"
       }
     },
     "./countries": {
@@ -301,9 +311,9 @@
     "access": "public"
   },
   "scripts": {
-    "dev": "tsc --noEmit && tsx --watch src/index.ts",
-    "build": "tsc --noEmit && tsup",
-    "type-check": "tsc --noEmit",
+    "dev": "tsc --noEmit -p tsconfig.src.json && tsx --watch src/index.ts",
+    "build": "tsc --noEmit -p tsconfig.src.json && tsup",
+    "type-check": "tsc --noEmit -p tsconfig.src.json",
     "test": "tsx --test 'src/**/*.test.ts'",
     "test:watch": "tsx --test --watch 'src/**/*.test.ts'",
     "check": "biome check --write .",
@@ -322,6 +332,7 @@
     "lru-cache": "^11.5.1",
     "nats": "^2.29.3",
     "pg": "^8.16.0",
+    "pluralize-esm": "^9.0.5",
     "winston": "^3.11.0",
     "winston-daily-rotate-file": "^5.0.0",
     "xlsx": "^0.18.5"

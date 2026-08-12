@@ -41,6 +41,9 @@
     "forceConsistentCasingInFileNames": true
   },
 
+  /* Tests ARE included here (not excluded) so the editor's TS server — which auto-loads the nearest
+     tsconfig.json — resolves node:crypto / node:test / relative types inside *.test.ts. The tsc scripts
+     point at tsconfig.src.json (tests excluded) so the build is unaffected by test-only strictness. */
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
+  "exclude": ["node_modules", "dist"]
 }

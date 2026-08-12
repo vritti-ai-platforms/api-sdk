@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { createPrivateKey, sign } from 'node:crypto';
+import { createPrivateKey, createPublicKey, sign } from 'node:crypto';
 import { describe, it } from 'node:test';
 import { canonicalStringify } from './canonical';
 import { generateSigningKeyPair, signDocument, verifyDocument } from './document';
@@ -71,7 +71,9 @@ describe('request signing', () => {
     assert.equal(lines[0], 'POST');
     assert.equal(lines[1], '/catalog/internal');
     assert.equal(lines[2], 'org-1');
-    assert.match(lines[3], /^[0-9a-f]{64}$/);
+    const bodyHashLine = lines[3];
+    assert.ok(bodyHashLine, 'canonical string has a body-hash line');
+    assert.match(bodyHashLine, /^[0-9a-f]{64}$/);
     assert.equal(lines[4], '1700000000');
   });
 
@@ -170,5 +172,53 @@ describe('request signing', () => {
       publicKey,
     });
     assert.equal(ok, false);
+  });
+});
+
+describe('cross-language vector', () => {
+  // Pinned byte-for-byte against the Go port (agentkit/apisign/request_test.go). A fixed pkcs8 key +
+  // request + timestamp yields a deterministic Ed25519 signature (RFC 8032); if either language drifts
+  // its canonical string or key handling, one of these assertions breaks first.
+  const PRIV_PKCS8_DER_B64 = 'MC4CAQAwBQYDK2VwBCIEIAARIjNEVWZ3iJmqu8zd7v8AESIzRFVmd4iZqrvM3e7/';
+  const PUB_SPKI_DER_B64 = 'MCowBQYDK2VwAyEAPM0kHP/Js2GARLl9A22GFFk9iwF8NA8d7odzOFUXZUs=';
+  const BODY = '{"hello":"world"}';
+  const CANONICAL =
+    'POST\n/gitea/internal/credentials\n\n93a23971a914e5eacbf0a8d25154cda309c3c1c72fbb9914d47c60f3cb681588\n1700000000';
+  const SIGNATURE_B64 = 'blIAwOVf7jq97x9X1CZ+VsQWohzRuARtP4OYDeLMgZ/F6mag2imrC8zYNeT4Tc4ba9Ah4zVl4EQu2N80a1eYDA==';
+  const TS = 1700000000;
+
+  it('derives the pinned SPKI public key from the pinned private key', () => {
+    const priv = createPrivateKey({ key: Buffer.from(PRIV_PKCS8_DER_B64, 'base64'), format: 'der', type: 'pkcs8' });
+    const pub = createPublicKey(priv).export({ type: 'spki', format: 'der' }).toString('base64');
+    assert.equal(pub, PUB_SPKI_DER_B64);
+  });
+
+  it('builds the pinned canonical string', () => {
+    const canonical = buildRequestCanonical({
+      method: 'POST',
+      path: '/gitea/internal/credentials',
+      body: BODY,
+      timestamp: TS,
+    });
+    assert.equal(canonical, CANONICAL);
+  });
+
+  it('produces the pinned signature (matches the Go port)', () => {
+    const priv = createPrivateKey({ key: Buffer.from(PRIV_PKCS8_DER_B64, 'base64'), format: 'der', type: 'pkcs8' });
+    const sig = sign(null, Buffer.from(CANONICAL, 'utf8'), priv).toString('base64');
+    assert.equal(sig, SIGNATURE_B64);
+  });
+
+  it('verifySignedRequest accepts the pinned signature under a generous skew', () => {
+    const ok = verifySignedRequest({
+      method: 'POST',
+      path: '/gitea/internal/credentials',
+      rawBody: BODY,
+      timestamp: TS,
+      signature: SIGNATURE_B64,
+      publicKey: PUB_SPKI_DER_B64,
+      maxSkewSeconds: Number.MAX_SAFE_INTEGER,
+    });
+    assert.equal(ok, true);
   });
 });

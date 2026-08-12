@@ -2,6 +2,12 @@ import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 import { composeRoleGrants } from './compose-role-grants';
 
+// Narrows an indexed access to non-null for assertions (noUncheckedIndexedAccess); throws if absent.
+function must<T>(value: T | undefined | null): T {
+  assert.ok(value != null);
+  return value;
+}
+
 describe('composeRoleGrants', () => {
   it('passes base grants through unchanged when there are no additions or revokes', () => {
     const baseFeatures = { sales: { web: ['sales.view'], mobile: ['sales.view'] } };
@@ -53,7 +59,8 @@ describe('composeRoleGrants', () => {
       revoked: { sales: { web: null } },
     });
 
-    assert.equal('web' in result.sales, false);
+    const sales = must(result.sales);
+    assert.equal('web' in sales, false);
     assert.deepEqual(result, { sales: { mobile: ['sales.view'] } });
   });
 
