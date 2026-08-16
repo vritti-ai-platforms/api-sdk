@@ -1,25 +1,18 @@
 import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
 import { getRequestFromContext } from '../../context';
 
-// Extracts the subdomain from the request's origin or x-forwarded-host header
+// Extracts the subdomain from the request host, resolved the same way as @Hostname() — x-forwarded-host
+// (set by dev and reverse proxies) with a fallback to request.hostname. Origin is deliberately not used:
+// it is client-controlled and can disagree with the Host header, which would mint a session for one
+// subdomain that the auth guard's host check then rejects against another.
 export const Subdomain = createParamDecorator((_data: unknown, ctx: ExecutionContext): string | undefined => {
   const request = getRequestFromContext(ctx);
 
-  // Try origin header first (browser always sends this on cross-origin requests)
-  const origin = request.headers.origin;
-  if (origin) {
-    try {
-      const url = new URL(origin);
-      return url.hostname.split('.')[0];
-    } catch {
-      // Invalid origin, fall through
-    }
-  }
-
-  // Fallback to x-forwarded-host (set by rsbuild proxy and production reverse proxies)
   const forwarded = request.headers['x-forwarded-host'];
-  const host = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-  if (host) return host.split('.')[0];
+  const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+  const hostStr = raw ?? request.hostname;
+  if (!hostStr) return undefined;
 
-  return undefined;
+  const host = hostStr.split(':')[0] ?? hostStr;
+  return host.split('.')[0] || undefined;
 });
