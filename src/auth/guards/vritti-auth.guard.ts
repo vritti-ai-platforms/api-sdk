@@ -14,7 +14,9 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import '../../types/fastify-augmentation';
 import { getRequestFromContext, getResponseFromContext } from '../../context';
 import { RequestService } from '../../request/services/request.service';
+import { APP_SESSION_TYPE } from '../app-request';
 import { AUTH_CONFIG, type AuthConfig } from '../auth.config';
+import { REQUIRE_APP_KEY } from '../decorators/require-app.decorator';
 import { REQUIRE_SESSION_KEY } from '../decorators/require-session.decorator';
 import { SKIP_CSRF_KEY } from '../decorators/skip-csrf.decorator';
 import { TokenService } from '../services/token.service';
@@ -50,6 +52,21 @@ export class VrittiAuthGuard implements CanActivate {
       this.reflector.getAllAndOverride<boolean>(SKIP_CSRF_KEY, [context.getHandler(), context.getClass()]) ||
       csrfExemptTransports.includes(context.getType<string>());
 
+    // @RequireApp() authenticates an external app by its request signature.
+    //
+    // Placed before the public check on purpose: an app endpoint is not anonymous,
+    // so it must never fall through to the @Public() branch. Returning from here
+    // also means CSRF never runs on an app request — a signed server-to-server call
+    // carries no cookie for CSRF to protect, and that holds on REST too, which a
+    // transport-level exemption would not cover.
+    const requiredAppTypes = this.reflector.getAllAndOverride<string[]>(REQUIRE_APP_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (requiredAppTypes) {
+      return this.handleAppAuth(request, requiredAppTypes, route);
+    }
+
     // @Public() endpoints skip auth, while preserving their current CSRF behavior
     const isPublic = this.reflector.getAllAndOverride<boolean>('isPublic', [context.getHandler(), context.getClass()]);
     if (isPublic) {
@@ -80,6 +97,53 @@ export class VrittiAuthGuard implements CanActivate {
       await this.validateCsrf(request, reply);
     }
 
+    return true;
+  }
+
+  /**
+   * Authenticates a signed request from an external app.
+   *
+   * The credential lookup and the signature check are the consuming server's job —
+   * it is the only side with a database — so this delegates to
+   * `guard.onAuthenticated`, the same hook the session path already uses to resolve
+   * organization and workspace context. That server fills in `organizationId`,
+   * `appType` and whatever else it knows.
+   *
+   * What stays here is the part only this side can do: reading the decorator's
+   * metadata and enforcing the app-type filter against what the server resolved.
+   *
+   * An empty list means "any type" — the caller is still authenticated. That makes
+   * `@RequireApp()` with no arguments mean what it reads like.
+   */
+  private async handleAppAuth(request: FastifyRequest, requiredAppTypes: string[], route: string): Promise<boolean> {
+    const onAuthenticated = this.config.guard.onAuthenticated;
+    if (!onAuthenticated) {
+      // Fail closed. Without the hook nothing can verify the signature, and
+      // treating the request as authenticated would leave the endpoint wide open.
+      this.logger.error(`${route} — @RequireApp() requires guard.onAuthenticated to be configured`);
+      throw new UnauthorizedException('App authentication is not configured');
+    }
+
+    // Seeded so the hook has something to populate, matching how the session path
+    // hands it an object to mutate.
+    const sessionInfo = { sessionType: APP_SESSION_TYPE } as NonNullable<FastifyRequest['sessionInfo']>;
+    request.sessionInfo = sessionInfo;
+
+    await onAuthenticated(this.requestService, sessionInfo);
+
+    if (requiredAppTypes.length && !requiredAppTypes.includes(sessionInfo.appType ?? '')) {
+      this.logger.warn(
+        `${route} — app type ${sessionInfo.appType ?? 'unknown'} not in allowed: [${requiredAppTypes.join(', ')}]`,
+      );
+      // Deliberately the same error the server raises for an unknown client, a
+      // revoked one or a bad signature. Distinguishing them would tell whoever is
+      // probing which of the four they hit.
+      throw new UnauthorizedException('This client is not recognised.');
+    }
+
+    // No organization in this message on purpose: which field holds the tenant is
+    // the consuming server's augmentation, not something this side knows about.
+    this.logger.debug(`${route} — authenticated app (${sessionInfo.appType})`);
     return true;
   }
 

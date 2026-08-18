@@ -1,4 +1,6 @@
 // Token types and config
+
+export * from './app-request';
 export {
   type AccessTokenPayload,
   AUTH_CONFIG,
@@ -24,6 +26,7 @@ export * from './decorators/hostname.decorator';
 export * from './decorators/public.decorator';
 export * from './decorators/refresh-cookie-options.decorator';
 export * from './decorators/refresh-token-cookie.decorator';
+export * from './decorators/require-app.decorator';
 export * from './decorators/require-session.decorator';
 export type { SessionInfo } from './decorators/session-data.decorator';
 export { SessionData } from './decorators/session-data.decorator';

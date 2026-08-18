@@ -222,3 +222,154 @@ describe('cross-language vector', () => {
     assert.equal(ok, true);
   });
 });
+
+describe('signed query strings', () => {
+  const { privateKey, publicKey } = generateSigningKeyPair();
+  const REQUEST = { method: 'GET', path: '/commerce-api/app/people' };
+  const QUERY = 'search=salt&page=2';
+
+  it('omitting the query produces the pre-change canonical byte for byte', () => {
+    // The guard against breaking every existing signer — cloud's deployment signing
+    // shares this function and sends no query string.
+    const withoutField = buildRequestCanonical({ ...REQUEST, timestamp: 1700000000 });
+    const withEmpty = buildRequestCanonical({ ...REQUEST, query: '', timestamp: 1700000000 });
+    assert.equal(
+      withoutField,
+      'GET\n/commerce-api/app/people\n\n' +
+        'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' +
+        '\n1700000000',
+    );
+    assert.equal(withEmpty, withoutField);
+  });
+
+  it('appends a labelled line when a query is present', () => {
+    const canonical = buildRequestCanonical({ ...REQUEST, query: QUERY, timestamp: 1700000000 });
+    assert.equal(canonical.split('\n').at(-1), `query:${QUERY}`);
+  });
+
+  it('verifies when the same query is presented', () => {
+    const headers = signRequestHeaders({ ...REQUEST, query: QUERY }, privateKey);
+    const verified = verifySignedRequest({
+      ...REQUEST,
+      query: QUERY,
+      timestamp: headers['x-timestamp'],
+      signature: headers['x-signature'],
+      publicKey,
+    });
+    assert.equal(verified, true);
+  });
+
+  it('refuses a query altered in transit', () => {
+    const headers = signRequestHeaders({ ...REQUEST, query: QUERY }, privateKey);
+    const verified = verifySignedRequest({
+      ...REQUEST,
+      query: 'search=sugar&page=2',
+      timestamp: headers['x-timestamp'],
+      signature: headers['x-signature'],
+      publicKey,
+    });
+    assert.equal(verified, false);
+  });
+
+  it('refuses a query stripped in transit', () => {
+    const headers = signRequestHeaders({ ...REQUEST, query: QUERY }, privateKey);
+    const verified = verifySignedRequest({
+      ...REQUEST,
+      timestamp: headers['x-timestamp'],
+      signature: headers['x-signature'],
+      publicKey,
+    });
+    assert.equal(verified, false);
+  });
+
+  it('refuses a query appended in transit to a request signed without one', () => {
+    const headers = signRequestHeaders(REQUEST, privateKey);
+    const verified = verifySignedRequest({
+      ...REQUEST,
+      query: 'admin=true',
+      timestamp: headers['x-timestamp'],
+      signature: headers['x-signature'],
+      publicKey,
+    });
+    assert.equal(verified, false);
+  });
+});
+
+describe('signed party and workspace context', () => {
+  const { privateKey, publicKey } = generateSigningKeyPair();
+  const REQUEST = { method: 'POST', path: '/graphql', body: '{"query":"{ me }"}' };
+  const PARTY = 'party-uuid';
+  const SITE = { 'x-site-id': 'site-uuid' };
+
+  const verify = (input: Record<string, unknown>, headers: { 'x-timestamp': string; 'x-signature': string }) =>
+    verifySignedRequest({
+      method: REQUEST.method,
+      path: REQUEST.path,
+      rawBody: REQUEST.body,
+      timestamp: headers['x-timestamp'],
+      signature: headers['x-signature'],
+      publicKey,
+      ...input,
+    });
+
+  it('omitting all context leaves the canonical byte-identical', () => {
+    const bare = buildRequestCanonical({ method: 'POST', path: '/graphql', timestamp: 1700000000 });
+    const withEmpty = buildRequestCanonical({
+      method: 'POST',
+      path: '/graphql',
+      timestamp: 1700000000,
+      partyId: undefined,
+      workspaceHeaders: {},
+    });
+    assert.equal(withEmpty, bare);
+  });
+
+  it('appends party then the workspace header, in that order', () => {
+    const canonical = buildRequestCanonical({
+      method: 'POST',
+      path: '/graphql',
+      timestamp: 1700000000,
+      partyId: PARTY,
+      workspaceHeaders: SITE,
+    });
+    assert.deepEqual(canonical.split('\n').slice(-2), [`party:${PARTY}`, `x-site-id:${SITE['x-site-id']}`]);
+  });
+
+  it('appends multiple workspace headers in the fixed order, not the order given', () => {
+    const canonical = buildRequestCanonical({
+      method: 'POST',
+      path: '/graphql',
+      timestamp: 1700000000,
+      // deliberately reversed on the way in
+      workspaceHeaders: { 'x-le-id': 'le-1', 'x-site-id': 'site-1' },
+    });
+    assert.deepEqual(canonical.split('\n').slice(-2), ['x-site-id:site-1', 'x-le-id:le-1']);
+  });
+
+  it('verifies when the same context is presented', () => {
+    const headers = signRequestHeaders({ ...REQUEST, partyId: PARTY, workspaceHeaders: SITE }, privateKey);
+    assert.equal(verify({ partyId: PARTY, workspaceHeaders: SITE }, headers), true);
+  });
+
+  it('refuses a workspace header stripped in transit', () => {
+    const headers = signRequestHeaders({ ...REQUEST, workspaceHeaders: SITE }, privateKey);
+    assert.equal(verify({}, headers), false);
+  });
+
+  it('refuses a workspace header altered in transit', () => {
+    const headers = signRequestHeaders({ ...REQUEST, workspaceHeaders: SITE }, privateKey);
+    assert.equal(verify({ workspaceHeaders: { 'x-site-id': 'another-site' } }, headers), false);
+  });
+
+  it('refuses the same value moved to a different scope header', () => {
+    // The whole point of signing the header NAME: re-scoping a request from a site to
+    // a legal entity must not survive, even with the id unchanged.
+    const headers = signRequestHeaders({ ...REQUEST, workspaceHeaders: { 'x-site-id': 'id-1' } }, privateKey);
+    assert.equal(verify({ workspaceHeaders: { 'x-le-id': 'id-1' } }, headers), false);
+  });
+
+  it('refuses a swapped party', () => {
+    const headers = signRequestHeaders({ ...REQUEST, partyId: PARTY, workspaceHeaders: SITE }, privateKey);
+    assert.equal(verify({ partyId: 'someone-else', workspaceHeaders: SITE }, headers), false);
+  });
+});

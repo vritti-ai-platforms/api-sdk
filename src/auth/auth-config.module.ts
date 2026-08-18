@@ -1,4 +1,4 @@
-import { type DynamicModule, Global, type InjectionToken, Module } from '@nestjs/common';
+import { type DynamicModule, Global, type InjectionToken, Module, type ModuleMetadata } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD, Reflector } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
@@ -24,6 +24,14 @@ interface AuthConfigInput {
 interface AuthConfigModuleOptions<T extends unknown[] = unknown[]> {
   useFactory: (...args: [...T]) => AuthConfigInput | Promise<AuthConfigInput>;
   inject?: InjectionToken[];
+  /**
+   * Extra modules the factory's injected providers come from.
+   *
+   * Needed because `guard.onAuthenticated` is where a server resolves an app
+   * credential, so the factory has to be able to inject the service that owns that
+   * lookup. Mirrors `NatsClientModule.forRoot`.
+   */
+  imports?: ModuleMetadata['imports'];
 }
 
 // Merges user-provided partial config with defaults to produce a complete AuthConfig
@@ -51,6 +59,7 @@ export class AuthConfigModule {
       imports: [
         ConfigModule,
         RequestModule,
+        ...(options.imports ?? []),
         JwtModule.registerAsync({
           imports: [ConfigModule],
           inject: [ConfigService],

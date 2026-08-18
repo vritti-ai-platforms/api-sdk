@@ -56,4 +56,48 @@ export class RequestService {
   getAllHeaders(): FastifyRequest['headers'] {
     return this.request.headers || {};
   }
+
+  // Returns the HTTP method
+  getMethod(): string {
+    return this.request.method ?? '';
+  }
+
+  /**
+   * Returns the path with any query string stripped.
+   *
+   * Signature canonicals cover the path only, so a query string must not be part
+   * of what gets signed or verified.
+   */
+  getPath(): string {
+    const url = this.request.url ?? '';
+    return url.split('?')[0] ?? url;
+  }
+
+  /**
+   * Returns the raw query string, without the leading `?`.
+   *
+   * Companion to `getPath()`, which strips it. Signed separately so a REST request's
+   * filters are covered — `getPath()` alone would sign `GET /people?search=salt` as
+   * though the filter were not there.
+   */
+  getQuery(): string {
+    const url = this.request.url ?? '';
+    const index = url.indexOf('?');
+    return index === -1 ? '' : url.slice(index + 1);
+  }
+
+  /**
+   * Returns the raw request body, as `fastify-raw-body` leaves it.
+   *
+   * Read structurally rather than through a module augmentation: that plugin is the
+   * consuming server's dependency, not this SDK's, and declaring `rawBody` here
+   * would collide with the plugin's own declaration the moment the two drift.
+   *
+   * A server that has not registered it yields `undefined`, which hashes as an empty
+   * body and therefore fails any signature made over real bytes — refused, never
+   * waved through.
+   */
+  getRawBody(): string | Buffer | undefined {
+    return (this.request as unknown as { rawBody?: string | Buffer }).rawBody;
+  }
 }
