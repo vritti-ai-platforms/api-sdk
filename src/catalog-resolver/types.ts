@@ -27,6 +27,9 @@ export interface SnapshotPermission {
   isGlobal: boolean;
   businesses: string[];
   dependsOn: string[];
+  // Optional: snapshots written before schema v3 carry no group — consumers fall back to 'other'/'Other'
+  group?: string;
+  groupLabel?: string;
 }
 export interface SnapshotMicrofrontendWeb {
   code: string;
@@ -122,7 +125,7 @@ export function snapshotFeatureKey(code: string, scope: ScopeType): string {
   return `${scope}.${code}`;
 }
 
-export const SNAPSHOT_SCHEMA_VERSION = 2;
+export const SNAPSHOT_SCHEMA_VERSION = 3;
 
 // SERVICE = the org has not provisioned an external service the feature declares; the specific services are
 // reported alongside in `missingServices` so callers never branch on a service code baked into this union

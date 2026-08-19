@@ -21,7 +21,7 @@ const snapshot: VersionSnapshot = {
       scope: 'SITE',
       applicableSiteTypes: ['OUTLET'],
       permissions: [
-        { code: 'sales.view', label: 'View', isGlobal: true, businesses: [], dependsOn: [] },
+        { code: 'sales.view', label: 'View', isGlobal: true, businesses: [], dependsOn: [], group: 'view', groupLabel: 'View' },
         { code: 'sales.create', label: 'Create', isGlobal: true, businesses: [], dependsOn: [] },
       ],
       microfrontends: {
@@ -206,6 +206,22 @@ describe('buildSiteMatrix', () => {
     // Every emitted SITE feature carries scope 'SITE'
     assert.equal(findFeature(matrix, 'sales')?.scope, 'SITE');
     assert.equal(findFeature(matrix, 'reports')?.scope, 'SITE');
+  });
+});
+
+describe('permission groups', () => {
+  it('carries an explicit group through to the matrix', () => {
+    const matrix = buildPlanMatrix(snapshot, 'RETAIL', 'PRO', undefined);
+    const perm = findPerm(matrix, 'sales', 'sales.view');
+    assert.equal(perm.group, 'view');
+    assert.equal(perm.groupLabel, 'View');
+  });
+
+  it('falls back to other/Other for pre-v3 snapshots with no group', () => {
+    const matrix = buildPlanMatrix(snapshot, 'RETAIL', 'PRO', undefined);
+    const perm = findPerm(matrix, 'sales', 'sales.create');
+    assert.equal(perm.group, 'other');
+    assert.equal(perm.groupLabel, 'Other');
   });
 });
 
