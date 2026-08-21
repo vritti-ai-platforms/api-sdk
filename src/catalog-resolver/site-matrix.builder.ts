@@ -1,13 +1,15 @@
-import { featureAppliesAtNode, isPlanMember, isSiteLockedOnPlatform } from './catalog.builder';
+import { featureAppliesAtNode, isPlanMember, isSiteLockedOnPlatform, normalizeApiBuckets } from './catalog.builder';
 import {
-  PLATFORMS,
-  UI_PLATFORMS,
+  API_BUCKETS,
+  type ApiSurface,
   type PlatformBucket,
   type ScopeType,
   type SiteFeatureLocks,
   type SiteType,
   type SnapshotPlan,
+  SURFACE_BY_BUCKET,
   snapshotFeatureKey,
+  UI_PLATFORMS,
   type VersionSnapshot,
 } from './types';
 
@@ -23,7 +25,8 @@ export interface SiteMatrixPermission {
   dependsOn: string[];
   web: SiteMatrixCell | null;
   mobile: SiteMatrixCell | null;
-  app: SiteMatrixCell | null;
+  graphql: SiteMatrixCell | null;
+  http: SiteMatrixCell | null;
 }
 
 export interface SiteMatrixFeature {
@@ -35,6 +38,9 @@ export interface SiteMatrixFeature {
   platforms: PlatformBucket[];
   inPlan: boolean;
   availableIn: string[];
+  // The API surfaces the feature declares — what lets the app-credential editor filter by the
+  // credential's type. Absent on pre-flag snapshots, which reads as "any surface".
+  apiSurfaces?: ApiSurface[];
   permissions: SiteMatrixPermission[];
 }
 
@@ -84,10 +90,17 @@ function buildMatrix(
   siteType?: SiteType,
 ): SiteMatrix {
   const business = businessCode ? snapshot.businesses?.[businessCode] : undefined;
-  const plans = business?.plans ?? {};
+  // Legacy `app` buckets in stored documents read as both API surfaces — see normalizeApiBuckets
+  const plans = Object.fromEntries(
+    Object.entries(business?.plans ?? {}).map(([code, p]) => [
+      code,
+      { ...p, unlockedPermissions: normalizeApiBuckets(p.unlockedPermissions) ?? {} },
+    ]),
+  );
   const plan = planCode ? plans[planCode] : undefined;
   const planMeta = { code: planCode ?? '', name: plan?.name ?? planCode ?? '' };
-  const locks = siteLocks ?? {};
+  const normalizedLocks = normalizeApiBuckets(siteLocks);
+  const locks = normalizedLocks ?? {};
   if (!business || !plan) return { plan: planMeta, apps: [], locks };
 
   const apps: SiteMatrixApp[] = [];
@@ -102,17 +115,20 @@ function buildMatrix(
       const feature = snapshot.features?.[snapshotFeatureKey(code, ref.scope)];
       if (!feature) continue;
       if (siteType !== undefined && !featureAppliesAtNode(feature.applicableSiteTypes, siteType)) continue;
-      // A UI bucket is offered only where the feature publishes a microfrontend; `app` is offered
-      // always, because an API client has nothing to load. So a headless feature still yields one
-      // platform and must not be skipped.
+      // A UI bucket is offered only where the feature publishes a microfrontend; each API bucket is
+      // offered where the feature declares its surface. An undeclared list (pre-flag snapshot) keeps
+      // the old always-offered behaviour on both; an undeclared surface shows an em dash like a
+      // missing microfrontend does.
       const platforms: PlatformBucket[] = [
         ...UI_PLATFORMS.filter((p) => !!feature.microfrontends?.[p]),
-        'app',
+        ...API_BUCKETS.filter(
+          (b) => feature.apiSurfaces === undefined || feature.apiSurfaces.includes(SURFACE_BY_BUCKET[b]),
+        ),
       ];
 
       const membership = plan.unlockedPermissions?.[code];
       const featureInPlan = isPlanMember(membership);
-      const siteEntry = siteLocks?.[code];
+      const siteEntry = normalizedLocks?.[code];
 
       const permissions: SiteMatrixPermission[] = (feature.permissions ?? [])
         .filter((p) => p.isGlobal || p.businesses.includes(businessCode ?? ''))
@@ -134,7 +150,8 @@ function buildMatrix(
             dependsOn: p.dependsOn ?? [],
             web: cell('web'),
             mobile: cell('mobile'),
-            app: cell('app'),
+            graphql: cell('graphql'),
+            http: cell('http'),
           };
         });
 
@@ -147,6 +164,7 @@ function buildMatrix(
         platforms,
         inPlan: featureInPlan,
         availableIn: featureInPlan ? [] : plansIncludingFeature(plans, code, planCode),
+        apiSurfaces: feature.apiSurfaces,
         permissions,
       });
     }

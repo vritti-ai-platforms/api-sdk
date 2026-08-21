@@ -510,7 +510,7 @@ describe('resolveUserFeatures', () => {
     );
   });
 
-  describe('the app bucket', () => {
+  describe('the API buckets', () => {
     // A webhook feed or a signed API surface: real permissions, nothing to render.
     const headless: SnapshotFeature = {
       code: 'feeds',
@@ -528,6 +528,10 @@ describe('resolveUserFeatures', () => {
       microfrontends: {},
     };
 
+    const planWith = (unlocked: object): VersionSnapshot['businesses'][string]['plans'] => ({
+      PRO: { code: 'PRO', name: 'Pro', isCustom: false, maxSites: null, unlockedPermissions: unlocked as never },
+    });
+
     const headlessSnapshot: VersionSnapshot = {
       features: { 'ORG.feeds': headless },
       businesses: {
@@ -535,15 +539,15 @@ describe('resolveUserFeatures', () => {
           name: 'Retail',
           roleTemplates: {},
           apps: [
-            { code: 'integrations', name: 'Integrations', icon: 'plug', sortOrder: 1,
-              features: [{ code: 'feeds', scope: 'ORG' }] },
-          ],
-          plans: {
-            PRO: {
-              code: 'PRO', name: 'Pro', isCustom: false, maxSites: null,
-              unlockedPermissions: { feeds: { app: ['view', 'add'] } },
+            {
+              code: 'integrations',
+              name: 'Integrations',
+              icon: 'plug',
+              sortOrder: 1,
+              features: [{ code: 'feeds', scope: 'ORG' }],
             },
-          },
+          ],
+          plans: planWith({ feeds: { graphql: ['view', 'add'], http: ['view', 'add'] } }),
         },
       },
     };
@@ -556,15 +560,17 @@ describe('resolveUserFeatures', () => {
       scope: 'ORG' as const,
     };
 
-    it('resolves a feature that ships no microfrontend', () => {
-      const features = resolveUserFeatures({
-        ...params,
-        roleFeatures: { feeds: { app: ['view', 'add'] } },
-        platform: 'app',
-      });
-      assert.equal(features.length, 1);
-      assert.deepEqual(must(features[0]).permissions.sort(), ['add', 'view']);
-      assert.equal(must(features[0]).locked, false);
+    it('resolves a feature that ships no microfrontend, on each API bucket', () => {
+      for (const platform of ['graphql', 'http'] as const) {
+        const features = resolveUserFeatures({
+          ...params,
+          roleFeatures: { feeds: { [platform]: ['view', 'add'] } },
+          platform,
+        });
+        assert.equal(features.length, 1);
+        assert.deepEqual(must(features[0]).permissions.sort(), ['add', 'view']);
+        assert.equal(must(features[0]).locked, false);
+      }
     });
 
     it('still drops that feature for a UI bucket, which has nothing to load', () => {
@@ -576,40 +582,142 @@ describe('resolveUserFeatures', () => {
       assert.deepEqual(features, []);
     });
 
-    it('reads only the app array — a web grant does not carry over', () => {
+    it('reads only its own bucket — an http grant does not satisfy a graphql caller', () => {
       const features = resolveUserFeatures({
         ...params,
-        roleFeatures: { feeds: { web: ['view', 'add'] } },
-        platform: 'app',
+        roleFeatures: { feeds: { http: ['view', 'add'] } },
+        platform: 'graphql',
       });
       assert.deepEqual(features, []);
     });
 
-    it('is bounded by what the plan unlocks on app, not on web', () => {
-      const webOnlyPlan: VersionSnapshot = {
+    it('is bounded by what the plan unlocks per surface, not by the sibling surface', () => {
+      const graphqlOnlyPlan: VersionSnapshot = {
         ...headlessSnapshot,
         businesses: {
           RETAIL: {
             ...must(headlessSnapshot.businesses.RETAIL),
-            plans: {
-              PRO: {
-                code: 'PRO', name: 'Pro', isCustom: false, maxSites: null,
-                // Everything unlocked for the browser, nothing for API clients
-                unlockedPermissions: { feeds: { web: ['view', 'add'] } },
-              },
-            },
+            // Everything unlocked for GraphQL clients, nothing for HTTP ones
+            plans: planWith({ feeds: { graphql: ['view', 'add'] } }),
           },
         },
       };
       const features = resolveUserFeatures({
         ...params,
-        snapshot: webOnlyPlan,
-        roleFeatures: { feeds: { app: ['view', 'add'] } },
-        platform: 'app',
+        snapshot: graphqlOnlyPlan,
+        roleFeatures: { feeds: { http: ['view', 'add'] } },
+        platform: 'http',
       });
       // Granted, but the plan does not entitle it on this surface — surfaced locked, not enabled
       assert.equal(features.length, 1);
       assert.equal(must(features[0]).locked, true);
+    });
+
+    // The feature's declared API surfaces decide which buckets it exists on at all.
+    describe('declared surfaces gate the buckets', () => {
+      const withSurfaces = (apiSurfaces: SnapshotFeature['apiSurfaces']): VersionSnapshot => ({
+        ...headlessSnapshot,
+        features: { 'ORG.feeds': { ...headless, apiSurfaces } },
+      });
+
+      it('admits a caller whose surface the feature declares', () => {
+        const features = resolveUserFeatures({
+          ...params,
+          snapshot: withSurfaces(['GRAPHQL']),
+          roleFeatures: { feeds: { graphql: ['view', 'add'] } },
+          platform: 'graphql',
+        });
+        assert.equal(features.length, 1);
+        assert.equal(must(features[0]).locked, false);
+      });
+
+      it('drops the feature entirely on an undeclared surface', () => {
+        const features = resolveUserFeatures({
+          ...params,
+          snapshot: withSurfaces(['GRAPHQL']),
+          roleFeatures: { feeds: { http: ['view', 'add'] } },
+          platform: 'http',
+        });
+        assert.deepEqual(features, []);
+      });
+
+      it('a declared empty list admits neither surface — strict, not lenient', () => {
+        for (const platform of ['graphql', 'http'] as const) {
+          const features = resolveUserFeatures({
+            ...params,
+            snapshot: withSurfaces([]),
+            roleFeatures: { feeds: { [platform]: ['view', 'add'] } },
+            platform,
+          });
+          assert.deepEqual(features, []);
+        }
+      });
+
+      it('a pre-flag snapshot (no apiSurfaces field) admits both surfaces', () => {
+        for (const platform of ['graphql', 'http'] as const) {
+          const features = resolveUserFeatures({
+            ...params,
+            snapshot: withSurfaces(undefined),
+            roleFeatures: { feeds: { [platform]: ['view', 'add'] } },
+            platform,
+          });
+          assert.equal(features.length, 1);
+        }
+      });
+    });
+
+    // Documents written before the split carry one `app` bucket meaning "any API surface".
+    describe('legacy app-bucket documents', () => {
+      const legacySnapshot: VersionSnapshot = {
+        ...headlessSnapshot,
+        businesses: {
+          RETAIL: {
+            ...must(headlessSnapshot.businesses.RETAIL),
+            plans: planWith({ feeds: { app: ['view', 'add'] } }),
+          },
+        },
+      };
+
+      it('a legacy plan entitlement and grant resolve on both surfaces', () => {
+        for (const platform of ['graphql', 'http'] as const) {
+          const features = resolveUserFeatures({
+            ...params,
+            snapshot: legacySnapshot,
+            // Pre-split shape — inexpressible in the public types on purpose, hence the cast
+            roleFeatures: { feeds: { app: ['view', 'add'] } } as never,
+            platform,
+          });
+          assert.equal(features.length, 1);
+          assert.equal(must(features[0]).locked, false);
+          assert.deepEqual(must(features[0]).permissions.sort(), ['add', 'view']);
+        }
+      });
+
+      it('a surface bucket present alongside the legacy one wins for its own surface', () => {
+        const features = resolveUserFeatures({
+          ...params,
+          snapshot: legacySnapshot,
+          roleFeatures: { feeds: { app: ['view', 'add'], graphql: ['view'] } } as never,
+          platform: 'graphql',
+        });
+        assert.equal(features.length, 1);
+        assert.deepEqual(must(features[0]).permissions, ['view']);
+      });
+
+      it('a legacy app lock fails closed on both surfaces', () => {
+        for (const platform of ['graphql', 'http'] as const) {
+          const features = resolveUserFeatures({
+            ...params,
+            snapshot: legacySnapshot,
+            siteLocks: { feeds: { app: null } } as never,
+            roleFeatures: { feeds: { app: ['view', 'add'] } } as never,
+            platform,
+          });
+          assert.equal(features.length, 1);
+          assert.equal(must(features[0]).locked, true);
+          assert.equal(must(features[0]).lockReason, 'SITE');
+        }
+      });
     });
   });
 });

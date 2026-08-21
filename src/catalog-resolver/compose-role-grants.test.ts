@@ -103,4 +103,16 @@ describe('composeRoleGrants', () => {
 
     assert.deepEqual(result, { sales: { web: [], mobile: [] } });
   });
+
+  // Regression: the survival check once named web/mobile, silently dropping a grant
+  // that lived only on an API bucket.
+  it('keeps a feature whose only surviving membership is an API bucket', () => {
+    const result = composeRoleGrants({
+      baseFeatures: { feeds: { graphql: ['view'] } },
+      additions: { feeds: { http: ['view', 'add'] } },
+      revoked: undefined,
+    });
+
+    assert.deepEqual(result, { feeds: { graphql: ['view'], http: ['view', 'add'] } });
+  });
 });

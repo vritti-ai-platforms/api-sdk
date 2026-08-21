@@ -1,4 +1,4 @@
-import { buildSiteCatalog, findFeatureByCode } from './catalog.builder';
+import { buildSiteCatalog, findFeatureByCode, normalizeApiBuckets } from './catalog.builder';
 import { buildDependsMap, filterGrantedByDeps } from './permission-deps';
 import type {
   FeatureUnlocks,
@@ -10,22 +10,32 @@ import type {
   SiteType,
   VersionSnapshot,
 } from './types';
-import { snapshotFeatureKey } from './types';
+import { isApiBucket, snapshotFeatureKey } from './types';
 
 /**
  * The caller's surface, as the caller reports it.
  *
  * Finer than `PlatformBucket` on the mobile side — `ios` and `android` load different remote
- * entries but share one grant bucket. `app` is one-to-one with its bucket: an API client has no
- * variants because it has no UI.
+ * entries but share one grant bucket. The API platforms are one-to-one with their buckets: an
+ * API client has no variants because it has no UI.
  */
-export type ClientPlatform = 'web' | 'ios' | 'android' | 'app';
+export type ClientPlatform = 'web' | 'ios' | 'android' | 'graphql' | 'http';
+
+// Exhaustive by type, so adding a ClientPlatform without deciding its bucket fails the build instead
+// of silently falling through to mobile — which is how an API caller would end up resolving a UI bucket.
+const BUCKET_BY_CLIENT: Record<ClientPlatform, PlatformBucket> = {
+  web: 'web',
+  ios: 'mobile',
+  android: 'mobile',
+  graphql: 'graphql',
+  http: 'http',
+};
 
 /**
  * Stands in for the microfrontend an API client does not load.
  *
  * `PermissionFeature.route` is non-optional and read by the web sidebar and the mobile host to
- * mount a remote. Nothing on the app path reads it — the permission interceptor uses `code`,
+ * mount a remote. Nothing on the API paths reads it — the permission interceptor uses `code`,
  * `permissions` and `locked` — so an empty route keeps one shape for every bucket instead of
  * widening the field to null across every consumer.
  */
@@ -83,12 +93,14 @@ export interface ResolveUserFeaturesParams {
 
 // Resolves the features + MF config a user sees at a BU: plan ∧ BU catalog intersected with the role's grants, filtered to the requested platform
 export function resolveUserFeatures(params: ResolveUserFeaturesParams): PermissionFeature[] {
-  const { snapshot, businessCode, planCode, siteLocks, roleFeatures, platform, siteType, scope, availableServices } =
-    params;
+  const { snapshot, businessCode, planCode, siteLocks, platform, siteType, scope, availableServices } = params;
 
   // Plan unlocks, BU locks, and role grants are stored per platform; resolve only the requesting
-  // surface's bucket (web → 'web'; ios/android → 'mobile'; app → 'app')
-  const bucket: PlatformBucket = platform === 'web' ? 'web' : platform === 'app' ? 'app' : 'mobile';
+  // surface's bucket (web → web; ios/android → mobile; graphql/http → themselves)
+  const bucket: PlatformBucket = BUCKET_BY_CLIENT[platform];
+
+  // Legacy `app` buckets in stored grants read as both API surfaces — see normalizeApiBuckets
+  const roleFeatures = normalizeApiBuckets(params.roleFeatures) ?? {};
 
   // Grants/plans/locks key features by bare code; resolve to the workspace scope's variant (or any variant when unscoped)
   const featureByCode = (code: string) =>
@@ -107,8 +119,14 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
   );
   const catalogMap = new Map(catalog.map((f) => [f.code, f]));
 
-  // Per-plan feature-name delta vs the current plan — feeds the plan-locked upsell screen
-  const businessPlans = snapshot.businesses[businessCode]?.plans ?? {};
+  // Per-plan feature-name delta vs the current plan — feeds the plan-locked upsell screen.
+  // Normalized so a legacy plan document's `app` entitlement still counts for either API bucket.
+  const businessPlans = Object.fromEntries(
+    Object.entries(snapshot.businesses[businessCode]?.plans ?? {}).map(([code, plan]) => [
+      code,
+      { ...plan, unlockedPermissions: normalizeApiBuckets(plan.unlockedPermissions) ?? {} },
+    ]),
+  );
   const currentUnlockedCodes = new Set<string>();
   if (planCode && businessPlans[planCode]) {
     for (const [featureCode, platforms] of Object.entries(businessPlans[planCode].unlockedPermissions ?? {})) {
@@ -146,7 +164,7 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
     // A UI bucket reaches its feature by loading a microfrontend, so a feature not published to
     // this platform is omitted rather than handed over as an unloadable tile. An API client loads
     // nothing — requiring a route there would make every headless feature permanently ungrantable.
-    const route = bucket === 'app' ? EMPTY_ROUTE : pickRouteForPlatform(catalogEntry, platform);
+    const route = isApiBucket(bucket) ? EMPTY_ROUTE : pickRouteForPlatform(catalogEntry, platform);
     if (!route) continue;
 
     // Drop granted permissions whose intra-feature prerequisites aren't also granted (e.g. add needs view)
@@ -220,6 +238,9 @@ export function pickRouteForPlatform(
   },
   platform: ClientPlatform,
 ): { remoteEntry: string; exposedModule: string; routePrefix: string } | null {
+  // API platforms load nothing — resolveUserFeatures never routes them here, and answering with the
+  // web block for an unhandled value would hand an API caller a remote it cannot mount
+  if (platform === 'graphql' || platform === 'http') return null;
   if (platform === 'ios' || platform === 'android') {
     if (!entry.mobile) return null;
     return {

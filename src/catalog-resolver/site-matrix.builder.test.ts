@@ -230,4 +230,72 @@ describe('buildPlanMatrix', () => {
     // catalog is web-only — no mobile cell
     assert.equal(findPerm(matrix, 'catalog', 'catalog.view').mobile, null);
   });
+
+  // Regression: plan membership once checked only web/mobile, so an API-only entitlement —
+  // exactly the headless case the API buckets exist for — read as not-in-plan.
+  it('an API-only plan entitlement still makes the feature a plan member', () => {
+    const apiOnlyPlan: VersionSnapshot = JSON.parse(JSON.stringify(snapshot));
+    const plan = apiOnlyPlan.businesses.RETAIL?.plans.PRO;
+    assert.ok(plan);
+    plan.unlockedPermissions.reports = { graphql: ['reports.view'] };
+
+    const matrix = buildPlanMatrix(apiOnlyPlan, 'RETAIL', 'PRO', undefined);
+    const reports = findFeature(matrix, 'reports');
+    assert.equal(reports?.inPlan, true);
+    assert.deepEqual(findPerm(matrix, 'reports', 'reports.view').graphql, {
+      inPlan: true,
+      selected: true,
+      availableIn: [],
+    });
+    // The sibling surface is offered but not entitled
+    assert.equal(findPerm(matrix, 'reports', 'reports.view').http?.inPlan, false);
+  });
+
+  // Documents written before the split carry one `app` bucket meaning "any API surface"
+  it('a legacy app-bucket entitlement reads as in-plan on both surfaces', () => {
+    const legacyPlan: VersionSnapshot = JSON.parse(JSON.stringify(snapshot));
+    const plan = legacyPlan.businesses.RETAIL?.plans.PRO;
+    assert.ok(plan);
+    plan.unlockedPermissions.reports = { app: ['reports.view'] } as never;
+
+    const matrix = buildPlanMatrix(legacyPlan, 'RETAIL', 'PRO', undefined);
+    assert.equal(findFeature(matrix, 'reports')?.inPlan, true);
+    assert.equal(findPerm(matrix, 'reports', 'reports.view').graphql?.inPlan, true);
+    assert.equal(findPerm(matrix, 'reports', 'reports.view').http?.inPlan, true);
+  });
+
+  describe('the API columns follow the declared surfaces', () => {
+    const withSurfaces = (apiSurfaces: ('GRAPHQL' | 'HTTP')[] | undefined): VersionSnapshot => {
+      const next: VersionSnapshot = JSON.parse(JSON.stringify(snapshot));
+      const reports = next.features['SITE.reports'];
+      assert.ok(reports);
+      if (apiSurfaces === undefined) delete reports.apiSurfaces;
+      else reports.apiSurfaces = apiSurfaces;
+      return next;
+    };
+
+    it('each declared surface gets its own column; undeclared shows none', () => {
+      const matrix = buildPlanMatrix(withSurfaces(['GRAPHQL']), 'RETAIL', 'PRO', undefined);
+      const reports = findFeature(matrix, 'reports');
+      assert.ok(reports?.platforms.includes('graphql'));
+      assert.equal(reports?.platforms.includes('http'), false);
+      assert.equal(findPerm(matrix, 'reports', 'reports.view').http, null);
+      assert.deepEqual(reports?.apiSurfaces, ['GRAPHQL']);
+    });
+
+    it('withheld from both columns when the feature declares no surface at all', () => {
+      const matrix = buildPlanMatrix(withSurfaces([]), 'RETAIL', 'PRO', undefined);
+      const reports = findFeature(matrix, 'reports');
+      assert.equal(reports?.platforms.includes('graphql'), false);
+      assert.equal(reports?.platforms.includes('http'), false);
+      assert.equal(findPerm(matrix, 'reports', 'reports.view').graphql, null);
+    });
+
+    it('kept on both columns for a pre-flag snapshot that never declared surfaces', () => {
+      const matrix = buildPlanMatrix(withSurfaces(undefined), 'RETAIL', 'PRO', undefined);
+      const reports = findFeature(matrix, 'reports');
+      assert.ok(reports?.platforms.includes('graphql'));
+      assert.ok(reports?.platforms.includes('http'));
+    });
+  });
 });

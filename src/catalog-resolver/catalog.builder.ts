@@ -1,10 +1,12 @@
 import { buildDependsMap, cascadeLocked, prereqClosure } from './permission-deps';
 import type {
+  ApiSurface,
   CatalogPermission,
   FeatureCatalogEntry,
   LockReason,
   PlatformBucket,
   PlatformCodes,
+  PlatformDenyCodes,
   RoleItem,
   ScopeType,
   ServiceCode,
@@ -14,7 +16,55 @@ import type {
   SnapshotPlan,
   VersionSnapshot,
 } from './types';
-import { snapshotFeatureKey } from './types';
+import { isApiBucket, PLATFORMS, SURFACE_BY_BUCKET, snapshotFeatureKey } from './types';
+
+/**
+ * Copies a legacy `app` bucket into whichever of `graphql`/`http` an entry lacks.
+ *
+ * Documents written before the API surfaces were entitled separately — old snapshots, old
+ * credential grants, old deny-lists — carry one `app` bucket that meant "any API surface".
+ * Normalising at read time is what lets those documents keep working without a re-key: an
+ * `app` grant admits both surfaces, and an `app` lock fails closed on both. Entries already
+ * carrying a surface bucket keep it — the legacy value only fills gaps.
+ */
+export function normalizeApiBuckets<T extends PlatformCodes | PlatformDenyCodes>(
+  doc: Record<string, T> | undefined,
+): Record<string, T> | undefined {
+  if (!doc) return doc;
+  let changed = false;
+  const next: Record<string, T> = {};
+  for (const [code, entry] of Object.entries(doc)) {
+    // The legacy key is deliberately absent from the public shapes so nothing can write it;
+    // stored documents predating the split are the only place it still occurs.
+    const legacy = (entry as T & LegacyApiBucket).app;
+    if (legacy === undefined || (entry.graphql !== undefined && entry.http !== undefined)) {
+      next[code] = entry;
+      continue;
+    }
+    changed = true;
+    next[code] = {
+      ...entry,
+      ...(entry.graphql === undefined ? { graphql: legacy } : {}),
+      ...(entry.http === undefined ? { http: legacy } : {}),
+    };
+  }
+  return changed ? next : doc;
+}
+
+// The pre-split single API bucket, as old persisted jsonb still carries it
+type LegacyApiBucket = { app?: string[] | null };
+
+// Normalizes every plan's unlock document in one pass, so per-plan upsell lookups read legacy docs correctly too
+function normalizePlans(plans: Record<string, SnapshotPlan>): Record<string, SnapshotPlan> {
+  let changed = false;
+  const next: Record<string, SnapshotPlan> = {};
+  for (const [code, plan] of Object.entries(plans)) {
+    const unlockedPermissions = normalizeApiBuckets(plan.unlockedPermissions) ?? {};
+    if (unlockedPermissions !== plan.unlockedPermissions) changed = true;
+    next[code] = unlockedPermissions === plan.unlockedPermissions ? plan : { ...plan, unlockedPermissions };
+  }
+  return changed ? next : plans;
+}
 
 // Whether a feature with the given site-type applicability is exposed at this site type
 export function featureAppliesAtNode(applicableSiteTypes: SiteType[], siteType: SiteType): boolean {
@@ -44,8 +94,10 @@ export function buildSiteCatalog(
   if (!businessCode) return [];
   const business = snapshot.businesses?.[businessCode];
   if (!business) return [];
-  const plan = planCode ? business.plans?.[planCode] : undefined;
-  const plans = business.plans ?? {};
+  // Legacy `app` buckets in stored documents read as both API surfaces — see normalizeApiBuckets
+  const plans = normalizePlans(business.plans ?? {});
+  const plan = planCode ? plans[planCode] : undefined;
+  const locks = normalizeApiBuckets(siteLocks);
 
   const catalog: FeatureCatalogEntry[] = [];
   // Iterate apps alphabetically by name so the resolved feature list (→ core-web sidebar) is app-alphabetical without any frontend re-sort
@@ -59,9 +111,12 @@ export function buildSiteCatalog(
         (f): f is SnapshotFeature =>
           !!f &&
           // A UI bucket needs something to render, so a feature shipping no microfrontend is dropped.
-          // The `app` bucket renders nothing — dropping headless features there would make them
-          // permanently ungrantable to an API client.
-          (bucket === 'app' || !!(f.microfrontends?.web || f.microfrontends?.mobile)) &&
+          // An API bucket renders nothing — there a feature is admitted by the surfaces it declares
+          // instead, so a GRAPHQL credential never resolves an HTTP-only feature. A surface-excluded
+          // feature vanishes from the catalog entirely, which is what makes resolution fail closed.
+          (isApiBucket(bucket)
+            ? surfaceAllows(f.apiSurfaces, SURFACE_BY_BUCKET[bucket])
+            : !!(f.microfrontends?.web || f.microfrontends?.mobile)) &&
           (siteType === undefined || featureAppliesAtNode(f.applicableSiteTypes, siteType)),
       );
 
@@ -77,19 +132,11 @@ export function buildSiteCatalog(
       // Feature-level lock is EXPLICIT: plan must include the feature on this bucket, the site must not null-lock
       // the platform, and every external service the feature declares must be provisioned for the org
       const memberOnBucket = membership?.[bucket] !== undefined;
-      const sitePlatformLocked = siteLocks?.[feature.code]?.[bucket] === null;
+      const sitePlatformLocked = locks?.[feature.code]?.[bucket] === null;
       const missingServices = unmetServices(feature, availableServices);
       // Unmet services lock every permission too — otherwise the feature reads locked while its actions still
       // report as available, which is not how plan and site locks behave
-      const permissions = buildPermissions(
-        feature,
-        businessCode,
-        membership,
-        siteLocks,
-        plans,
-        bucket,
-        missingServices,
-      );
+      const permissions = buildPermissions(feature, businessCode, membership, locks, plans, bucket, missingServices);
       const lockReason = resolveLockReason(!memberOnBucket, sitePlatformLocked, missingServices);
       const locked = lockReason !== null;
       const unlockPlans = lockReason === 'PLAN' ? plansIncludingFeature(plans, feature.code, bucket) : [];
@@ -130,9 +177,23 @@ export function buildSiteCatalog(
   return catalog;
 }
 
-// A feature is a plan member when its unlock entry exists on at least one platform (even with zero actions)
+// A feature is a plan member when its unlock entry exists on at least one platform (even with zero actions).
+// Iterates PLATFORMS plus the legacy `app` key, so a caller handing over an un-normalized document
+// still reads a legacy API entitlement as membership.
 export function isPlanMember(entry: PlatformCodes | undefined): boolean {
-  return !!entry && (entry.web !== undefined || entry.mobile !== undefined);
+  if (!entry) return false;
+  return PLATFORMS.some((platform) => entry[platform] !== undefined) || (entry as LegacyApiBucket).app !== undefined;
+}
+
+/**
+ * Whether a feature's declared API surfaces admit a caller's surface.
+ *
+ * Lenient on either side being unknown: a pre-flag snapshot declares nothing (`undefined`), and a
+ * caller resolving without a surface (cloud's matrix builders, UI buckets) filters nothing. Strictness
+ * comes from both sides being present — including a declared `[]`, which admits no surface at all.
+ */
+export function surfaceAllows(surfaces: ApiSurface[] | undefined, surface: ApiSurface | undefined): boolean {
+  return surface === undefined || surfaces === undefined || surfaces.includes(surface);
 }
 
 // The one place lock precedence is decided, for features and permissions alike; null means nothing locks.

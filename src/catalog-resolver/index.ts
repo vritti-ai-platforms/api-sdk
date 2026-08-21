@@ -7,6 +7,8 @@ export {
   findFeatureByCode,
   isPlanMember,
   isSiteLockedOnPlatform,
+  normalizeApiBuckets,
+  surfaceAllows,
 } from './catalog.builder';
 export { type ComposeRoleGrantsParams, composeRoleGrants, type RevokedGrants } from './compose-role-grants';
 export {
@@ -34,11 +36,17 @@ export {
   type SiteMatrixPermission,
 } from './site-matrix.builder';
 export {
+  API_BUCKETS,
+  API_SURFACES,
+  type ApiBucket,
+  type ApiSurface,
+  BUCKET_BY_SURFACE,
   type BusinessVocabulary,
   type CatalogPermission,
   type FeatureCatalogEntry,
   type FeatureLocks,
   type FeatureUnlocks,
+  isApiBucket,
   type LockReason,
   PLATFORMS,
   type PlatformBucket,
@@ -62,7 +70,10 @@ export {
   type SnapshotPermission,
   type SnapshotPlan,
   type SnapshotRoleTemplate,
+  SURFACE_BY_BUCKET,
   snapshotFeatureKey,
+  UI_PLATFORMS,
+  type UiPlatformBucket,
   type VersionSnapshot,
   type VocabularyEntry,
 } from './types';

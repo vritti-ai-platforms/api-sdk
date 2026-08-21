@@ -36,8 +36,10 @@ export function composeRoleGrants(params: ComposeRoleGrantsParams): FeatureUnloc
       composed[bucket] = revoke === undefined ? merged : merged.filter((c) => !revoke.includes(c));
     }
 
-    // A feature with no surviving platform membership disappears from the effective set
-    if (composed.web === undefined && composed.mobile === undefined) continue;
+    // A feature with no surviving platform membership disappears from the effective set.
+    // Iterates PLATFORMS rather than naming buckets — the web/mobile-only version silently
+    // dropped a grant surviving only on an API bucket.
+    if (PLATFORMS.every((bucket) => composed[bucket] === undefined)) continue;
     result[code] = composed;
   }
 
