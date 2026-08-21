@@ -12,7 +12,24 @@ import type {
 } from './types';
 import { snapshotFeatureKey } from './types';
 
-export type ClientPlatform = 'web' | 'ios' | 'android';
+/**
+ * The caller's surface, as the caller reports it.
+ *
+ * Finer than `PlatformBucket` on the mobile side — `ios` and `android` load different remote
+ * entries but share one grant bucket. `app` is one-to-one with its bucket: an API client has no
+ * variants because it has no UI.
+ */
+export type ClientPlatform = 'web' | 'ios' | 'android' | 'app';
+
+/**
+ * Stands in for the microfrontend an API client does not load.
+ *
+ * `PermissionFeature.route` is non-optional and read by the web sidebar and the mobile host to
+ * mount a remote. Nothing on the app path reads it — the permission interceptor uses `code`,
+ * `permissions` and `locked` — so an empty route keeps one shape for every bucket instead of
+ * widening the field to null across every consumer.
+ */
+const EMPTY_ROUTE = { remoteEntry: '', exposedModule: '', routePrefix: '' };
 
 export interface LockedPermission {
   code: string;
@@ -69,8 +86,9 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
   const { snapshot, businessCode, planCode, siteLocks, roleFeatures, platform, siteType, scope, availableServices } =
     params;
 
-  // Plan unlocks, BU locks, and role grants are stored per platform; resolve only the requesting surface's bucket (web → 'web'; ios/android → 'mobile')
-  const bucket: PlatformBucket = platform === 'web' ? 'web' : 'mobile';
+  // Plan unlocks, BU locks, and role grants are stored per platform; resolve only the requesting
+  // surface's bucket (web → 'web'; ios/android → 'mobile'; app → 'app')
+  const bucket: PlatformBucket = platform === 'web' ? 'web' : platform === 'app' ? 'app' : 'mobile';
 
   // Grants/plans/locks key features by bare code; resolve to the workspace scope's variant (or any variant when unscoped)
   const featureByCode = (code: string) =>
@@ -125,8 +143,10 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
     const catalogEntry = catalogMap.get(code);
     if (!catalogEntry) continue;
 
-    const route = pickRouteForPlatform(catalogEntry, platform);
-    // Feature isn't published to this platform — omit so client doesn't see an unloadable tile.
+    // A UI bucket reaches its feature by loading a microfrontend, so a feature not published to
+    // this platform is omitted rather than handed over as an unloadable tile. An API client loads
+    // nothing — requiring a route there would make every headless feature permanently ungrantable.
+    const route = bucket === 'app' ? EMPTY_ROUTE : pickRouteForPlatform(catalogEntry, platform);
     if (!route) continue;
 
     // Drop granted permissions whose intra-feature prerequisites aren't also granted (e.g. add needs view)

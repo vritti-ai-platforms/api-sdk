@@ -1,17 +1,35 @@
-// ——— Platform algebra — plan unlocks, role grants, and BU locks are all stored per UI platform bucket ———
+// ——— Platform algebra — plan unlocks, role grants, and BU locks are all stored per platform bucket ———
 
-export type PlatformBucket = 'web' | 'mobile';
+/**
+ * The surfaces a permission can be granted on.
+ *
+ * `web` and `mobile` are UI buckets: a feature reaches them through a microfrontend, and a grant
+ * there means a person can operate it on that surface. `app` is not a UI at all — it is an API
+ * client signing its own requests, so it has no microfrontend and no route, and a feature needs
+ * neither to be reachable by one.
+ *
+ * Keeping `app` in the same algebra rather than beside it is what lets plan entitlement, node
+ * feature locks and permission prerequisites bind an API client exactly as they bind a person.
+ */
+export type PlatformBucket = 'web' | 'mobile' | 'app';
 
-export const PLATFORMS: PlatformBucket[] = ['web', 'mobile'];
+export const PLATFORMS: PlatformBucket[] = ['web', 'mobile', 'app'];
+
+/** Buckets that reach their feature through a microfrontend, and so require one to resolve. */
+export type UiPlatformBucket = Exclude<PlatformBucket, 'app'>;
+
+export const UI_PLATFORMS: UiPlatformBucket[] = ['web', 'mobile'];
 
 export interface PlatformCodes {
   web?: string[];
   mobile?: string[];
+  app?: string[];
 }
 
 export interface PlatformDenyCodes {
   web?: string[] | null;
   mobile?: string[] | null;
+  app?: string[] | null;
 }
 
 export type FeatureUnlocks = Record<string, PlatformCodes>;

@@ -509,4 +509,107 @@ describe('resolveUserFeatures', () => {
       [['Site Inventory', 'inventory']],
     );
   });
+
+  describe('the app bucket', () => {
+    // A webhook feed or a signed API surface: real permissions, nothing to render.
+    const headless: SnapshotFeature = {
+      code: 'feeds',
+      name: 'Feeds',
+      lucideIcon: 'rss',
+      sfSymbol: 'dot.radiowaves.up.forward',
+      materialSymbol: 'rss_feed',
+      scope: 'ORG',
+      applicableSiteTypes: [],
+      permissions: [
+        { code: 'view', label: 'View', isGlobal: true, businesses: [], dependsOn: [] },
+        { code: 'add', label: 'Add', isGlobal: true, businesses: [], dependsOn: ['view'] },
+      ],
+      // No microfrontend at all — the case that was previously unreachable
+      microfrontends: {},
+    };
+
+    const headlessSnapshot: VersionSnapshot = {
+      features: { 'ORG.feeds': headless },
+      businesses: {
+        RETAIL: {
+          name: 'Retail',
+          roleTemplates: {},
+          apps: [
+            { code: 'integrations', name: 'Integrations', icon: 'plug', sortOrder: 1,
+              features: [{ code: 'feeds', scope: 'ORG' }] },
+          ],
+          plans: {
+            PRO: {
+              code: 'PRO', name: 'Pro', isCustom: false, maxSites: null,
+              unlockedPermissions: { feeds: { app: ['view', 'add'] } },
+            },
+          },
+        },
+      },
+    };
+
+    const params = {
+      snapshot: headlessSnapshot,
+      businessCode: 'RETAIL',
+      planCode: 'PRO',
+      siteLocks: undefined,
+      scope: 'ORG' as const,
+    };
+
+    it('resolves a feature that ships no microfrontend', () => {
+      const features = resolveUserFeatures({
+        ...params,
+        roleFeatures: { feeds: { app: ['view', 'add'] } },
+        platform: 'app',
+      });
+      assert.equal(features.length, 1);
+      assert.deepEqual(must(features[0]).permissions.sort(), ['add', 'view']);
+      assert.equal(must(features[0]).locked, false);
+    });
+
+    it('still drops that feature for a UI bucket, which has nothing to load', () => {
+      const features = resolveUserFeatures({
+        ...params,
+        roleFeatures: { feeds: { web: ['view'] } },
+        platform: 'web',
+      });
+      assert.deepEqual(features, []);
+    });
+
+    it('reads only the app array — a web grant does not carry over', () => {
+      const features = resolveUserFeatures({
+        ...params,
+        roleFeatures: { feeds: { web: ['view', 'add'] } },
+        platform: 'app',
+      });
+      assert.deepEqual(features, []);
+    });
+
+    it('is bounded by what the plan unlocks on app, not on web', () => {
+      const webOnlyPlan: VersionSnapshot = {
+        ...headlessSnapshot,
+        businesses: {
+          RETAIL: {
+            ...must(headlessSnapshot.businesses.RETAIL),
+            plans: {
+              PRO: {
+                code: 'PRO', name: 'Pro', isCustom: false, maxSites: null,
+                // Everything unlocked for the browser, nothing for API clients
+                unlockedPermissions: { feeds: { web: ['view', 'add'] } },
+              },
+            },
+          },
+        },
+      };
+      const features = resolveUserFeatures({
+        ...params,
+        snapshot: webOnlyPlan,
+        roleFeatures: { feeds: { app: ['view', 'add'] } },
+        platform: 'app',
+      });
+      // Granted, but the plan does not entitle it on this surface — surfaced locked, not enabled
+      assert.equal(features.length, 1);
+      assert.equal(must(features[0]).locked, true);
+    });
+  });
 });

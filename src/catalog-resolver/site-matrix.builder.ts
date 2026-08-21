@@ -1,6 +1,7 @@
 import { featureAppliesAtNode, isPlanMember, isSiteLockedOnPlatform } from './catalog.builder';
 import {
   PLATFORMS,
+  UI_PLATFORMS,
   type PlatformBucket,
   type ScopeType,
   type SiteFeatureLocks,
@@ -22,6 +23,7 @@ export interface SiteMatrixPermission {
   dependsOn: string[];
   web: SiteMatrixCell | null;
   mobile: SiteMatrixCell | null;
+  app: SiteMatrixCell | null;
 }
 
 export interface SiteMatrixFeature {
@@ -100,8 +102,13 @@ function buildMatrix(
       const feature = snapshot.features?.[snapshotFeatureKey(code, ref.scope)];
       if (!feature) continue;
       if (siteType !== undefined && !featureAppliesAtNode(feature.applicableSiteTypes, siteType)) continue;
-      const platforms = PLATFORMS.filter((p) => !!feature.microfrontends?.[p]);
-      if (platforms.length === 0) continue;
+      // A UI bucket is offered only where the feature publishes a microfrontend; `app` is offered
+      // always, because an API client has nothing to load. So a headless feature still yields one
+      // platform and must not be skipped.
+      const platforms: PlatformBucket[] = [
+        ...UI_PLATFORMS.filter((p) => !!feature.microfrontends?.[p]),
+        'app',
+      ];
 
       const membership = plan.unlockedPermissions?.[code];
       const featureInPlan = isPlanMember(membership);
@@ -127,6 +134,7 @@ function buildMatrix(
             dependsOn: p.dependsOn ?? [],
             web: cell('web'),
             mobile: cell('mobile'),
+            app: cell('app'),
           };
         });
 

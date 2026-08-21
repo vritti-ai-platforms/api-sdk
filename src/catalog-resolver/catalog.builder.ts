@@ -58,7 +58,10 @@ export function buildSiteCatalog(
       .filter(
         (f): f is SnapshotFeature =>
           !!f &&
-          !!(f.microfrontends?.web || f.microfrontends?.mobile) &&
+          // A UI bucket needs something to render, so a feature shipping no microfrontend is dropped.
+          // The `app` bucket renders nothing — dropping headless features there would make them
+          // permanently ungrantable to an API client.
+          (bucket === 'app' || !!(f.microfrontends?.web || f.microfrontends?.mobile)) &&
           (siteType === undefined || featureAppliesAtNode(f.applicableSiteTypes, siteType)),
       );
 
