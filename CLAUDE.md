@@ -42,7 +42,8 @@ Entry points are defined in `tsup.config.ts` — one per subpath in the package.
 src/
 ├── config/          # Configuration module
 ├── database/        # DatabaseModule, base repositories, shared DTOs
-├── decorators/      # Parameter decorators (UploadedFile, etc.)
+├── decorators/      # Validation/transform decorators (IsCode, Trim, IsDateTime)
+├── files/           # Multipart upload decorators (UploadedFile, UploadedFiles, MultipartDto)
 ├── exceptions/      # RFC 9457 exception classes + HttpExceptionFilter
 ├── guards/          # Auth guards
 ├── brevo/           # Email service (Brevo)

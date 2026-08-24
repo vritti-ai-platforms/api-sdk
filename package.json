@@ -1,7 +1,7 @@
 {
   "name": "@vritti/api-sdk",
   "type": "module",
-  "version": "0.3.14",
+  "version": "0.3.15",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -234,6 +234,16 @@
       "require": {
         "types": "./dist/decorators.d.cts",
         "default": "./dist/decorators.cjs"
+      }
+    },
+    "./files": {
+      "import": {
+        "types": "./dist/files.d.ts",
+        "default": "./dist/files.js"
+      },
+      "require": {
+        "types": "./dist/files.d.cts",
+        "default": "./dist/files.cjs"
       }
     },
     "./filters": {

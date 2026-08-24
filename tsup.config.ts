@@ -28,6 +28,7 @@ export default defineConfig({
     'data-table': 'src/data-table/index.ts',
     database: 'src/database/index.ts',
     decorators: 'src/decorators/index.ts',
+    files: 'src/files/index.ts',
     filters: 'src/filters/index.ts',
     logger: 'src/logger/index.ts',
     root: 'src/root/index.ts',
