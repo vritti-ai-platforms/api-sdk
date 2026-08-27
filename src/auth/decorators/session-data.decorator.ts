@@ -8,18 +8,18 @@ export interface SessionInfo {
   sessionType: string;
 }
 
-// Returns full decoded session info from request.sessionInfo (set by VrittiAuthGuard)
+// Returns the session's own claims from request.auth (set by VrittiAuthGuard). Session-only,
+// for the same reason as @UserId() — an app or cloud request has no session to describe.
 export const SessionData = createParamDecorator((_data: unknown, ctx: ExecutionContext): SessionInfo => {
-  const request = getRequestFromContext(ctx);
-  const sessionInfo = request.sessionInfo;
+  const auth = getRequestFromContext(ctx).auth;
 
-  if (!sessionInfo?.sessionId) {
-    throw new Error('Session info not found on request. Ensure route is protected by auth guard.');
+  if (auth?.kind !== 'session') {
+    throw new Error(`No session on this request (auth: ${auth?.kind ?? 'none'}). @SessionData() is session-only.`);
   }
 
   return {
-    userId: sessionInfo.userId,
-    sessionId: sessionInfo.sessionId,
-    sessionType: sessionInfo.sessionType,
+    userId: auth.userId,
+    sessionId: auth.sessionId,
+    sessionType: auth.sessionType,
   };
 });

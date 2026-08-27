@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService, type JwtSignOptions } from '@nestjs/jwt';
-import type { FastifyRequest } from 'fastify';
+import type { VrittiSessionAuth } from 'fastify';
 import '../../types/fastify-augmentation';
 import { parseExpiryToMs } from '../../utils/time.utils';
 import {
@@ -14,8 +14,9 @@ import { hashToken, verifyTokenHash } from '../utils/token-hash.util';
 
 export type { DecodedAccessToken, DecodedRefreshToken };
 
-// Session info type from Fastify augmentation
-type SessionInfo = NonNullable<FastifyRequest['sessionInfo']>;
+// The claims a session token carries. Derived from the request-side session auth minus its
+// discriminator — the guard re-adds `kind` when it decodes, so storing it would be redundant.
+type SessionInfo = Omit<VrittiSessionAuth, 'kind'>;
 
 interface TokenError extends Error {
   name: 'TokenExpiredError' | 'JsonWebTokenError' | 'NotBeforeError';

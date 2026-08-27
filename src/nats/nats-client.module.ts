@@ -42,7 +42,7 @@ export class NatsClientModule implements OnModuleDestroy {
     return clients;
   }
 
-  // Gateway mode — request-scoped, resolves context from sessionInfo via callback
+  // Gateway mode — request-scoped, resolves context from the request via callback
   static forRoot(asyncOptions: NatsRootModuleAsyncOptions): DynamicModule {
     const optionsProvider: Provider = {
       provide: NATS_MODULE_OPTIONS,

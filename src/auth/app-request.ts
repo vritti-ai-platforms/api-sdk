@@ -25,11 +25,3 @@ export { WORKSPACE_HEADER_ORDER } from '../signing/request';
  */
 export const MAX_CLOCK_SKEW_SECONDS = 300;
 
-/**
- * `sessionInfo.sessionType` for an app request.
- *
- * Not a value of any server's `session_type` enum — no session row exists. It is
- * here so anything reading `sessionType` can tell an app apart from a person
- * without a second field.
- */
-export const APP_SESSION_TYPE = 'APP';

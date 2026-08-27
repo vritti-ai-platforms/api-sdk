@@ -23,7 +23,7 @@ export class NatsClientService {
     @Inject(NATS_CLIENTS) private readonly clients: Map<string, ClientProxy>,
   ) {}
 
-  // Unwraps the GraphQL { req, reply } context wrapper so sessionInfo is visible across both transports
+  // Unwraps the GraphQL { req, reply } context wrapper so auth is visible across both transports
   private get request(): FastifyRequest {
     return resolveInjectedRequest(this.injectedRequest);
   }
@@ -38,11 +38,14 @@ export class NatsClientService {
     }
 
     if (!this.cachedContext) {
-      const sessionInfo = this.request.sessionInfo;
-      if (!sessionInfo) {
-        throw new Error('No sessionInfo on request — is the auth guard active?');
+      // The resolver takes the whole request rather than one auth field: which caller kinds
+      // exist, and what each contributes, is the consuming server's model — this side only
+      // knows that something has to produce headers.
+      const context = await this.contextResolver(this.request);
+      if (!context) {
+        throw new Error('No auth context on request — is the auth guard active for this route?');
       }
-      this.cachedContext = await this.contextResolver(sessionInfo);
+      this.cachedContext = context;
     }
 
     const headers = contextToHeaders(this.cachedContext);
@@ -52,15 +55,15 @@ export class NatsClientService {
   }
 }
 
-// Converts NatsHeaders to a NATS MsgHdrs object for NATS transport
+// Converts NatsHeaders to a NATS MsgHdrs object for NATS transport.
+//
+// Driven by the key map rather than a field-per-line, so a new context field travels the
+// moment it is added to NATS_HEADER_KEYS. Empty values are omitted — parseNatsHeaders applies
+// the same defaults on the way back, so sending a blank would just restate them.
 function contextToHeaders(ctx: NatsHeaders): import('nats').MsgHdrs {
   const hdrs = natsHeaders();
-  hdrs.set(NATS_HEADER_KEYS.ORG_ID, ctx.orgId);
-  hdrs.set(NATS_HEADER_KEYS.USER_ID, ctx.userId);
-  if (ctx.siteId) hdrs.set(NATS_HEADER_KEYS.SITE_ID, ctx.siteId);
-  if (ctx.legalEntityId) hdrs.set(NATS_HEADER_KEYS.LE_ID, ctx.legalEntityId);
-  if (ctx.siteGroupId) hdrs.set(NATS_HEADER_KEYS.SITE_GROUP_ID, ctx.siteGroupId);
-  if (ctx.siteTimezone) hdrs.set(NATS_HEADER_KEYS.SITE_TIMEZONE, ctx.siteTimezone);
-  if (ctx.siteCurrencyCode) hdrs.set(NATS_HEADER_KEYS.SITE_CURRENCY_CODE, ctx.siteCurrencyCode);
+  for (const [field, key] of Object.entries(NATS_HEADER_KEYS) as [keyof NatsHeaders, string][]) {
+    if (ctx[field]) hdrs.set(key, ctx[field]);
+  }
   return hdrs;
 }

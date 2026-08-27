@@ -8,16 +8,23 @@ export interface NatsHeaders {
   siteCurrencyCode: string;
 }
 
-// Header keys for NATS context transport
+// The single source of truth for context transport, both directions. Adding a field means
+// adding one entry here plus one on NatsHeaders — encode and parse both pick it up.
 export const NATS_HEADER_KEYS = {
-  ORG_ID: 'x-org-id',
-  USER_ID: 'x-user-id',
-  SITE_ID: 'x-site-id',
-  LE_ID: 'x-le-id',
-  SITE_GROUP_ID: 'x-sg-id',
-  SITE_TIMEZONE: 'x-site-timezone',
-  SITE_CURRENCY_CODE: 'x-site-currency-code',
-} as const;
+  orgId: 'x-org-id',
+  userId: 'x-user-id',
+  siteId: 'x-site-id',
+  legalEntityId: 'x-le-id',
+  siteGroupId: 'x-sg-id',
+  siteTimezone: 'x-site-timezone',
+  siteCurrencyCode: 'x-site-currency-code',
+} as const satisfies Record<keyof NatsHeaders, string>;
+
+// Applied when a header is absent, so a missing optional field lands on the same value the
+// producing side would have sent for "not set"
+const HEADER_FALLBACKS: Partial<Record<keyof NatsHeaders, string>> = {
+  siteTimezone: 'UTC',
+};
 
 // Reads a header value from either a plain object or a NATS MsgHdrsImpl
 function getHeader(headers: unknown, key: string): string | undefined {
@@ -30,22 +37,26 @@ function getHeader(headers: unknown, key: string): string | undefined {
   return (headers as Record<string, string>)[key];
 }
 
-// Parses NATS message headers into a NatsHeaders object — siteId is optional (empty for org-level contexts)
+/**
+ * Parses NATS message headers into a NatsHeaders object.
+ *
+ * Only `orgId` is required. It is what scopes every row the receiving service will read, so
+ * without it there is no safe way to run — the caller returns null and the interceptor decides.
+ *
+ * `userId` is deliberately NOT required. A control-plane call has no user behind it, and an
+ * earlier version rejected the whole context when it was blank — which meant the receiving
+ * service skipped RLS entirely, ran with `app.org_id` unset, and matched no rows. Losing the
+ * tenant because there was no user is a far worse failure than an empty acting principal.
+ */
 export function parseNatsHeaders(headers: unknown): NatsHeaders | null {
   if (!headers) return null;
 
-  const orgId = getHeader(headers, NATS_HEADER_KEYS.ORG_ID);
-  const userId = getHeader(headers, NATS_HEADER_KEYS.USER_ID);
+  const orgId = getHeader(headers, NATS_HEADER_KEYS.orgId);
+  if (!orgId) return null;
 
-  if (!orgId || !userId) return null;
-
-  return {
-    orgId,
-    userId,
-    siteId: getHeader(headers, NATS_HEADER_KEYS.SITE_ID) || '',
-    legalEntityId: getHeader(headers, NATS_HEADER_KEYS.LE_ID) || '',
-    siteGroupId: getHeader(headers, NATS_HEADER_KEYS.SITE_GROUP_ID) || '',
-    siteTimezone: getHeader(headers, NATS_HEADER_KEYS.SITE_TIMEZONE) || 'UTC',
-    siteCurrencyCode: getHeader(headers, NATS_HEADER_KEYS.SITE_CURRENCY_CODE) || '',
-  };
+  const parsed = {} as NatsHeaders;
+  for (const [field, key] of Object.entries(NATS_HEADER_KEYS) as [keyof NatsHeaders, string][]) {
+    parsed[field] = getHeader(headers, key) || HEADER_FALLBACKS[field] || '';
+  }
+  return parsed;
 }

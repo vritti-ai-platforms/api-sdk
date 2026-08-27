@@ -14,10 +14,8 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import '../../types/fastify-augmentation';
 import { getRequestFromContext, getResponseFromContext } from '../../context';
 import { RequestService } from '../../request/services/request.service';
-import { APP_SESSION_TYPE } from '../app-request';
 import { AUTH_CONFIG, type AuthConfig } from '../auth.config';
-import { REQUIRE_APP_KEY } from '../decorators/require-app.decorator';
-import { REQUIRE_SESSION_KEY } from '../decorators/require-session.decorator';
+import { type AuthRequirement, AuthType, REQUIRE_AUTH_KEY } from '../decorators/require.decorator';
 import { SKIP_CSRF_KEY } from '../decorators/skip-csrf.decorator';
 import { TokenService } from '../services/token.service';
 
@@ -52,51 +50,75 @@ export class VrittiAuthGuard implements CanActivate {
       this.reflector.getAllAndOverride<boolean>(SKIP_CSRF_KEY, [context.getHandler(), context.getClass()]) ||
       csrfExemptTransports.includes(context.getType<string>());
 
-    // @RequireApp() authenticates an external app by its request signature.
-    //
-    // Placed before the public check on purpose: an app endpoint is not anonymous,
-    // so it must never fall through to the @Public() branch. Returning from here
-    // also means CSRF never runs on an app request — a signed server-to-server call
-    // carries no cookie for CSRF to protect, and that holds on REST too, which a
-    // transport-level exemption would not cover.
-    const requiredAppTypes = this.reflector.getAllAndOverride<string[]>(REQUIRE_APP_KEY, [
+    // A route with no @Require() is a session route restricted to nothing — the historical
+    // default, kept so an undecorated endpoint stays authenticated rather than falling open.
+    const requirement = this.reflector.getAllAndOverride<AuthRequirement>(REQUIRE_AUTH_KEY, [
       context.getHandler(),
       context.getClass(),
-    ]);
-    if (requiredAppTypes) {
-      return this.handleAppAuth(request, requiredAppTypes, route);
-    }
+    ]) ?? { type: AuthType.Session, subtypes: [] };
 
-    // @Public() endpoints skip auth, while preserving their current CSRF behavior
-    const isPublic = this.reflector.getAllAndOverride<boolean>('isPublic', [context.getHandler(), context.getClass()]);
-    if (isPublic) {
-      if (!skipCsrf) {
-        await this.validateCsrf(request, reply);
+    switch (requirement.type) {
+      // Signed server-to-server calls return before CSRF is ever reached. Neither carries a
+      // cookie for CSRF to protect, and that holds on REST too — which a transport-level
+      // exemption would not cover.
+      case AuthType.App:
+        return this.handleAppAuth(request, requirement.subtypes, route);
+
+      case AuthType.Cloud:
+        return this.handleCloudAuth(request, route);
+
+      case AuthType.Public: {
+        if (!skipCsrf) {
+          await this.validateCsrf(request, reply);
+        }
+        this.logger.debug(`${route} — public endpoint, skipping auth`);
+        return true;
       }
-      this.logger.debug(`${route} — public endpoint, skipping auth`);
-      return true;
+
+      case AuthType.Session: {
+        // SSE authenticates via the refresh cookie — EventSource cannot send Authorization headers
+        const isSseEndpoint = this.reflector.get<boolean>(SSE_METADATA, context.getHandler());
+        if (isSseEndpoint) {
+          this.logger.debug(`${route} — SSE endpoint, authenticating via refresh cookie`);
+          return this.handleSseAuth(request, requirement.subtypes);
+        }
+
+        const sessionType = await this.handleHttpAuth(request, requirement.subtypes);
+
+        const csrfExemptSessionTypes = this.config.guard.csrfExemptSessionTypes ?? [];
+        if (!skipCsrf && !csrfExemptSessionTypes.includes(sessionType)) {
+          await this.validateCsrf(request, reply);
+        }
+
+        return true;
+      }
+    }
+  }
+
+  /**
+   * Authenticates a signed request from the control plane.
+   *
+   * Same shape as the app branch and for the same reason: verifying the signature needs a key
+   * the consuming server holds, so this delegates to `guard.onAuthenticated` and keeps only
+   * what this side can do — recognising the decorator and seeding the context.
+   *
+   * There is no subtype filter. Cloud is one caller, not a family of them.
+   */
+  private async handleCloudAuth(request: FastifyRequest, route: string): Promise<boolean> {
+    const onAuthenticated = this.config.guard.onAuthenticated;
+    if (!onAuthenticated) {
+      // Fail closed. Without the hook nothing verifies the signature, and treating the
+      // request as authenticated would leave the endpoint open to anyone who found it.
+      this.logger.error(`${route} — @Require(AuthType.Cloud) requires guard.onAuthenticated to be configured`);
+      throw new UnauthorizedException('Cloud authentication is not configured');
     }
 
-    // @RequireSession() restricts access to specific session types
-    const requiredSessionTypes = this.reflector.getAllAndOverride<string[]>(REQUIRE_SESSION_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const auth = { kind: 'cloud' } as NonNullable<FastifyRequest['auth']>;
+    request.auth = auth;
 
-    // SSE endpoints authenticate via refresh token cookie (EventSource cannot send Authorization headers)
-    const isSseEndpoint = this.reflector.get<boolean>(SSE_METADATA, context.getHandler());
-    if (isSseEndpoint) {
-      this.logger.debug(`${route} — SSE endpoint, authenticating via refresh cookie`);
-      return this.handleSseAuth(request, requiredSessionTypes);
-    }
+    await onAuthenticated(this.requestService, auth);
 
-    const sessionType = await this.handleHttpAuth(request, requiredSessionTypes);
-
-    const csrfExemptSessionTypes = this.config.guard.csrfExemptSessionTypes ?? [];
-    if (!skipCsrf && !csrfExemptSessionTypes.includes(sessionType)) {
-      await this.validateCsrf(request, reply);
-    }
-
+    this.logger.debug(`${route} — authenticated cloud request`);
     return true;
   }
 
@@ -126,15 +148,14 @@ export class VrittiAuthGuard implements CanActivate {
 
     // Seeded so the hook has something to populate, matching how the session path
     // hands it an object to mutate.
-    const sessionInfo = { sessionType: APP_SESSION_TYPE } as NonNullable<FastifyRequest['sessionInfo']>;
-    request.sessionInfo = sessionInfo;
+    const auth = { kind: 'app' } as NonNullable<FastifyRequest['auth']>;
+    request.auth = auth;
 
-    await onAuthenticated(this.requestService, sessionInfo);
+    await onAuthenticated(this.requestService, auth);
 
-    if (requiredAppTypes.length && !requiredAppTypes.includes(sessionInfo.appType ?? '')) {
-      this.logger.warn(
-        `${route} — app type ${sessionInfo.appType ?? 'unknown'} not in allowed: [${requiredAppTypes.join(', ')}]`,
-      );
+    const appType = auth.kind === 'app' ? auth.appType : undefined;
+    if (requiredAppTypes.length && !requiredAppTypes.includes(appType ?? '')) {
+      this.logger.warn(`${route} — app type ${appType ?? 'unknown'} not in allowed: [${requiredAppTypes.join(', ')}]`);
       // Deliberately the same error the server raises for an unknown client, a
       // revoked one or a bad signature. Distinguishing them would tell whoever is
       // probing which of the four they hit.
@@ -143,7 +164,7 @@ export class VrittiAuthGuard implements CanActivate {
 
     // No organization in this message on purpose: which field holds the tenant is
     // the consuming server's augmentation, not something this side knows about.
-    this.logger.debug(`${route} — authenticated app (${sessionInfo.appType})`);
+    this.logger.debug(`${route} — authenticated app (${appType})`);
     return true;
   }
 
@@ -177,14 +198,15 @@ export class VrittiAuthGuard implements CanActivate {
       throw new UnauthorizedException(`${decoded.sessionType} sessions cannot access this endpoint`);
     }
 
-    // Attach session info to request — spread full decoded token (includes metadata fields)
-    const { tokenType: _tokenType, refreshTokenHash: _hash, exp: _exp, iat: _iat, ...sessionInfo } = decoded;
-    request.sessionInfo = sessionInfo;
+    // Attach auth to request — spread full decoded token (includes metadata fields)
+    const { tokenType: _tokenType, refreshTokenHash: _hash, exp: _exp, iat: _iat, ...claims } = decoded;
+    const auth = { kind: 'session', ...claims } as NonNullable<FastifyRequest['auth']>;
+    request.auth = auth;
 
     // Call onAuthenticated callback if configured
     const onAuthenticated = this.config.guard.onAuthenticated;
     if (onAuthenticated) {
-      await onAuthenticated(this.requestService, request.sessionInfo);
+      await onAuthenticated(this.requestService, auth);
     }
 
     this.logger.debug(`${route} — authenticated user: ${decoded.userId} (${decoded.sessionType})`);
@@ -206,8 +228,8 @@ export class VrittiAuthGuard implements CanActivate {
       throw new UnauthorizedException(`${decoded.sessionType} sessions cannot access this endpoint`);
     }
 
-    const { tokenType: _tokenType, exp: _exp, iat: _iat, ...sessionInfo } = decoded;
-    request.sessionInfo = sessionInfo;
+    const { tokenType: _tokenType, exp: _exp, iat: _iat, ...claims } = decoded;
+    request.auth = { kind: 'session', ...claims } as NonNullable<FastifyRequest['auth']>;
 
     this.logger.debug(`SSE ${request.url} — authenticated user: ${decoded.userId} (${decoded.sessionType})`);
     return true;

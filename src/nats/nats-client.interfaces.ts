@@ -1,8 +1,9 @@
 import type { InjectionToken, ModuleMetadata } from '@nestjs/common';
-import type { VrittiSessionInfo } from 'fastify';
+import type { FastifyRequest } from 'fastify';
 import type { NatsHeaders } from './nats-context';
 
-export type ContextResolverFn = (sessionInfo: VrittiSessionInfo) => Promise<NatsHeaders>;
+// Returns null when the request carries no context to send — the caller turns that into an error
+export type ContextResolverFn = (request: FastifyRequest) => Promise<NatsHeaders | null>;
 
 export interface NatsServiceConfig {
   name: string;

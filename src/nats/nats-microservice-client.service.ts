@@ -19,10 +19,10 @@ export class NatsMicroserviceClientService {
     }
 
     const headers: Record<string, string> = {
-      [NATS_HEADER_KEYS.ORG_ID]: natsHeaders.orgId,
-      [NATS_HEADER_KEYS.USER_ID]: natsHeaders.userId,
-      [NATS_HEADER_KEYS.SITE_ID]: natsHeaders.siteId,
-      [NATS_HEADER_KEYS.SITE_TIMEZONE]: natsHeaders.siteTimezone,
+      [NATS_HEADER_KEYS.orgId]: natsHeaders.orgId,
+      [NATS_HEADER_KEYS.userId]: natsHeaders.userId,
+      [NATS_HEADER_KEYS.siteId]: natsHeaders.siteId,
+      [NATS_HEADER_KEYS.siteTimezone]: natsHeaders.siteTimezone,
     };
 
     const record = new NatsRecordBuilder(data ?? {}).setHeaders(headers).build();

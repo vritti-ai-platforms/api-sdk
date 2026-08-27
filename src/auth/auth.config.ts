@@ -3,9 +3,15 @@ import type { RequestService } from '../request/services/request.service';
 
 export const AUTH_CONFIG = Symbol('AUTH_CONFIG');
 
+// Called once the guard has decided which kind of caller this is, with the partially-built
+// auth object to fill in. The consuming server is the only side with a database, so tenant
+// resolution, signature verification against a stored key, and workspace context all land here.
+//
+// `auth.kind` is already set and is what the server switches on. Everything else the server
+// knows how to resolve — organization, subdomain, app identity — it writes onto `auth`.
 export type OnAuthenticatedCallback = (
   requestService: RequestService,
-  sessionInfo: NonNullable<FastifyRequest['sessionInfo']>,
+  auth: NonNullable<FastifyRequest['auth']>,
 ) => void | Promise<void>;
 
 export type TokenExpiryString = `${number}${'s' | 'm' | 'h' | 'd' | 'w' | 'y'}`;
