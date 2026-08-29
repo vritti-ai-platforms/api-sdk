@@ -87,6 +87,16 @@ export class RequestService {
   }
 
   /**
+   * Returns a single decoded query param, or undefined when absent.
+   *
+   * Reads the raw URL rather than Fastify's parsed `query` so it is usable from the
+   * guard, which runs before a route's own parsing is meaningful.
+   */
+  getQueryParam(key: string): string | undefined {
+    return new URLSearchParams(this.getQuery()).get(key) ?? undefined;
+  }
+
+  /**
    * Returns the raw request body, as `fastify-raw-body` leaves it.
    *
    * Read structurally rather than through a module augmentation: that plugin is the

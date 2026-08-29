@@ -214,7 +214,7 @@ export class VrittiAuthGuard implements CanActivate {
   }
 
   // Authenticates SSE connections using the refresh token httpOnly cookie
-  private handleSseAuth(request: FastifyRequest, requiredSessionTypes?: string[]): boolean {
+  private async handleSseAuth(request: FastifyRequest, requiredSessionTypes?: string[]): Promise<boolean> {
     const refreshToken = this.requestService.getRefreshToken();
     if (!refreshToken) {
       this.logger.warn(`SSE ${request.url} — no refresh token cookie`);
@@ -229,7 +229,18 @@ export class VrittiAuthGuard implements CanActivate {
     }
 
     const { tokenType: _tokenType, exp: _exp, iat: _iat, ...claims } = decoded;
-    request.auth = { kind: 'session', ...claims } as NonNullable<FastifyRequest['auth']>;
+    const auth = { kind: 'session', ...claims } as NonNullable<FastifyRequest['auth']>;
+    request.auth = auth;
+
+    // Same authorization hook the HTTP path runs. SSE carries its tenant context in the query string
+    // (EventSource cannot set headers), and that is no more trustworthy than a header — so it has to be
+    // checked against the session here too, or every @Sse() route silently skips the consuming server's
+    // scoping. The refresh token carries the same session metadata the access token does, so the hook has
+    // everything it needs.
+    const onAuthenticated = this.config.guard.onAuthenticated;
+    if (onAuthenticated) {
+      await onAuthenticated(this.requestService, auth);
+    }
 
     this.logger.debug(`SSE ${request.url} — authenticated user: ${decoded.userId} (${decoded.sessionType})`);
     return true;
