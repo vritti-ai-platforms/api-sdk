@@ -1,4 +1,4 @@
-import { featureAppliesAtNode, isPlanMember, isSiteLockedOnPlatform, normalizeApiBuckets } from './catalog.builder';
+import { featureAppliesAtNode, isPlanMember, isSiteLockedOnPlatform } from './catalog.builder';
 import {
   API_BUCKETS,
   type ApiSurface,
@@ -39,17 +39,24 @@ export interface SiteMatrixFeature {
   inPlan: boolean;
   availableIn: string[];
   // The API surfaces the feature declares — what lets the app-credential editor filter by the
-  // credential's type. Absent on pre-flag snapshots, which reads as "any surface".
-  apiSurfaces?: ApiSurface[];
+  // credential's type.
+  apiSurfaces: ApiSurface[];
   permissions: SiteMatrixPermission[];
+}
+
+export interface MatrixCounts {
+  unlocked: number;
+  total: number;
 }
 
 export interface SiteMatrixApp {
   code: string;
   name: string;
   icon: string | null;
-  unlockedCount: number;
-  totalCount: number;
+  // Counted per surface, not as one total: a consumer showing a subset of the columns (the
+  // app-credential editor shows exactly one) sums the surfaces it renders. One number covering all
+  // four read as "20/20 unlocked" above the 5 checkboxes actually on screen.
+  counts: Record<PlatformBucket, MatrixCounts>;
   features: SiteMatrixFeature[];
 }
 
@@ -89,65 +96,63 @@ function buildMatrix(
   allScopes: boolean,
   siteType?: SiteType,
 ): SiteMatrix {
-  const business = businessCode ? snapshot.businesses?.[businessCode] : undefined;
-  // Legacy `app` buckets in stored documents read as both API surfaces — see normalizeApiBuckets
-  const plans = Object.fromEntries(
-    Object.entries(business?.plans ?? {}).map(([code, p]) => [
-      code,
-      { ...p, unlockedPermissions: normalizeApiBuckets(p.unlockedPermissions) ?? {} },
-    ]),
-  );
+  const business = businessCode ? snapshot.businesses[businessCode] : undefined;
+  const plans = business?.plans ?? {};
   const plan = planCode ? plans[planCode] : undefined;
   const planMeta = { code: planCode ?? '', name: plan?.name ?? planCode ?? '' };
-  const normalizedLocks = normalizeApiBuckets(siteLocks);
-  const locks = normalizedLocks ?? {};
+  const locks = siteLocks ?? {};
   if (!business || !plan) return { plan: planMeta, apps: [], locks };
 
   const apps: SiteMatrixApp[] = [];
   for (const app of business.apps) {
-    let unlockedCount = 0;
-    let totalCount = 0;
+    const counts: Record<PlatformBucket, MatrixCounts> = {
+      web: { unlocked: 0, total: 0 },
+      mobile: { unlocked: 0, total: 0 },
+      graphql: { unlocked: 0, total: 0 },
+      http: { unlocked: 0, total: 0 },
+    };
     const features: SiteMatrixFeature[] = [];
 
     for (const ref of app.features) {
       if (!allScopes && ref.scope !== 'SITE') continue;
       const code = ref.code;
-      const feature = snapshot.features?.[snapshotFeatureKey(code, ref.scope)];
+      const feature = snapshot.features[snapshotFeatureKey(code, ref.scope)];
       if (!feature) continue;
       if (siteType !== undefined && !featureAppliesAtNode(feature.applicableSiteTypes, siteType)) continue;
       // A UI bucket is offered only where the feature publishes a microfrontend; each API bucket is
-      // offered where the feature declares its surface. An undeclared list (pre-flag snapshot) keeps
-      // the old always-offered behaviour on both; an undeclared surface shows an em dash like a
-      // missing microfrontend does.
+      // offered where the feature declares its surface. An undeclared surface shows an em dash like
+      // a missing microfrontend does.
       const platforms: PlatformBucket[] = [
         ...UI_PLATFORMS.filter((p) => !!feature.microfrontends?.[p]),
-        ...API_BUCKETS.filter(
-          (b) => feature.apiSurfaces === undefined || feature.apiSurfaces.includes(SURFACE_BY_BUCKET[b]),
-        ),
+        ...API_BUCKETS.filter((b) => feature.apiSurfaces.includes(SURFACE_BY_BUCKET[b])),
       ];
 
-      const membership = plan.unlockedPermissions?.[code];
+      const groupByCode = new Map(feature.permissionGroups.map((g) => [g.code, g]));
+      const membership = plan.unlockedPermissions[code];
       const featureInPlan = isPlanMember(membership);
-      const siteEntry = normalizedLocks?.[code];
+      const siteEntry = siteLocks?.[code];
 
-      const permissions: SiteMatrixPermission[] = (feature.permissions ?? [])
+      const permissions: SiteMatrixPermission[] = feature.permissions
         .filter((p) => p.isGlobal || p.businesses.includes(businessCode ?? ''))
         .map((p) => {
           const cell = (plat: PlatformBucket): SiteMatrixCell | null => {
-            if (!platforms.includes(plat)) return null;
+            // The feature must reach this bucket AND this code must be implemented on it — the same
+            // two gates buildSiteCatalog applies, so the matrix and the catalog cannot disagree
+            if (!platforms.includes(plat) || !p.platforms.includes(plat)) return null;
             const planCodes = membership?.[plat];
             const inPlan = featureInPlan && planCodes !== undefined && planCodes.includes(p.code);
             // Deny-list: an in-plan cell is selected unless the site locks it on this platform
             const selected = inPlan && !isSiteLockedOnPlatform(siteEntry, plat, p.code);
             const availableIn = inPlan ? [] : plansUnlockingPerm(plans, code, p.code, plat, planCode);
-            totalCount += 1;
-            if (inPlan) unlockedCount += 1;
+            counts[plat].total += 1;
+            if (inPlan) counts[plat].unlocked += 1;
             return { inPlan, selected, availableIn };
           };
           return {
             code: p.code,
             label: p.label,
-            dependsOn: p.dependsOn ?? [],
+            dependsOn: p.dependsOn,
+            group: p.group ? groupByCode.get(p.group) : undefined,
             web: cell('web'),
             mobile: cell('mobile'),
             graphql: cell('graphql'),
@@ -170,7 +175,7 @@ function buildMatrix(
     }
 
     if (features.length === 0) continue;
-    apps.push({ code: app.code, name: app.name, icon: app.icon ?? null, unlockedCount, totalCount, features });
+    apps.push({ code: app.code, name: app.name, icon: app.icon ?? null, counts, features });
   }
 
   // Emit apps alphabetically by name so every consumer (Plan Overview, Role picker, all Locks screens) renders them sorted
@@ -190,7 +195,7 @@ function plansUnlockingPerm(
   const names: string[] = [];
   for (const [code, p] of Object.entries(plans)) {
     if (code === excludeCode) continue;
-    if ((p.unlockedPermissions?.[featureCode]?.[platform] ?? []).includes(permCode)) names.push(p.name);
+    if ((p.unlockedPermissions[featureCode]?.[platform] ?? []).includes(permCode)) names.push(p.name);
   }
   return names;
 }
@@ -204,7 +209,7 @@ function plansIncludingFeature(
   const names: string[] = [];
   for (const [code, p] of Object.entries(plans)) {
     if (code === excludeCode) continue;
-    if (isPlanMember(p.unlockedPermissions?.[featureCode])) names.push(p.name);
+    if (isPlanMember(p.unlockedPermissions[featureCode])) names.push(p.name);
   }
   return names;
 }

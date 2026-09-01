@@ -7,7 +7,9 @@ import {
   type SiteMatrixFeature,
   type SiteMatrixPermission,
 } from './site-matrix.builder';
-import type { VersionSnapshot } from './types';
+import type { PlatformBucket, VersionSnapshot } from './types';
+
+const ALL_BUCKETS: PlatformBucket[] = ['web', 'mobile', 'graphql', 'http'];
 
 // Minimal snapshot: one business, one app, sales (web+mobile) and reports (web-only)
 const snapshot: VersionSnapshot = {
@@ -20,9 +22,19 @@ const snapshot: VersionSnapshot = {
       materialSymbol: 'shopping_cart',
       scope: 'SITE',
       applicableSiteTypes: ['OUTLET'],
+      requiredServices: [],
+      permissionGroups: [],
+      apiSurfaces: ['GRAPHQL', 'HTTP'],
       permissions: [
-        { code: 'sales.view', label: 'View', isGlobal: true, businesses: [], dependsOn: [] },
-        { code: 'sales.create', label: 'Create', isGlobal: true, businesses: [], dependsOn: [] },
+        { code: 'sales.view', label: 'View', isGlobal: true, businesses: [], dependsOn: [], platforms: ALL_BUCKETS },
+        {
+          code: 'sales.create',
+          label: 'Create',
+          isGlobal: true,
+          businesses: [],
+          dependsOn: [],
+          platforms: ALL_BUCKETS,
+        },
       ],
       microfrontends: {
         web: {
@@ -50,7 +62,12 @@ const snapshot: VersionSnapshot = {
       materialSymbol: 'book',
       scope: 'ORG',
       applicableSiteTypes: ['OUTLET'],
-      permissions: [{ code: 'catalog.view', label: 'View', isGlobal: true, businesses: [], dependsOn: [] }],
+      requiredServices: [],
+      permissionGroups: [],
+      apiSurfaces: ['GRAPHQL', 'HTTP'],
+      permissions: [
+        { code: 'catalog.view', label: 'View', isGlobal: true, businesses: [], dependsOn: [], platforms: ALL_BUCKETS },
+      ],
       microfrontends: {
         web: {
           code: 'mf-web',
@@ -69,7 +86,12 @@ const snapshot: VersionSnapshot = {
       materialSymbol: 'bar_chart',
       scope: 'SITE',
       applicableSiteTypes: ['OUTLET'],
-      permissions: [{ code: 'reports.view', label: 'View', isGlobal: true, businesses: [], dependsOn: [] }],
+      requiredServices: [],
+      permissionGroups: [],
+      apiSurfaces: ['GRAPHQL', 'HTTP'],
+      permissions: [
+        { code: 'reports.view', label: 'View', isGlobal: true, businesses: [], dependsOn: [], platforms: ALL_BUCKETS },
+      ],
       microfrontends: {
         web: {
           code: 'mf-web',
@@ -251,26 +273,49 @@ describe('buildPlanMatrix', () => {
     assert.equal(findPerm(matrix, 'reports', 'reports.view').http?.inPlan, false);
   });
 
-  // Documents written before the split carry one `app` bucket meaning "any API surface"
-  it('a legacy app-bucket entitlement reads as in-plan on both surfaces', () => {
-    const legacyPlan: VersionSnapshot = JSON.parse(JSON.stringify(snapshot));
-    const plan = legacyPlan.businesses.RETAIL?.plans.PRO;
-    assert.ok(plan);
-    plan.unlockedPermissions.reports = { app: ['reports.view'] } as never;
+  it('counts per surface, so a consumer showing one column does not inherit the others', () => {
+    const app = buildPlanMatrix(snapshot, 'RETAIL', 'PRO', undefined).apps.find((a) => a.code === 'pos');
+    assert.ok(app);
+    // Every surface is counted on its own; no single number spans all four
+    for (const platform of ['web', 'mobile', 'graphql', 'http'] as const) {
+      assert.ok(app.counts[platform].unlocked <= app.counts[platform].total);
+    }
+    const cells = app.features.flatMap((f) => f.permissions).filter((p) => p.web).length;
+    assert.equal(app.counts.web.total, cells);
+  });
 
-    const matrix = buildPlanMatrix(legacyPlan, 'RETAIL', 'PRO', undefined);
-    assert.equal(findFeature(matrix, 'reports')?.inPlan, true);
-    assert.equal(findPerm(matrix, 'reports', 'reports.view').graphql?.inPlan, true);
-    assert.equal(findPerm(matrix, 'reports', 'reports.view').http?.inPlan, true);
+  it('resolves a permission group against the feature that declares it', () => {
+    const next: VersionSnapshot = JSON.parse(JSON.stringify(snapshot));
+    const reports = next.features['SITE.reports'];
+    assert.ok(reports);
+    reports.permissionGroups = [{ code: 'exports', label: 'Exports', sortOrder: 2 }];
+    const view = reports.permissions[0];
+    assert.ok(view);
+    view.group = 'exports';
+
+    const matrix = buildPlanMatrix(next, 'RETAIL', 'PRO', undefined);
+    const perm = findPerm(matrix, 'reports', 'reports.view');
+    assert.deepEqual(perm.group, { code: 'exports', label: 'Exports', sortOrder: 2 });
+  });
+
+  it('drops a group reference the feature does not declare, rather than inventing a heading', () => {
+    const next: VersionSnapshot = JSON.parse(JSON.stringify(snapshot));
+    const reports = next.features['SITE.reports'];
+    assert.ok(reports);
+    const view = reports.permissions[0];
+    assert.ok(view);
+    view.group = 'ghost';
+
+    const matrix = buildPlanMatrix(next, 'RETAIL', 'PRO', undefined);
+    assert.equal(findPerm(matrix, 'reports', 'reports.view').group, undefined);
   });
 
   describe('the API columns follow the declared surfaces', () => {
-    const withSurfaces = (apiSurfaces: ('GRAPHQL' | 'HTTP')[] | undefined): VersionSnapshot => {
+    const withSurfaces = (apiSurfaces: ('GRAPHQL' | 'HTTP')[]): VersionSnapshot => {
       const next: VersionSnapshot = JSON.parse(JSON.stringify(snapshot));
       const reports = next.features['SITE.reports'];
       assert.ok(reports);
-      if (apiSurfaces === undefined) delete reports.apiSurfaces;
-      else reports.apiSurfaces = apiSurfaces;
+      reports.apiSurfaces = apiSurfaces;
       return next;
     };
 
@@ -283,19 +328,26 @@ describe('buildPlanMatrix', () => {
       assert.deepEqual(reports?.apiSurfaces, ['GRAPHQL']);
     });
 
+    it('a code not implemented on a surface has no cell there, even though the feature reaches it', () => {
+      const next: VersionSnapshot = JSON.parse(JSON.stringify(snapshot));
+      const reports = next.features['SITE.reports'];
+      assert.ok(reports);
+      reports.apiSurfaces = ['GRAPHQL', 'HTTP'];
+      const view = reports.permissions[0];
+      assert.ok(view);
+      view.platforms = ['graphql'];
+
+      const matrix = buildPlanMatrix(next, 'RETAIL', 'PRO', undefined);
+      assert.ok(findPerm(matrix, 'reports', 'reports.view').graphql);
+      assert.equal(findPerm(matrix, 'reports', 'reports.view').http, null);
+    });
+
     it('withheld from both columns when the feature declares no surface at all', () => {
       const matrix = buildPlanMatrix(withSurfaces([]), 'RETAIL', 'PRO', undefined);
       const reports = findFeature(matrix, 'reports');
       assert.equal(reports?.platforms.includes('graphql'), false);
       assert.equal(reports?.platforms.includes('http'), false);
       assert.equal(findPerm(matrix, 'reports', 'reports.view').graphql, null);
-    });
-
-    it('kept on both columns for a pre-flag snapshot that never declared surfaces', () => {
-      const matrix = buildPlanMatrix(withSurfaces(undefined), 'RETAIL', 'PRO', undefined);
-      const reports = findFeature(matrix, 'reports');
-      assert.ok(reports?.platforms.includes('graphql'));
-      assert.ok(reports?.platforms.includes('http'));
     });
   });
 });

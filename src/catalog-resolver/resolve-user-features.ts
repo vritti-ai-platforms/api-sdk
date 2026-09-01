@@ -1,4 +1,4 @@
-import { buildSiteCatalog, findFeatureByCode, normalizeApiBuckets } from './catalog.builder';
+import { buildSiteCatalog, findFeatureByCode } from './catalog.builder';
 import { buildDependsMap, filterGrantedByDeps } from './permission-deps';
 import type {
   FeatureUnlocks,
@@ -99,12 +99,11 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
   // surface's bucket (web → web; ios/android → mobile; graphql/http → themselves)
   const bucket: PlatformBucket = BUCKET_BY_CLIENT[platform];
 
-  // Legacy `app` buckets in stored grants read as both API surfaces — see normalizeApiBuckets
-  const roleFeatures = normalizeApiBuckets(params.roleFeatures) ?? {};
+  const roleFeatures = params.roleFeatures;
 
   // Grants/plans/locks key features by bare code; resolve to the workspace scope's variant (or any variant when unscoped)
   const featureByCode = (code: string) =>
-    scope ? snapshot.features?.[snapshotFeatureKey(code, scope)] : findFeatureByCode(snapshot, code);
+    scope ? snapshot.features[snapshotFeatureKey(code, scope)] : findFeatureByCode(snapshot, code);
 
   // Plan ∧ BU overlay for this bucket, filtered to features that apply to this workspace scope and node type — emits EVERY applicable business feature (plan non-members come out fully locked)
   const catalog = buildSiteCatalog(
@@ -119,26 +118,20 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
   );
   const catalogMap = new Map(catalog.map((f) => [f.code, f]));
 
-  // Per-plan feature-name delta vs the current plan — feeds the plan-locked upsell screen.
-  // Normalized so a legacy plan document's `app` entitlement still counts for either API bucket.
-  const businessPlans = Object.fromEntries(
-    Object.entries(snapshot.businesses[businessCode]?.plans ?? {}).map(([code, plan]) => [
-      code,
-      { ...plan, unlockedPermissions: normalizeApiBuckets(plan.unlockedPermissions) ?? {} },
-    ]),
-  );
+  // Per-plan feature-name delta vs the current plan — feeds the plan-locked upsell screen
+  const businessPlans = snapshot.businesses[businessCode]?.plans ?? {};
   const currentUnlockedCodes = new Set<string>();
   if (planCode && businessPlans[planCode]) {
-    for (const [featureCode, platforms] of Object.entries(businessPlans[planCode].unlockedPermissions ?? {})) {
-      if (platforms?.[bucket] !== undefined) currentUnlockedCodes.add(featureCode);
+    for (const [featureCode, platforms] of Object.entries(businessPlans[planCode].unlockedPermissions)) {
+      if (platforms[bucket] !== undefined) currentUnlockedCodes.add(featureCode);
     }
   }
   const planAdds = new Map<string, Array<{ code: string; name: string }>>();
   for (const [planKey, plan] of Object.entries(businessPlans)) {
     if (planKey === planCode) continue;
     const adds: Array<{ code: string; name: string }> = [];
-    for (const [featureCode, platforms] of Object.entries(plan.unlockedPermissions ?? {})) {
-      if (platforms?.[bucket] === undefined || currentUnlockedCodes.has(featureCode)) continue;
+    for (const [featureCode, platforms] of Object.entries(plan.unlockedPermissions)) {
+      if (platforms[bucket] === undefined || currentUnlockedCodes.has(featureCode)) continue;
       const name = featureByCode(featureCode)?.name;
       if (name) adds.push({ code: featureCode, name });
     }
@@ -147,9 +140,9 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
 
   // Granted permission set per feature, taking only this platform's grants
   const grantedFeatures = new Map<string, Set<string>>();
-  for (const [code, grant] of Object.entries(roleFeatures ?? {})) {
+  for (const [code, grant] of Object.entries(roleFeatures)) {
     // Membership is the gate: undefined = not a member on this platform; [] = member with no actions (view-only)
-    const granted = grant?.[bucket];
+    const granted = grant[bucket];
     if (granted === undefined) continue;
     if (!grantedFeatures.has(code)) grantedFeatures.set(code, new Set());
     for (const perm of granted) grantedFeatures.get(code)?.add(perm);
@@ -170,22 +163,26 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
     // Drop granted permissions whose intra-feature prerequisites aren't also granted (e.g. add needs view)
     const featureDeps = buildDependsMap(featureByCode(code)?.permissions ?? []);
     // Plan/BU lock a subset of permissions; surface which GRANTED ones are locked + why + how to unlock (upsell)
-    const permByCode = new Map((catalogEntry.permissions ?? []).map((p) => [p.code, p]));
-    const grantedPerms = [...filterGrantedByDeps(permsSet, featureDeps)];
+    const permByCode = new Map(catalogEntry.permissions.map((p) => [p.code, p]));
+    // Intersected with the catalog, which now omits codes this surface does not implement. Without
+    // this a grant made before the flags existed — or written straight through the API — would keep
+    // resolving on a bucket where no route enforces it. The picker filtering alone is cosmetic; this
+    // is what makes an unimplemented grant genuinely inert.
+    const grantedPerms = [...filterGrantedByDeps(permsSet, featureDeps)].filter((c) => permByCode.has(c));
     const lockedPermissions: LockedPermission[] = grantedPerms
       .map((c) => permByCode.get(c))
       .filter((p): p is NonNullable<typeof p> => !!p?.locked)
       .map((p) => ({
         code: p.code,
         reason: p.lockReason ?? null,
-        unlockPlans: p.unlockPlans ?? [],
-        missingServices: p.missingServices ?? [],
+        unlockPlans: p.unlockPlans,
+        missingServices: p.missingServices,
       }));
 
     // For a plan-locked feature, list the extra features each unlocking plan would add (excluding this feature)
     const upsell: PlanUpsell[] =
       catalogEntry.locked && catalogEntry.lockReason === 'PLAN'
-        ? (catalogEntry.unlockPlans ?? [])
+        ? catalogEntry.unlockPlans
             .map((plan) => ({
               plan,
               features: (planAdds.get(plan) ?? []).filter((f) => f.code !== code).map((f) => f.name),
@@ -202,8 +199,8 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
       permissions: grantedPerms,
       locked: catalogEntry.locked ?? false,
       lockReason: catalogEntry.lockReason ?? null,
-      unlockPlans: catalogEntry.unlockPlans ?? [],
-      missingServices: catalogEntry.missingServices ?? [],
+      unlockPlans: catalogEntry.unlockPlans,
+      missingServices: catalogEntry.missingServices,
       lockedPermissions,
       upsell,
       route,

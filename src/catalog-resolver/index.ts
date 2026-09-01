@@ -7,7 +7,6 @@ export {
   findFeatureByCode,
   isPlanMember,
   isSiteLockedOnPlatform,
-  normalizeApiBuckets,
   surfaceAllows,
 } from './catalog.builder';
 export { type ComposeRoleGrantsParams, composeRoleGrants, type RevokedGrants } from './compose-role-grants';
@@ -48,6 +47,7 @@ export {
   type FeatureUnlocks,
   isApiBucket,
   type LockReason,
+  type PermissionGroupRef,
   PLATFORMS,
   type PlatformBucket,
   type PlatformCodes,

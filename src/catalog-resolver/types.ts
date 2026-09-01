@@ -38,9 +38,6 @@ export function isApiBucket(bucket: PlatformBucket): bucket is ApiBucket {
   return bucket === 'graphql' || bucket === 'http';
 }
 
-// Documents written before GraphQL and HTTP were entitled separately may still carry a single legacy
-// `app` bucket meaning "any API surface". It is deliberately NOT part of these shapes — nothing may
-// write it — and is honoured only inside `normalizeApiBuckets`, which copies it into graphql/http.
 export interface PlatformCodes {
   web?: string[];
   mobile?: string[];
@@ -62,12 +59,22 @@ export type SiteFeatureLocks = FeatureLocks;
 
 // ——— Snapshot document shape — what gets stored in versions.snapshot and signed into the catalog license ———
 
+export interface PermissionGroupRef {
+  code: string;
+  label: string;
+  sortOrder: number;
+}
+
 export interface SnapshotPermission {
   code: string;
   label: string;
   isGlobal: boolean;
   businesses: string[];
   dependsOn: string[];
+  platforms: PlatformBucket[];
+  // Code of the group this action sits under, resolved against the feature's `permissionGroups`.
+  // Absent on a feature's own actions, which head the list under no heading.
+  group?: string;
 }
 export interface SnapshotMicrofrontendWeb {
   code: string;
@@ -105,12 +112,11 @@ export interface SnapshotFeature {
   applicableSiteTypes: SiteType[];
   permissions: SnapshotPermission[];
   microfrontends: SnapshotMicrofrontends;
-  // Optional: snapshots built before service gating existed carry no services, which reads as "requires none"
-  requiredServices?: ServiceCode[];
-  // Optional: snapshots built before surface gating existed carry no list, which reads as "reachable by any
-  // app credential". A present list is strict — it decides which of the `graphql`/`http` buckets the feature
-  // offers at all, and `[]` offers neither. The builder always emits it, so only pre-flag snapshots are lenient.
-  apiSurfaces?: ApiSurface[];
+  requiredServices: ServiceCode[];
+  // The feature's sub-resources, carried once rather than repeated on each of their permissions
+  permissionGroups: PermissionGroupRef[];
+  // Strict — it decides which of the `graphql`/`http` buckets the feature offers at all, and `[]` offers neither
+  apiSurfaces: ApiSurface[];
 }
 export interface SnapshotAppFeatureRef {
   code: string;
@@ -167,7 +173,7 @@ export function snapshotFeatureKey(code: string, scope: ScopeType): string {
   return `${scope}.${code}`;
 }
 
-export const SNAPSHOT_SCHEMA_VERSION = 4;
+export const SNAPSHOT_SCHEMA_VERSION = 5;
 
 // SERVICE = the org has not provisioned an external service the feature declares; the specific services are
 // reported alongside in `missingServices` so callers never branch on a service code baked into this union

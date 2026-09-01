@@ -19,11 +19,11 @@ export function composeRoleGrants(params: ComposeRoleGrantsParams): FeatureUnloc
   const { baseFeatures, additions, revoked } = params;
 
   const result: FeatureUnlocks = {};
-  const featureCodes = new Set([...Object.keys(baseFeatures ?? {}), ...Object.keys(additions ?? {})]);
+  const featureCodes = new Set([...Object.keys(baseFeatures ?? {}), ...Object.keys(additions)]);
 
   for (const code of featureCodes) {
     const base = baseFeatures?.[code] ?? {};
-    const add = additions?.[code] ?? {};
+    const add = additions[code] ?? {};
     const revokes = revoked?.[code];
 
     const composed: PlatformCodes = {};

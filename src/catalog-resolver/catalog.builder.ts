@@ -6,7 +6,6 @@ import type {
   LockReason,
   PlatformBucket,
   PlatformCodes,
-  PlatformDenyCodes,
   RoleItem,
   ScopeType,
   ServiceCode,
@@ -18,54 +17,6 @@ import type {
 } from './types';
 import { isApiBucket, PLATFORMS, SURFACE_BY_BUCKET, snapshotFeatureKey } from './types';
 
-/**
- * Copies a legacy `app` bucket into whichever of `graphql`/`http` an entry lacks.
- *
- * Documents written before the API surfaces were entitled separately — old snapshots, old
- * credential grants, old deny-lists — carry one `app` bucket that meant "any API surface".
- * Normalising at read time is what lets those documents keep working without a re-key: an
- * `app` grant admits both surfaces, and an `app` lock fails closed on both. Entries already
- * carrying a surface bucket keep it — the legacy value only fills gaps.
- */
-export function normalizeApiBuckets<T extends PlatformCodes | PlatformDenyCodes>(
-  doc: Record<string, T> | undefined,
-): Record<string, T> | undefined {
-  if (!doc) return doc;
-  let changed = false;
-  const next: Record<string, T> = {};
-  for (const [code, entry] of Object.entries(doc)) {
-    // The legacy key is deliberately absent from the public shapes so nothing can write it;
-    // stored documents predating the split are the only place it still occurs.
-    const legacy = (entry as T & LegacyApiBucket).app;
-    if (legacy === undefined || (entry.graphql !== undefined && entry.http !== undefined)) {
-      next[code] = entry;
-      continue;
-    }
-    changed = true;
-    next[code] = {
-      ...entry,
-      ...(entry.graphql === undefined ? { graphql: legacy } : {}),
-      ...(entry.http === undefined ? { http: legacy } : {}),
-    };
-  }
-  return changed ? next : doc;
-}
-
-// The pre-split single API bucket, as old persisted jsonb still carries it
-type LegacyApiBucket = { app?: string[] | null };
-
-// Normalizes every plan's unlock document in one pass, so per-plan upsell lookups read legacy docs correctly too
-function normalizePlans(plans: Record<string, SnapshotPlan>): Record<string, SnapshotPlan> {
-  let changed = false;
-  const next: Record<string, SnapshotPlan> = {};
-  for (const [code, plan] of Object.entries(plans)) {
-    const unlockedPermissions = normalizeApiBuckets(plan.unlockedPermissions) ?? {};
-    if (unlockedPermissions !== plan.unlockedPermissions) changed = true;
-    next[code] = unlockedPermissions === plan.unlockedPermissions ? plan : { ...plan, unlockedPermissions };
-  }
-  return changed ? next : plans;
-}
-
 // Whether a feature with the given site-type applicability is exposed at this site type
 export function featureAppliesAtNode(applicableSiteTypes: SiteType[], siteType: SiteType): boolean {
   return applicableSiteTypes.includes(siteType);
@@ -73,8 +24,8 @@ export function featureAppliesAtNode(applicableSiteTypes: SiteType[], siteType: 
 
 // Scope-agnostic lookup of a feature by bare code — grants/locks key features by code alone, so the first scope-variant's shared metadata (permission graph) answers
 export function findFeatureByCode(snapshot: VersionSnapshot, code: string): SnapshotFeature | undefined {
-  for (const feature of Object.values(snapshot.features ?? {})) {
-    if (feature?.code === code) return feature;
+  for (const feature of Object.values(snapshot.features)) {
+    if (feature.code === code) return feature;
   }
   return undefined;
 }
@@ -92,12 +43,11 @@ export function buildSiteCatalog(
   availableServices: ServiceCode[] = [],
 ): FeatureCatalogEntry[] {
   if (!businessCode) return [];
-  const business = snapshot.businesses?.[businessCode];
+  const business = snapshot.businesses[businessCode];
   if (!business) return [];
-  // Legacy `app` buckets in stored documents read as both API surfaces — see normalizeApiBuckets
-  const plans = normalizePlans(business.plans ?? {});
+  const plans = business.plans;
   const plan = planCode ? plans[planCode] : undefined;
-  const locks = normalizeApiBuckets(siteLocks);
+  const locks = siteLocks;
 
   const catalog: FeatureCatalogEntry[] = [];
   // Iterate apps alphabetically by name so the resolved feature list (→ core-web sidebar) is app-alphabetical without any frontend re-sort
@@ -106,7 +56,7 @@ export function buildSiteCatalog(
     // The app's renderable features (each ref pins scope+code to one app), dropped when they don't belong to this workspace scope or node type (outlet vs container)
     const businessAppFeatures = app.features
       .filter((ref) => scope === undefined || ref.scope === scope)
-      .map((ref) => snapshot.features?.[snapshotFeatureKey(ref.code, ref.scope)])
+      .map((ref) => snapshot.features[snapshotFeatureKey(ref.code, ref.scope)])
       .filter(
         (f): f is SnapshotFeature =>
           !!f &&
@@ -124,7 +74,7 @@ export function buildSiteCatalog(
 
     // Emit EVERY business feature so a role's grant on a plan-omitted feature still resolves as a locked tile instead of vanishing
     for (const feature of businessAppFeatures) {
-      const membership = plan?.unlockedPermissions?.[feature.code];
+      const membership = plan?.unlockedPermissions[feature.code];
       // Routes are exposed wherever the feature SHIPS — membership never hides them
       const web = feature.microfrontends?.web;
       const mobile = feature.microfrontends?.mobile;
@@ -177,23 +127,20 @@ export function buildSiteCatalog(
   return catalog;
 }
 
-// A feature is a plan member when its unlock entry exists on at least one platform (even with zero actions).
-// Iterates PLATFORMS plus the legacy `app` key, so a caller handing over an un-normalized document
-// still reads a legacy API entitlement as membership.
+// A feature is a plan member when its unlock entry exists on at least one platform (even with zero actions)
 export function isPlanMember(entry: PlatformCodes | undefined): boolean {
   if (!entry) return false;
-  return PLATFORMS.some((platform) => entry[platform] !== undefined) || (entry as LegacyApiBucket).app !== undefined;
+  return PLATFORMS.some((platform) => entry[platform] !== undefined);
 }
 
 /**
  * Whether a feature's declared API surfaces admit a caller's surface.
  *
- * Lenient on either side being unknown: a pre-flag snapshot declares nothing (`undefined`), and a
- * caller resolving without a surface (cloud's matrix builders, UI buckets) filters nothing. Strictness
- * comes from both sides being present — including a declared `[]`, which admits no surface at all.
+ * Lenient only about the caller: resolving without a surface (cloud's matrix builders, UI buckets)
+ * filters nothing. The declared list is always strict — including `[]`, which admits no surface.
  */
-export function surfaceAllows(surfaces: ApiSurface[] | undefined, surface: ApiSurface | undefined): boolean {
-  return surface === undefined || surfaces === undefined || surfaces.includes(surface);
+export function surfaceAllows(surfaces: ApiSurface[], surface: ApiSurface | undefined): boolean {
+  return surface === undefined || surfaces.includes(surface);
 }
 
 // The one place lock precedence is decided, for features and permissions alike; null means nothing locks.
@@ -212,7 +159,7 @@ function resolveLockReason(
 
 // The services a feature declares that this org has not provisioned
 function unmetServices(feature: SnapshotFeature, availableServices: ServiceCode[]): ServiceCode[] {
-  return (feature.requiredServices ?? []).filter((service) => !availableServices.includes(service));
+  return feature.requiredServices.filter((service) => !availableServices.includes(service));
 }
 
 // Per-platform site-lock primitive: null locks the whole feature, string[] locks those codes, absent = not locked
@@ -239,7 +186,12 @@ function buildPermissions(
   const planUnlocked = new Set(planMembership?.[bucket] ?? []);
   const lockEntry = siteLocks?.[feature.code];
 
-  const perms = (feature.permissions ?? []).filter((p) => p.isGlobal || p.businesses.includes(businessCode));
+  // Two filters, and the second is the point: a feature reaching this surface does not mean every
+  // action under it does. A code omits the bucket when no route there enforces it, so offering it
+  // would promise a capability nothing can check.
+  const perms = feature.permissions
+    .filter((p) => p.isGlobal || p.businesses.includes(businessCode))
+    .filter((p) => p.platforms.includes(bucket));
   const deps = buildDependsMap(perms);
   const codes = perms.map((p) => p.code);
 
@@ -275,7 +227,7 @@ function plansUnlockingClosure(
 ): string[] {
   const result: string[] = [];
   for (const [code, plan] of Object.entries(plans)) {
-    const unlocked = plan.unlockedPermissions?.[featureCode]?.[bucket];
+    const unlocked = plan.unlockedPermissions[featureCode]?.[bucket];
     if (unlocked && closure.every((c) => unlocked.includes(c))) result.push(code);
   }
   return result;
@@ -289,7 +241,7 @@ function plansIncludingFeature(
 ): string[] {
   const result: string[] = [];
   for (const [code, plan] of Object.entries(plans)) {
-    if (plan.unlockedPermissions?.[featureCode]?.[bucket] !== undefined) result.push(code);
+    if (plan.unlockedPermissions[featureCode]?.[bucket] !== undefined) result.push(code);
   }
   return result;
 }
@@ -297,7 +249,7 @@ function plansIncludingFeature(
 // The business's role templates as provisionable role items for core (identical shapes)
 export function buildSiteRoles(snapshot: VersionSnapshot, businessCode: string | undefined): RoleItem[] {
   if (!businessCode) return [];
-  const business = snapshot.businesses?.[businessCode];
+  const business = snapshot.businesses[businessCode];
   if (!business) return [];
-  return Object.values(business.roleTemplates ?? {});
+  return Object.values(business.roleTemplates);
 }

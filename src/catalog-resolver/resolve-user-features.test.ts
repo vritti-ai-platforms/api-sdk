@@ -1,7 +1,9 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 import { resolveUserFeatures } from './resolve-user-features';
-import type { SnapshotFeature, VersionSnapshot } from './types';
+import type { PlatformBucket, SnapshotFeature, VersionSnapshot } from './types';
+
+const ALL_BUCKETS: PlatformBucket[] = ['web', 'mobile', 'graphql', 'http'];
 
 // Narrows an indexed access to non-null for assertions (noUncheckedIndexedAccess); throws if absent.
 function must<T>(value: T | undefined | null): T {
@@ -20,10 +22,27 @@ const snapshot: VersionSnapshot = {
       materialSymbol: 'shopping_cart',
       scope: 'SITE',
       applicableSiteTypes: ['OUTLET'],
+      requiredServices: [],
+      permissionGroups: [],
+      apiSurfaces: ['GRAPHQL', 'HTTP'],
       permissions: [
-        { code: 'sales.view', label: 'View', isGlobal: true, businesses: [], dependsOn: [] },
-        { code: 'sales.create', label: 'Create', isGlobal: true, businesses: [], dependsOn: [] },
-        { code: 'sales.void', label: 'Void', isGlobal: false, businesses: ['RETAIL'], dependsOn: [] },
+        { code: 'sales.view', label: 'View', isGlobal: true, businesses: [], dependsOn: [], platforms: ALL_BUCKETS },
+        {
+          code: 'sales.create',
+          label: 'Create',
+          isGlobal: true,
+          businesses: [],
+          dependsOn: [],
+          platforms: ALL_BUCKETS,
+        },
+        {
+          code: 'sales.void',
+          label: 'Void',
+          isGlobal: false,
+          businesses: ['RETAIL'],
+          dependsOn: [],
+          platforms: ALL_BUCKETS,
+        },
       ],
       microfrontends: {
         web: {
@@ -51,7 +70,12 @@ const snapshot: VersionSnapshot = {
       materialSymbol: 'bar_chart',
       scope: 'SITE',
       applicableSiteTypes: ['OUTLET'],
-      permissions: [{ code: 'reports.view', label: 'View', isGlobal: true, businesses: [], dependsOn: [] }],
+      requiredServices: [],
+      permissionGroups: [],
+      apiSurfaces: ['GRAPHQL', 'HTTP'],
+      permissions: [
+        { code: 'reports.view', label: 'View', isGlobal: true, businesses: [], dependsOn: [], platforms: ALL_BUCKETS },
+      ],
       microfrontends: {
         web: {
           code: 'mf-web',
@@ -70,7 +94,17 @@ const snapshot: VersionSnapshot = {
       materialSymbol: 'code',
       scope: 'SITE',
       applicableSiteTypes: ['OUTLET'],
-      permissions: [{ code: 'repositories.view', label: 'View', isGlobal: true, businesses: [], dependsOn: [] }],
+      apiSurfaces: ['GRAPHQL', 'HTTP'],
+      permissions: [
+        {
+          code: 'repositories.view',
+          label: 'View',
+          isGlobal: true,
+          businesses: [],
+          dependsOn: [],
+          platforms: ALL_BUCKETS,
+        },
+      ],
       requiredServices: ['GITEA'],
       microfrontends: {
         web: {
@@ -90,7 +124,19 @@ const snapshot: VersionSnapshot = {
       materialSymbol: 'dashboard',
       scope: 'ORG',
       applicableSiteTypes: [],
-      permissions: [{ code: 'dashboard.view', label: 'View', isGlobal: true, businesses: [], dependsOn: [] }],
+      requiredServices: [],
+      permissionGroups: [],
+      apiSurfaces: ['GRAPHQL', 'HTTP'],
+      permissions: [
+        {
+          code: 'dashboard.view',
+          label: 'View',
+          isGlobal: true,
+          businesses: [],
+          dependsOn: [],
+          platforms: ALL_BUCKETS,
+        },
+      ],
       microfrontends: {
         web: {
           code: 'mf-web',
@@ -446,7 +492,12 @@ describe('resolveUserFeatures', () => {
       materialSymbol: 'inventory',
       scope,
       applicableSiteTypes: scope === 'SITE' ? ['OUTLET'] : [],
-      permissions: [{ code: 'view', label: 'View', isGlobal: true, businesses: [], dependsOn: [] }],
+      requiredServices: [],
+      permissionGroups: [],
+      apiSurfaces: ['GRAPHQL', 'HTTP'],
+      permissions: [
+        { code: 'view', label: 'View', isGlobal: true, businesses: [], dependsOn: [], platforms: ALL_BUCKETS },
+      ],
       microfrontends: { web: webMf },
     });
     const collisionSnapshot: VersionSnapshot = {
@@ -520,9 +571,12 @@ describe('resolveUserFeatures', () => {
       materialSymbol: 'rss_feed',
       scope: 'ORG',
       applicableSiteTypes: [],
+      requiredServices: [],
+      permissionGroups: [],
+      apiSurfaces: ['GRAPHQL', 'HTTP'],
       permissions: [
-        { code: 'view', label: 'View', isGlobal: true, businesses: [], dependsOn: [] },
-        { code: 'add', label: 'Add', isGlobal: true, businesses: [], dependsOn: ['view'] },
+        { code: 'view', label: 'View', isGlobal: true, businesses: [], dependsOn: [], platforms: ALL_BUCKETS },
+        { code: 'add', label: 'Add', isGlobal: true, businesses: [], dependsOn: ['view'], platforms: ALL_BUCKETS },
       ],
       // No microfrontend at all — the case that was previously unreachable
       microfrontends: {},
@@ -652,70 +706,53 @@ describe('resolveUserFeatures', () => {
           assert.deepEqual(features, []);
         }
       });
-
-      it('a pre-flag snapshot (no apiSurfaces field) admits both surfaces', () => {
-        for (const platform of ['graphql', 'http'] as const) {
-          const features = resolveUserFeatures({
-            ...params,
-            snapshot: withSurfaces(undefined),
-            roleFeatures: { feeds: { [platform]: ['view', 'add'] } },
-            platform,
-          });
-          assert.equal(features.length, 1);
-        }
-      });
     });
 
-    // Documents written before the split carry one `app` bucket meaning "any API surface".
-    describe('legacy app-bucket documents', () => {
-      const legacySnapshot: VersionSnapshot = {
+    // A feature reaching a surface does not mean every code under it does.
+    describe('per-code platforms gate the individual codes', () => {
+      const withPlatforms = (platforms: PlatformBucket[]): VersionSnapshot => ({
         ...headlessSnapshot,
-        businesses: {
-          RETAIL: {
-            ...must(headlessSnapshot.businesses.RETAIL),
-            plans: planWith({ feeds: { app: ['view', 'add'] } }),
+        features: {
+          'ORG.feeds': {
+            ...headless,
+            permissions: [
+              { code: 'view', label: 'View', isGlobal: true, businesses: [], dependsOn: [], platforms: ALL_BUCKETS },
+              { code: 'add', label: 'Add', isGlobal: true, businesses: [], dependsOn: ['view'], platforms },
+            ],
           },
         },
-      };
-
-      it('a legacy plan entitlement and grant resolve on both surfaces', () => {
-        for (const platform of ['graphql', 'http'] as const) {
-          const features = resolveUserFeatures({
-            ...params,
-            snapshot: legacySnapshot,
-            // Pre-split shape — inexpressible in the public types on purpose, hence the cast
-            roleFeatures: { feeds: { app: ['view', 'add'] } } as never,
-            platform,
-          });
-          assert.equal(features.length, 1);
-          assert.equal(must(features[0]).locked, false);
-          assert.deepEqual(must(features[0]).permissions.sort(), ['add', 'view']);
-        }
       });
 
-      it('a surface bucket present alongside the legacy one wins for its own surface', () => {
+      it('a code omitting the bucket is not granted there, even with a plan entitlement and a role grant', () => {
         const features = resolveUserFeatures({
           ...params,
-          snapshot: legacySnapshot,
-          roleFeatures: { feeds: { app: ['view', 'add'], graphql: ['view'] } } as never,
-          platform: 'graphql',
+          snapshot: withPlatforms(['graphql']),
+          roleFeatures: { feeds: { http: ['view', 'add'] } },
+          platform: 'http',
         });
         assert.equal(features.length, 1);
         assert.deepEqual(must(features[0]).permissions, ['view']);
       });
 
-      it('a legacy app lock fails closed on both surfaces', () => {
+      it('the same code resolves on the bucket it does declare', () => {
+        const features = resolveUserFeatures({
+          ...params,
+          snapshot: withPlatforms(['graphql']),
+          roleFeatures: { feeds: { graphql: ['view', 'add'] } },
+          platform: 'graphql',
+        });
+        assert.deepEqual(must(features[0]).permissions.sort(), ['add', 'view']);
+      });
+
+      it('an empty list grants the code nowhere', () => {
         for (const platform of ['graphql', 'http'] as const) {
           const features = resolveUserFeatures({
             ...params,
-            snapshot: legacySnapshot,
-            siteLocks: { feeds: { app: null } } as never,
-            roleFeatures: { feeds: { app: ['view', 'add'] } } as never,
+            snapshot: withPlatforms([]),
+            roleFeatures: { feeds: { [platform]: ['view', 'add'] } },
             platform,
           });
-          assert.equal(features.length, 1);
-          assert.equal(must(features[0]).locked, true);
-          assert.equal(must(features[0]).lockReason, 'SITE');
+          assert.deepEqual(must(features[0]).permissions, ['view']);
         }
       });
     });
