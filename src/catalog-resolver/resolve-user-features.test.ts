@@ -148,23 +148,23 @@ const snapshot: VersionSnapshot = {
       },
     },
   },
+  apps: [
+    {
+      code: 'pos',
+      name: 'POS',
+      icon: 'store',
+      sortOrder: 1,
+      features: [
+        { code: 'sales', scope: 'SITE' },
+        { code: 'reports', scope: 'SITE' },
+        { code: 'repositories', scope: 'SITE' },
+        { code: 'dashboard', scope: 'ORG' },
+      ],
+    },
+  ],
   businesses: {
     RETAIL: {
       name: 'Retail',
-      apps: [
-        {
-          code: 'pos',
-          name: 'POS',
-          icon: 'store',
-          sortOrder: 1,
-          features: [
-            { code: 'sales', scope: 'SITE' },
-            { code: 'reports', scope: 'SITE' },
-            { code: 'repositories', scope: 'SITE' },
-            { code: 'dashboard', scope: 'ORG' },
-          ],
-        },
-      ],
       roleTemplates: {},
       plans: {
         BASIC: {
@@ -506,25 +506,25 @@ describe('resolveUserFeatures', () => {
         'ORG.inventory-items': inventoryFeature('Org Inventory', 'ORG'),
         'SITE.inventory-items': inventoryFeature('Site Inventory', 'SITE'),
       },
+      apps: [
+        {
+          code: 'master',
+          name: 'Master',
+          icon: 'settings',
+          sortOrder: 1,
+          features: [{ code: 'inventory-items', scope: 'ORG' }],
+        },
+        {
+          code: 'inventory',
+          name: 'Inventory',
+          icon: 'boxes',
+          sortOrder: 2,
+          features: [{ code: 'inventory-items', scope: 'SITE' }],
+        },
+      ],
       businesses: {
         RETAIL: {
           name: 'Retail',
-          apps: [
-            {
-              code: 'master',
-              name: 'Master',
-              icon: 'settings',
-              sortOrder: 1,
-              features: [{ code: 'inventory-items', scope: 'ORG' }],
-            },
-            {
-              code: 'inventory',
-              name: 'Inventory',
-              icon: 'boxes',
-              sortOrder: 2,
-              features: [{ code: 'inventory-items', scope: 'SITE' }],
-            },
-          ],
           roleTemplates: {},
           plans: {
             PRO: {
@@ -588,19 +588,19 @@ describe('resolveUserFeatures', () => {
 
     const headlessSnapshot: VersionSnapshot = {
       features: { 'ORG.feeds': headless },
+      apps: [
+        {
+          code: 'integrations',
+          name: 'Integrations',
+          icon: 'plug',
+          sortOrder: 1,
+          features: [{ code: 'feeds', scope: 'ORG' }],
+        },
+      ],
       businesses: {
         RETAIL: {
           name: 'Retail',
           roleTemplates: {},
-          apps: [
-            {
-              code: 'integrations',
-              name: 'Integrations',
-              icon: 'plug',
-              sortOrder: 1,
-              features: [{ code: 'feeds', scope: 'ORG' }],
-            },
-          ],
           plans: planWith({ feeds: { graphql: ['view', 'add'], http: ['view', 'add'] } }),
         },
       },

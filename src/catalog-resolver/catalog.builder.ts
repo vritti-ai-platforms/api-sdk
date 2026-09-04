@@ -51,7 +51,7 @@ export function buildSiteCatalog(
 
   const catalog: FeatureCatalogEntry[] = [];
   // Iterate apps alphabetically by name so the resolved feature list (→ core-web sidebar) is app-alphabetical without any frontend re-sort
-  const sortedApps = [...business.apps].sort((a, b) => a.name.localeCompare(b.name));
+  const sortedApps = [...snapshot.apps].sort((a, b) => a.name.localeCompare(b.name));
   for (const app of sortedApps) {
     // The app's renderable features (each ref pins scope+code to one app), dropped when they don't belong to this workspace scope or node type (outlet vs container)
     const businessAppFeatures = app.features

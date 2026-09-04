@@ -103,22 +103,22 @@ const snapshot: VersionSnapshot = {
       },
     },
   },
+  apps: [
+    {
+      code: 'pos',
+      name: 'POS',
+      icon: 'store',
+      sortOrder: 1,
+      features: [
+        { code: 'catalog', scope: 'ORG' },
+        { code: 'sales', scope: 'SITE' },
+        { code: 'reports', scope: 'SITE' },
+      ],
+    },
+  ],
   businesses: {
     RETAIL: {
       name: 'Retail',
-      apps: [
-        {
-          code: 'pos',
-          name: 'POS',
-          icon: 'store',
-          sortOrder: 1,
-          features: [
-            { code: 'catalog', scope: 'ORG' },
-            { code: 'sales', scope: 'SITE' },
-            { code: 'reports', scope: 'SITE' },
-          ],
-        },
-      ],
       roleTemplates: {},
       plans: {
         PRO: {

@@ -104,7 +104,7 @@ function buildMatrix(
   if (!business || !plan) return { plan: planMeta, apps: [], locks };
 
   const apps: SiteMatrixApp[] = [];
-  for (const app of business.apps) {
+  for (const app of snapshot.apps) {
     const counts: Record<PlatformBucket, MatrixCounts> = {
       web: { unlocked: 0, total: 0 },
       mobile: { unlocked: 0, total: 0 },
