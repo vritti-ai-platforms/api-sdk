@@ -5,7 +5,7 @@ import { REQUEST } from '@nestjs/core';
 import type { ClientProxy } from '@nestjs/microservices';
 import { NatsRecordBuilder } from '@nestjs/microservices';
 import type { FastifyRequest } from 'fastify';
-import { headers as natsHeaders } from 'nats';
+import { headers as natsHeaders } from '@nats-io/transport-node';
 import { resolveInjectedRequest } from '../context/resolve-request';
 import { NATS_CONTEXT_RESOLVER } from './constants';
 import type { ContextResolverFn } from './nats-client.interfaces';
@@ -60,7 +60,7 @@ export class NatsClientService {
 // Driven by the key map rather than a field-per-line, so a new context field travels the
 // moment it is added to NATS_HEADER_KEYS. Empty values are omitted — parseNatsHeaders applies
 // the same defaults on the way back, so sending a blank would just restate them.
-function contextToHeaders(ctx: NatsHeaders): import('nats').MsgHdrs {
+function contextToHeaders(ctx: NatsHeaders): import('@nats-io/transport-node').MsgHdrs {
   const hdrs = natsHeaders();
   for (const [field, key] of Object.entries(NATS_HEADER_KEYS) as [keyof NatsHeaders, string][]) {
     if (ctx[field]) hdrs.set(key, ctx[field]);
