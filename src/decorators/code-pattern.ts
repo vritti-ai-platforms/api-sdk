@@ -1,8 +1,10 @@
 // Canonical entity "code" format — the single source of truth for DTOs, DB checks, and frontend forms.
-// A code is a single lowercase word: starts with a letter, then lowercase letters, digits, or hyphens.
+// A code is a single lowercase word of letters, digits, and hyphens, starting with a letter or digit.
+// Real-world codes lead with a digit often enough (pack sizes "62g", sizes "5xl") that requiring a
+// leading letter forced callers to mangle them.
 // The dotted variant allows dot-separated segments (e.g. permission codes like "add.salt").
 
-const SEGMENT = '[a-z][a-z0-9-]*';
+const SEGMENT = '[a-z0-9][a-z0-9-]*';
 
 export const CODE_PATTERN_SOURCE = `^${SEGMENT}$`;
 export const DOTTED_CODE_PATTERN_SOURCE = `^${SEGMENT}(\\.${SEGMENT})*$`;
