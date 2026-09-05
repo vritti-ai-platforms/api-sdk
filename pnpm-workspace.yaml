@@ -1,0 +1,6 @@
+allowBuilds:
+  # telemetry only — nothing depends on it running
+  '@scarf/scarf': false
+  '@swc/core': true
+  # required: tsup's bundler; its postinstall links the platform binary
+  esbuild: true

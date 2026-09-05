@@ -1,7 +1,7 @@
 {
   "name": "@vritti/api-sdk",
   "type": "module",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -322,7 +322,7 @@
   },
   "scripts": {
     "dev": "tsc --noEmit -p tsconfig.src.json && tsx --watch src/index.ts",
-    "build": "tsc --noEmit -p tsconfig.src.json && tsup",
+    "build": "tsc --noEmit -p tsconfig.src.json && NODE_OPTIONS=--max-old-space-size=6144 tsup",
     "type-check": "tsc --noEmit -p tsconfig.src.json",
     "test": "tsx --test 'src/**/*.test.ts'",
     "test:watch": "tsx --test --watch 'src/**/*.test.ts'",
@@ -359,7 +359,7 @@
     "@nestjs/swagger": "^11.0.0",
     "class-transformer": "^0.5.0",
     "class-validator": "^0.14.0",
-    "fastify": "5.11.3",
+    "fastify": "^5.12.1",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0"
   },
@@ -404,7 +404,7 @@
     "@types/pg": "^8.23.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.4",
-    "fastify": "5.11.3",
+    "fastify": "5.12.3",
     "jsonwebtoken": "^9.0.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
