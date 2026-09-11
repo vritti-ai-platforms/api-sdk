@@ -30,12 +30,20 @@ export interface CookieConfig {
   refreshCookieDomain?: string;
 }
 
+// How an OAuth-protected route challenges a caller (RFC 6750 §3). `resourceMetadataUrl` is what lets an MCP client
+// discover the authorization server from a bare 401 (RFC 9728).
+export interface OAuthChallengeConfig {
+  realm?: string;
+  resourceMetadataUrl?: string;
+}
+
 export interface GuardConfig {
   authHeaderName: string;
   tokenPrefix: string;
   csrfExemptSessionTypes?: string[];
   csrfExemptTransports?: string[];
   refreshTokenBindingExemptSessionTypes?: string[];
+  oauth?: OAuthChallengeConfig;
   onAuthenticated?: OnAuthenticatedCallback;
 }
 

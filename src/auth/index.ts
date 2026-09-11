@@ -11,6 +11,7 @@ export {
   type DecodedAccessToken,
   type DecodedRefreshToken,
   type GuardConfig,
+  type OAuthChallengeConfig,
   type OnAuthenticatedCallback,
   type RefreshTokenPayload,
   type TokenExpiry,

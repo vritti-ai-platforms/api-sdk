@@ -24,7 +24,20 @@ declare module 'fastify' {
     kind: 'cloud';
   }
 
-  type VrittiAuth = VrittiSessionAuth | VrittiAppAuth | VrittiCloudAuth;
+  // An OAuth 2.1 bearer token issued by the consuming server's own authorization server. The guard only reads the
+  // token off the request; the server resolves it in `guard.onAuthenticated` and fills in who it acts for and what
+  // it may do. `userId` is required once the hook returns — the guard fails closed when it is missing.
+  interface VrittiOAuthAuth extends VrittiAuthBase {
+    kind: 'oauth';
+    token: string;
+    userId?: string;
+    grantId?: string;
+    clientId?: string;
+    scopes?: string[];
+    organizationId?: string;
+  }
+
+  type VrittiAuth = VrittiSessionAuth | VrittiAppAuth | VrittiCloudAuth | VrittiOAuthAuth;
 
   interface FastifyRequest {
     auth?: VrittiAuth;

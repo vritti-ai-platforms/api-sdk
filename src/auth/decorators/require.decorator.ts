@@ -6,6 +6,7 @@ export enum AuthType {
   Session = 'session',
   App = 'app',
   Cloud = 'cloud',
+  OAuth = 'oauth',
   Public = 'public',
 }
 
@@ -22,6 +23,7 @@ export interface AuthRequirement {
 //   @Require(AuthType.Session, SessionTypeValues.WEB)   session types WEB
 //   @Require(AuthType.App, AppTypeValues.GRAPHQL)       app credentials of type GRAPHQL
 //   @Require(AuthType.Cloud)                            signed control-plane calls
+//   @Require(AuthType.OAuth, 'admin:read')              OAuth 2.1 bearer tokens carrying scope admin:read
 //   @Require(AuthType.Public)                           no authentication
 //
 // Subtypes are compared as strings — the enums belong to the consuming server's schema and

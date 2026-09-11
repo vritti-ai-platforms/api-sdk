@@ -67,6 +67,10 @@ export class VrittiAuthGuard implements CanActivate {
       case AuthType.Cloud:
         return this.handleCloudAuth(request, route);
 
+      // A bearer client holds no cookies, so CSRF does not apply here either.
+      case AuthType.OAuth:
+        return this.handleOAuthAuth(request, reply, requirement.subtypes, route);
+
       case AuthType.Public: {
         if (!skipCsrf) {
           await this.validateCsrf(request, reply);
@@ -166,6 +170,95 @@ export class VrittiAuthGuard implements CanActivate {
     // the consuming server's augmentation, not something this side knows about.
     this.logger.debug(`${route} — authenticated app (${appType})`);
     return true;
+  }
+
+  /**
+   * Authenticates an OAuth 2.1 bearer token issued by the consuming server's own authorization server.
+   *
+   * Same delegation as the app and cloud branches, for the same reason: only the server can look an opaque token
+   * up, check the audience it was issued for and decide who it acts for. The hook does that and fills `userId`,
+   * `grantId`, `clientId` and `scopes`. What stays here is what only this side can do — read the header, write the
+   * RFC 6750 challenge a client needs to recover (no error code when the token is simply absent, `invalid_token`
+   * when it was refused, `insufficient_scope` when it lacks a required one), and enforce the scope subtypes.
+   *
+   * An empty subtype list means "any scope" — the caller is authenticated but the route does not narrow further,
+   * which suits a multiplexed endpoint that checks scopes per operation itself.
+   */
+  private async handleOAuthAuth(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    requiredScopes: string[],
+    route: string,
+  ): Promise<boolean> {
+    const onAuthenticated = this.config.guard.onAuthenticated;
+    if (!onAuthenticated) {
+      // Fail closed. Without the hook nothing can resolve the token, and treating the request as
+      // authenticated would leave the endpoint open to anyone who found it.
+      this.logger.error(`${route} — @Require(AuthType.OAuth) requires guard.onAuthenticated to be configured`);
+      throw new UnauthorizedException('OAuth authentication is not configured');
+    }
+
+    const token = this.requestService.getAccessToken();
+    if (!token) {
+      this.logger.warn(`${route} — no bearer token`);
+      this.writeOAuthChallenge(reply);
+      throw new UnauthorizedException('A bearer access token is required.');
+    }
+
+    const auth = { kind: 'oauth', token } as NonNullable<FastifyRequest['auth']>;
+    request.auth = auth;
+
+    try {
+      await onAuthenticated(this.requestService, auth);
+    } catch (error) {
+      // The server's own exception carries the status and body; this only adds the header a client acts on.
+      this.writeOAuthChallenge(
+        reply,
+        'invalid_token',
+        'The access token is invalid, expired, or not issued for this resource.',
+      );
+      throw error;
+    }
+
+    if (auth.kind !== 'oauth' || !auth.userId) {
+      this.logger.error(`${route} — guard.onAuthenticated did not resolve the OAuth token to a user`);
+      this.writeOAuthChallenge(
+        reply,
+        'invalid_token',
+        'The access token is invalid, expired, or not issued for this resource.',
+      );
+      throw new UnauthorizedException('The access token is invalid or has expired.');
+    }
+
+    const granted = auth.scopes ?? [];
+    const missing = requiredScopes.filter((scope) => !granted.includes(scope));
+    if (missing.length > 0) {
+      this.logger.warn(`${route} — token scopes [${granted.join(', ')}] lack [${missing.join(', ')}]`);
+      this.writeOAuthChallenge(
+        reply,
+        'insufficient_scope',
+        'The access token does not carry the required scope.',
+        requiredScopes,
+      );
+      throw new ForbiddenException('The access token does not carry the required scope.');
+    }
+
+    this.logger.debug(
+      `${route} — authenticated OAuth bearer for user ${auth.userId} (client ${auth.clientId ?? 'unknown'})`,
+    );
+    return true;
+  }
+
+  // Sets the WWW-Authenticate header (RFC 6750 §3) so a client knows how to obtain a usable token. Set before the
+  // exception is thrown: the exception filter only adds Content-Type, so headers already on the reply survive.
+  private writeOAuthChallenge(reply: FastifyReply, error?: string, description?: string, scopes?: string[]): void {
+    const oauth = this.config.guard.oauth;
+    const parts = [`Bearer realm="${oauth?.realm ?? 'vritti'}"`];
+    if (error) parts.push(`error="${error}"`);
+    if (description) parts.push(`error_description="${description.replace(/"/g, "'")}"`);
+    if (scopes && scopes.length > 0) parts.push(`scope="${scopes.join(' ')}"`);
+    if (oauth?.resourceMetadataUrl) parts.push(`resource_metadata="${oauth.resourceMetadataUrl}"`);
+    reply.header('WWW-Authenticate', parts.join(', '));
   }
 
   // Authenticates standard HTTP requests using the access token from Authorization header

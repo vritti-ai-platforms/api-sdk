@@ -1,7 +1,7 @@
 {
   "name": "@vritti/api-sdk",
   "type": "module",
-  "version": "0.4.7",
+  "version": "0.4.9",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -74,6 +74,16 @@
       "require": {
         "types": "./dist/xlsx.d.cts",
         "default": "./dist/xlsx.cjs"
+      }
+    },
+    "./zod": {
+      "import": {
+        "types": "./dist/zod.d.ts",
+        "default": "./dist/zod.js"
+      },
+      "require": {
+        "types": "./dist/zod.d.cts",
+        "default": "./dist/zod.cjs"
       }
     },
     "./lodash": {
@@ -305,6 +315,16 @@
         "types": "./dist/utils.d.cts",
         "default": "./dist/utils.cjs"
       }
+    },
+    "./mcp": {
+      "import": {
+        "types": "./dist/mcp.d.ts",
+        "default": "./dist/mcp.js"
+      },
+      "require": {
+        "types": "./dist/mcp.d.cts",
+        "default": "./dist/mcp.cjs"
+      }
     }
   },
   "files": [
@@ -334,6 +354,7 @@
   },
   "dependencies": {
     "@getbrevo/brevo": "^4.0.1",
+    "@modelcontextprotocol/sdk": "1.30.0",
     "@nats-io/transport-node": "^3.4.0",
     "decimal.js": "^10.6.0",
     "dinero.js": "2.0.2",
@@ -345,7 +366,8 @@
     "pluralize-esm": "^9.0.5",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+    "zod": "4.5.4"
   },
   "peerDependencies": {
     "@aws-sdk/client-s3": "^3.997.0",

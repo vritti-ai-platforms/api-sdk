@@ -15,6 +15,7 @@ import {
   notInArray,
   or,
   type SQL,
+  sql,
 } from 'drizzle-orm';
 import type { FilterCondition, FilterOperator, SearchState, SortCondition } from './filter.types';
 
@@ -22,6 +23,8 @@ export type FieldDefinition =
   | { column: Column; type: 'string' | 'number' | 'boolean'; nulls?: 'first' | 'last' }
   | { expression: (value: string | number, operator: FilterOperator) => SQL; type: 'string' | 'number' | 'boolean' };
 export type FieldMap = Record<string, FieldDefinition>;
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export class FilterProcessor {
   // Returns undefined if no conditions (Drizzle accepts undefined as "no WHERE")
@@ -64,6 +67,8 @@ export class FilterProcessor {
   }
 
   // Builds a search WHERE — OR across all string fields when columnId is 'all', otherwise a single ilike
+  // Field maps expose uuid columns as 'string' so the multi-select filters (isAnyOf → inArray) work, but Postgres has
+  // no ILIKE for uuid: an "all columns" search must skip them, and a search aimed at one can only be an exact match.
   static buildSearch(search: SearchState | null | undefined, fieldMap: FieldMap): SQL | undefined {
     if (!search?.value) return undefined;
 
@@ -71,7 +76,7 @@ export class FilterProcessor {
       const conditions = Object.values(fieldMap)
         .filter(
           (def): def is { column: Column; type: 'string' | 'number' | 'boolean' } =>
-            'column' in def && def.type === 'string',
+            'column' in def && def.type === 'string' && !FilterProcessor.isUuidColumn(def.column),
         )
         .map((def) => ilike(def.column, `%${search.value}%`));
       return conditions.length ? or(...conditions) : undefined;
@@ -79,7 +84,15 @@ export class FilterProcessor {
 
     const def = fieldMap[search.columnId];
     if (!def || !('column' in def)) return undefined;
+    if (FilterProcessor.isUuidColumn(def.column)) {
+      // Anything that is not a full uuid cannot match a uuid column — say so with an empty result, not with a 500
+      return UUID_PATTERN.test(search.value) ? eq(def.column, search.value) : sql`false`;
+    }
     return ilike(def.column, `%${search.value}%`);
+  }
+
+  private static isUuidColumn(column: Column): boolean {
+    return column.columnType === 'PgUUID';
   }
 
   // Maps each SortCondition to an asc/desc SQL expression
