@@ -7,10 +7,11 @@ import { McpSchemaRegistry } from './mcp-schema-registry';
 import { McpServerFactory } from './mcp-server.factory';
 import { McpTransportFactory } from './mcp-transport.factory';
 import { ToolRegistry } from './tool-registry';
+import { McpBuiltinTools } from './tools/builtin.tools';
 
 // The MCP plumbing a server shares: transport, protocol server, request handler, schema registry and tool registry.
-// The server keeps what is its own — the controller carrying the route and its @Require(), the @McpTools() providers,
-// and whatever resource tables or workflows those tools compose.
+// The server keeps what is its own — the controller carrying the route and its @Require(), and the @McpTools()
+// providers each feature module registers beside its controllers.
 @Module({})
 export class McpModule {
   static forRoot(options: McpModuleOptions): DynamicModule {
@@ -30,6 +31,8 @@ export class McpModule {
         McpRequestHandler,
         McpSchemaRegistry,
         ToolRegistry,
+        // whoami — every server gets it
+        McpBuiltinTools,
       ],
       exports: [McpRequestHandler, McpSchemaRegistry, ToolRegistry],
     };
