@@ -6,7 +6,7 @@ import type {
   PlatformBucket,
   ScopeType,
   ServiceCode,
-  SiteFeatureLocks,
+  WorkspaceFeatureLocks,
   SiteType,
   VersionSnapshot,
 } from './types';
@@ -82,7 +82,7 @@ export interface ResolveUserFeaturesParams {
   snapshot: VersionSnapshot;
   businessCode: string;
   planCode: string | undefined;
-  siteLocks: SiteFeatureLocks | undefined;
+  workspaceLocks: WorkspaceFeatureLocks | undefined;
   roleFeatures: FeatureUnlocks;
   platform: ClientPlatform;
   siteType?: SiteType;
@@ -93,7 +93,7 @@ export interface ResolveUserFeaturesParams {
 
 // Resolves the features + MF config a user sees at a BU: plan ∧ BU catalog intersected with the role's grants, filtered to the requested platform
 export function resolveUserFeatures(params: ResolveUserFeaturesParams): PermissionFeature[] {
-  const { snapshot, businessCode, planCode, siteLocks, platform, siteType, scope, availableServices } = params;
+  const { snapshot, businessCode, planCode, workspaceLocks, platform, siteType, scope, availableServices } = params;
 
   // Plan unlocks, BU locks, and role grants are stored per platform; resolve only the requesting
   // surface's bucket (web → web; ios/android → mobile; graphql/http → themselves)
@@ -110,7 +110,7 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
     snapshot,
     businessCode,
     planCode,
-    siteLocks,
+    workspaceLocks,
     bucket,
     siteType,
     scope,

@@ -9,11 +9,11 @@ import type {
   RoleItem,
   ScopeType,
   ServiceCode,
-  SiteFeatureLocks,
   SiteType,
   SnapshotFeature,
   SnapshotPlan,
   VersionSnapshot,
+  WorkspaceFeatureLocks,
 } from './types';
 import { isApiBucket, PLATFORMS, SURFACE_BY_BUCKET, snapshotFeatureKey } from './types';
 
@@ -30,13 +30,13 @@ export function findFeatureByCode(snapshot: VersionSnapshot, code: string): Snap
   return undefined;
 }
 
-// Builds the per-site catalog for ONE platform bucket — plan is the ceiling, siteLocks is a deny-list within it; each permission carries locked + lockReason + unlockPlans
+// Builds the per-workspace catalog for ONE platform bucket — plan is the ceiling, workspaceLocks is a deny-list within it; each permission carries locked + lockReason + unlockPlans
 // availableServices defaults to none, so a caller that doesn't know the org's provisioned services locks every service-dependent feature rather than leaking it
 export function buildSiteCatalog(
   snapshot: VersionSnapshot,
   businessCode: string | undefined,
   planCode: string | undefined,
-  siteLocks: SiteFeatureLocks | undefined,
+  workspaceLocks: WorkspaceFeatureLocks | undefined,
   bucket: PlatformBucket,
   siteType?: SiteType,
   scope?: ScopeType,
@@ -47,7 +47,7 @@ export function buildSiteCatalog(
   if (!business) return [];
   const plans = business.plans;
   const plan = planCode ? plans[planCode] : undefined;
-  const locks = siteLocks;
+  const locks = workspaceLocks;
 
   const catalog: FeatureCatalogEntry[] = [];
   // Iterate apps alphabetically by name so the resolved feature list (→ core-web sidebar) is app-alphabetical without any frontend re-sort
@@ -82,12 +82,12 @@ export function buildSiteCatalog(
       // Feature-level lock is EXPLICIT: plan must include the feature on this bucket, the site must not null-lock
       // the platform, and every external service the feature declares must be provisioned for the org
       const memberOnBucket = membership?.[bucket] !== undefined;
-      const sitePlatformLocked = locks?.[feature.code]?.[bucket] === null;
+      const workspacePlatformLocked = locks?.[feature.code]?.[bucket] === null;
       const missingServices = unmetServices(feature, availableServices);
       // Unmet services lock every permission too — otherwise the feature reads locked while its actions still
       // report as available, which is not how plan and site locks behave
       const permissions = buildPermissions(feature, businessCode, membership, locks, plans, bucket, missingServices);
-      const lockReason = resolveLockReason(!memberOnBucket, sitePlatformLocked, missingServices);
+      const lockReason = resolveLockReason(!memberOnBucket, workspacePlatformLocked, missingServices);
       const locked = lockReason !== null;
       const unlockPlans = lockReason === 'PLAN' ? plansIncludingFeature(plans, feature.code, bucket) : [];
 
@@ -148,11 +148,11 @@ export function surfaceAllows(surfaces: ApiSurface[], surface: ApiSurface | unde
 // couldn't use), then the site deny-list, then any unprovisioned service.
 function resolveLockReason(
   planLocked: boolean,
-  siteLocked: boolean,
+  workspaceLocked: boolean,
   missingServices: ServiceCode[],
 ): LockReason | null {
   if (planLocked) return 'PLAN';
-  if (siteLocked) return 'SITE';
+  if (workspaceLocked) return 'WORKSPACE';
   if (missingServices.length > 0) return 'SERVICE';
   return null;
 }
@@ -162,9 +162,9 @@ function unmetServices(feature: SnapshotFeature, availableServices: ServiceCode[
   return feature.requiredServices.filter((service) => !availableServices.includes(service));
 }
 
-// Per-platform site-lock primitive: null locks the whole feature, string[] locks those codes, absent = not locked
+// Per-platform workspace-lock primitive: null locks the whole feature, string[] locks those codes, absent = not locked
 export function isSiteLockedOnPlatform(
-  entry: SiteFeatureLocks[string] | undefined,
+  entry: WorkspaceFeatureLocks[string] | undefined,
   platform: PlatformBucket,
   code: string,
 ): boolean {
@@ -178,13 +178,13 @@ function buildPermissions(
   feature: SnapshotFeature,
   businessCode: string,
   planMembership: PlatformCodes | undefined,
-  siteLocks: SiteFeatureLocks | undefined,
+  workspaceLocks: WorkspaceFeatureLocks | undefined,
   plans: Record<string, SnapshotPlan>,
   bucket: PlatformBucket,
   missingServices: ServiceCode[] = [],
 ): CatalogPermission[] {
   const planUnlocked = new Set(planMembership?.[bucket] ?? []);
-  const lockEntry = siteLocks?.[feature.code];
+  const lockEntry = workspaceLocks?.[feature.code];
 
   // Two filters, and the second is the point: a feature reaching this surface does not mean every
   // action under it does. A code omits the bucket when no route there enforces it, so offering it

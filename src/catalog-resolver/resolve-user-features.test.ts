@@ -197,7 +197,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'BASIC',
-      siteLocks: undefined,
+      workspaceLocks: undefined,
       roleFeatures: { sales: { web: ['sales.view', 'sales.create'] } },
       platform: 'web',
     });
@@ -225,7 +225,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'BASIC',
-      siteLocks: undefined,
+      workspaceLocks: undefined,
       roleFeatures: { reports: { web: ['reports.view'] } },
       platform: 'web',
     });
@@ -242,7 +242,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      siteLocks: undefined,
+      workspaceLocks: undefined,
       roleFeatures: { repositories: { web: ['repositories.view'] } },
       platform: 'web',
       availableServices: [],
@@ -268,7 +268,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      siteLocks: undefined,
+      workspaceLocks: undefined,
       roleFeatures: { repositories: { web: ['repositories.view'] } },
       platform: 'web',
       availableServices: ['GITEA'],
@@ -286,7 +286,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      siteLocks: undefined,
+      workspaceLocks: undefined,
       roleFeatures: { repositories: { web: ['repositories.view'] } },
       platform: 'web',
     });
@@ -302,7 +302,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'BASIC',
-      siteLocks: undefined,
+      workspaceLocks: undefined,
       roleFeatures: { repositories: { web: ['repositories.view'] } },
       platform: 'web',
       availableServices: [],
@@ -319,7 +319,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      siteLocks: undefined,
+      workspaceLocks: undefined,
       roleFeatures: { sales: { mobile: ['sales.view'] }, reports: { web: ['reports.view'] } },
     };
     const ios = resolveUserFeatures({ ...params, platform: 'ios' });
@@ -336,14 +336,14 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      siteLocks: { sales: { web: ['sales.create'], mobile: null } },
+      workspaceLocks: { sales: { web: ['sales.create'], mobile: null } },
       roleFeatures: { sales: { web: ['sales.view', 'sales.create'] } },
       platform: 'web',
     });
 
     // sales.create: locked on web (code) + mobile (feature null) → BU-locked; sales.view stays open via web
     assert.deepEqual(must(features[0]).lockedPermissions, [
-      { code: 'sales.create', reason: 'SITE', unlockPlans: [], missingServices: [] },
+      { code: 'sales.create', reason: 'WORKSPACE', unlockPlans: [], missingServices: [] },
     ]);
   });
 
@@ -352,7 +352,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      siteLocks: undefined,
+      workspaceLocks: undefined,
       roleFeatures: { sales: { web: ['sales.view', 'sales.create', 'sales.void'] } },
       platform: 'web',
     });
@@ -367,7 +367,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      siteLocks: { sales: { web: ['sales.view'] } },
+      workspaceLocks: { sales: { web: ['sales.view'] } },
       roleFeatures: { sales: { web: ['sales.view'], mobile: ['sales.view'] } },
     };
     const web = resolveUserFeatures({ ...params, platform: 'web' as const });
@@ -375,7 +375,7 @@ describe('resolveUserFeatures', () => {
 
     // The lock covers web only → BU-locked on web, untouched on mobile
     assert.deepEqual(must(web[0]).lockedPermissions, [
-      { code: 'sales.view', reason: 'SITE', unlockPlans: [], missingServices: [] },
+      { code: 'sales.view', reason: 'WORKSPACE', unlockPlans: [], missingServices: [] },
     ]);
     assert.deepEqual(must(mobile[0]).lockedPermissions, []);
   });
@@ -385,7 +385,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'BASIC',
-      siteLocks: { sales: { web: ['sales.create'], mobile: ['sales.create'] } },
+      workspaceLocks: { sales: { web: ['sales.create'], mobile: ['sales.create'] } },
       roleFeatures: { sales: { web: ['sales.view', 'sales.create'] } },
       platform: 'web',
     });
@@ -400,7 +400,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      siteLocks: { sales: { web: null, mobile: null } },
+      workspaceLocks: { sales: { web: null, mobile: null } },
       roleFeatures: { reports: { web: ['reports.view'] } },
       platform: 'web',
     });
@@ -415,14 +415,14 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      siteLocks: { sales: { web: null, mobile: null } },
+      workspaceLocks: { sales: { web: null, mobile: null } },
       roleFeatures: { sales: { web: ['sales.view', 'sales.create', 'sales.void'] } },
       platform: 'web',
     });
 
     const feature = must(features[0]);
     assert.equal(feature.locked, true);
-    assert.equal(feature.lockReason, 'SITE');
+    assert.equal(feature.lockReason, 'WORKSPACE');
     assert.deepEqual(feature.unlockPlans, []);
   });
 
@@ -431,7 +431,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      siteLocks: undefined,
+      workspaceLocks: undefined,
       roleFeatures: { sales: { web: ['sales.view'] }, dashboard: { web: ['dashboard.view'] } },
       platform: 'web',
     });
@@ -444,7 +444,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      siteLocks: undefined,
+      workspaceLocks: undefined,
       roleFeatures: { sales: { web: ['sales.view'] }, dashboard: { web: ['dashboard.view'] } },
       platform: 'web' as const,
     };
@@ -467,7 +467,7 @@ describe('resolveUserFeatures', () => {
       snapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      siteLocks: undefined,
+      workspaceLocks: undefined,
       roleFeatures: { sales: { web: ['sales.view'] } },
       platform: 'web',
       scope: 'LE',
@@ -542,7 +542,7 @@ describe('resolveUserFeatures', () => {
       snapshot: collisionSnapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      siteLocks: undefined,
+      workspaceLocks: undefined,
       roleFeatures: { 'inventory-items': { web: ['view'] } },
       platform: 'web' as const,
     };
@@ -610,7 +610,7 @@ describe('resolveUserFeatures', () => {
       snapshot: headlessSnapshot,
       businessCode: 'RETAIL',
       planCode: 'PRO',
-      siteLocks: undefined,
+      workspaceLocks: undefined,
       scope: 'ORG' as const,
     };
 

@@ -57,7 +57,7 @@ export {
   SERVICE_CODES,
   type ServiceCode,
   SITE_TYPES,
-  type SiteFeatureLocks,
+  type WorkspaceFeatureLocks,
   type SiteType,
   SNAPSHOT_SCHEMA_VERSION,
   type SnapshotApp,

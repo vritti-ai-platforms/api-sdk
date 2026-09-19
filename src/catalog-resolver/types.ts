@@ -55,7 +55,7 @@ export interface PlatformDenyCodes {
 export type FeatureUnlocks = Record<string, PlatformCodes>;
 
 export type FeatureLocks = Record<string, PlatformDenyCodes>;
-export type SiteFeatureLocks = FeatureLocks;
+export type WorkspaceFeatureLocks = FeatureLocks;
 
 // ——— Snapshot document shape — what gets stored in versions.snapshot and signed into the catalog license ———
 
@@ -177,7 +177,7 @@ export const SNAPSHOT_SCHEMA_VERSION = 6;
 
 // SERVICE = the org has not provisioned an external service the feature declares; the specific services are
 // reported alongside in `missingServices` so callers never branch on a service code baked into this union
-export type LockReason = 'PLAN' | 'SITE' | 'SERVICE';
+export type LockReason = 'PLAN' | 'WORKSPACE' | 'SERVICE';
 
 export interface CatalogPermission {
   code: string;

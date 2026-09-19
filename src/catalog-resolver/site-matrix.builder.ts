@@ -4,7 +4,7 @@ import {
   type ApiSurface,
   type PlatformBucket,
   type ScopeType,
-  type SiteFeatureLocks,
+  type WorkspaceFeatureLocks,
   type SiteType,
   type SnapshotPlan,
   SURFACE_BY_BUCKET,
@@ -63,7 +63,7 @@ export interface SiteMatrixApp {
 export interface SiteMatrix {
   plan: { code: string; name: string };
   apps: SiteMatrixApp[];
-  locks: SiteFeatureLocks;
+  locks: WorkspaceFeatureLocks;
 }
 
 // Builds the SITE-only apps/features/permissions matrix — not filtered to plan members; plan-locked items carry inPlan=false + availableIn
@@ -71,10 +71,10 @@ export function buildSiteMatrix(
   snapshot: VersionSnapshot,
   businessCode: string | undefined,
   planCode: string | undefined,
-  siteLocks: SiteFeatureLocks | undefined,
+  workspaceLocks: WorkspaceFeatureLocks | undefined,
   siteType?: SiteType,
 ): SiteMatrix {
-  return buildMatrix(snapshot, businessCode, planCode, siteLocks, false, siteType);
+  return buildMatrix(snapshot, businessCode, planCode, workspaceLocks, false, siteType);
 }
 
 // Builds the all-scopes apps/features/permissions matrix — every scope's features included, each carrying its real scope; powers the Plan Overview + Create Custom Role picker
@@ -82,9 +82,9 @@ export function buildPlanMatrix(
   snapshot: VersionSnapshot,
   businessCode: string | undefined,
   planCode: string | undefined,
-  siteLocks?: SiteFeatureLocks,
+  workspaceLocks?: WorkspaceFeatureLocks,
 ): SiteMatrix {
-  return buildMatrix(snapshot, businessCode, planCode, siteLocks, true);
+  return buildMatrix(snapshot, businessCode, planCode, workspaceLocks, true);
 }
 
 // Shared matrix builder — allScopes=false keeps only SITE refs; allScopes=true includes every scope and emits each feature's real scope
@@ -92,7 +92,7 @@ function buildMatrix(
   snapshot: VersionSnapshot,
   businessCode: string | undefined,
   planCode: string | undefined,
-  siteLocks: SiteFeatureLocks | undefined,
+  workspaceLocks: WorkspaceFeatureLocks | undefined,
   allScopes: boolean,
   siteType?: SiteType,
 ): SiteMatrix {
@@ -100,7 +100,7 @@ function buildMatrix(
   const plans = business?.plans ?? {};
   const plan = planCode ? plans[planCode] : undefined;
   const planMeta = { code: planCode ?? '', name: plan?.name ?? planCode ?? '' };
-  const locks = siteLocks ?? {};
+  const locks = workspaceLocks ?? {};
   if (!business || !plan) return { plan: planMeta, apps: [], locks };
 
   const apps: SiteMatrixApp[] = [];
@@ -130,7 +130,7 @@ function buildMatrix(
       const groupByCode = new Map(feature.permissionGroups.map((g) => [g.code, g]));
       const membership = plan.unlockedPermissions[code];
       const featureInPlan = isPlanMember(membership);
-      const siteEntry = siteLocks?.[code];
+      const workspaceEntry = workspaceLocks?.[code];
 
       const permissions: SiteMatrixPermission[] = feature.permissions
         .filter((p) => p.isGlobal || p.businesses.includes(businessCode ?? ''))
@@ -142,7 +142,7 @@ function buildMatrix(
             const planCodes = membership?.[plat];
             const inPlan = featureInPlan && planCodes !== undefined && planCodes.includes(p.code);
             // Deny-list: an in-plan cell is selected unless the site locks it on this platform
-            const selected = inPlan && !isSiteLockedOnPlatform(siteEntry, plat, p.code);
+            const selected = inPlan && !isSiteLockedOnPlatform(workspaceEntry, plat, p.code);
             const availableIn = inPlan ? [] : plansUnlockingPerm(plans, code, p.code, plat, planCode);
             counts[plat].total += 1;
             if (inPlan) counts[plat].unlocked += 1;

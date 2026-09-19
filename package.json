@@ -1,7 +1,7 @@
 {
   "name": "@vritti/api-sdk",
   "type": "module",
-  "version": "0.4.10",
+  "version": "0.5.0",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -426,7 +426,7 @@
     "@types/pg": "^8.23.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.4",
-    "fastify": "5.12.3",
+    "fastify": "5.12.1",
     "jsonwebtoken": "^9.0.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
