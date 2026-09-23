@@ -35,6 +35,22 @@ export class LruCacheProvider implements ICacheProvider {
     return entry ? entry.value : null;
   }
 
+  // Batch form of get. In-memory, so there is nothing to batch — it exists to satisfy the one
+  // interface both drivers implement, letting callers batch without knowing which is configured.
+  async mget<T>(keys: string[]): Promise<(T | null)[]> {
+    return keys.map((key) => {
+      const entry = this.cache.get(key) as { value: T } | undefined;
+      return entry ? entry.value : null;
+    });
+  }
+
+  // Batch form of set, for the same reason
+  async mset<T>(entries: { key: string; value: T }[], ttlSeconds: number): Promise<void> {
+    for (const entry of entries) {
+      this.cache.set(entry.key, { value: entry.value } as object, { ttl: ttlSeconds * 1000 });
+    }
+  }
+
   // Deletes one or more keys
   async del(...keys: string[]): Promise<void> {
     for (const key of keys) this.cache.delete(key);

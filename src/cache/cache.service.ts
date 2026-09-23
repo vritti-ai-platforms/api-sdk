@@ -27,6 +27,26 @@ export class CacheService {
     }
   }
 
+  // Reads many keys at once. On any error every entry reads as a miss, so callers fall back to the
+  // database exactly as they would for a cold cache.
+  async mget<T>(keys: string[]): Promise<(T | null)[]> {
+    try {
+      return await this.provider.mget<T>(keys);
+    } catch (err) {
+      this.logger.error(`Cache mget failed for ${keys.length} keys`, err);
+      return keys.map(() => null);
+    }
+  }
+
+  // Writes many keys at once with one shared TTL — errors are logged and swallowed
+  async mset<T>(entries: { key: string; value: T }[], ttlSeconds: number): Promise<void> {
+    try {
+      await this.provider.mset(entries, ttlSeconds);
+    } catch (err) {
+      this.logger.error(`Cache mset failed for ${entries.length} keys`, err);
+    }
+  }
+
   // Deletes one or more keys — errors are logged and swallowed
   async del(...keys: string[]): Promise<void> {
     try {

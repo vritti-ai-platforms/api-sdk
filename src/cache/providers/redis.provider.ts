@@ -40,6 +40,21 @@ export class RedisCacheProvider implements ICacheProvider, OnModuleInit, OnModul
     return JSON.parse(json) as T;
   }
 
+  // Reads many keys in ONE round trip. Results align with the keys given, null for each miss.
+  async mget<T>(keys: string[]): Promise<(T | null)[]> {
+    if (keys.length === 0) return [];
+    const rows = await this.client.mget(...keys);
+    return rows.map((json) => (json ? (JSON.parse(json) as T) : null));
+  }
+
+  // Writes many keys with one shared expiry in a SINGLE command. MSET cannot do this — it carries no
+  // expiry, so it would need a second EXPIRE per key. Requires Redis 8.4+, which is where MSETEX landed.
+  async mset<T>(entries: { key: string; value: T }[], ttlSeconds: number): Promise<void> {
+    if (entries.length === 0) return;
+    const pairs = entries.flatMap((entry) => [entry.key, JSON.stringify(entry.value)]);
+    await this.client.msetex(entries.length, ...pairs, 'EX', ttlSeconds);
+  }
+
   // Deletes one or more keys in a single command
   async del(...keys: string[]): Promise<void> {
     if (keys.length > 0) {
