@@ -4,6 +4,7 @@ export interface NatsHeaders {
   siteId: string;
   legalEntityId: string;
   siteGroupId: string;
+  siteIds: string;
   siteTimezone: string;
   siteCurrencyCode: string;
 }
@@ -16,6 +17,7 @@ export const NATS_HEADER_KEYS = {
   siteId: 'x-site-id',
   legalEntityId: 'x-le-id',
   siteGroupId: 'x-sg-id',
+  siteIds: 'x-site-ids',
   siteTimezone: 'x-site-timezone',
   siteCurrencyCode: 'x-site-currency-code',
 } as const satisfies Record<keyof NatsHeaders, string>;
