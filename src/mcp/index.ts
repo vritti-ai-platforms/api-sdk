@@ -10,6 +10,18 @@ export { McpSchemaRegistry } from './mcp-schema-registry';
 export { McpServerFactory } from './mcp-server.factory';
 export { McpTransportFactory } from './mcp-transport.factory';
 export {
+  MCP_PROMPT_PROVIDER_KEY,
+  MCP_RESOURCE_PROVIDER_KEY,
+  type McpPromptProvider,
+  McpPrompts,
+  type McpResourceProvider,
+  McpResources,
+  type PromptArgument,
+  type PromptDefinition,
+  type ResourceDefinition,
+} from './prompt-definition';
+export { PromptRegistry } from './prompt-registry';
+export {
   confirmSchema,
   dryRunSchema,
   type EntityRef,

@@ -6,6 +6,7 @@ import { McpRequestHandler } from './mcp-request.handler';
 import { McpSchemaRegistry } from './mcp-schema-registry';
 import { McpServerFactory } from './mcp-server.factory';
 import { McpTransportFactory } from './mcp-transport.factory';
+import { PromptRegistry } from './prompt-registry';
 import { ToolRegistry } from './tool-registry';
 import { McpBuiltinTools } from './tools/builtin.tools';
 
@@ -31,10 +32,11 @@ export class McpModule {
         McpRequestHandler,
         McpSchemaRegistry,
         ToolRegistry,
+        PromptRegistry,
         // whoami — every server gets it
         McpBuiltinTools,
       ],
-      exports: [McpRequestHandler, McpSchemaRegistry, ToolRegistry],
+      exports: [McpRequestHandler, McpSchemaRegistry, ToolRegistry, PromptRegistry],
     };
   }
 }
