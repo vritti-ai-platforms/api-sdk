@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsBoolean, IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
-import type { TableViewState } from '../../../../database/filter/filter.types';
+import type { TableViewState } from '../../../filter/filter.types';
 
 export class CreateDataTableViewDto {
   @ApiProperty({ description: 'Display name for the saved view', example: 'AWS Only' })

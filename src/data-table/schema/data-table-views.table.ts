@@ -1,5 +1,5 @@
-import type { TableViewState } from '../../database/filter/filter.types';
 import { boolean, index, jsonb, timestamp, uniqueIndex, uuid, varchar } from '../../drizzle-pg-core';
+import type { TableViewState } from '../filter/filter.types';
 
 // Returns a fresh set of column builder instances — call once per table declaration
 export function dataTableViewsColumns() {

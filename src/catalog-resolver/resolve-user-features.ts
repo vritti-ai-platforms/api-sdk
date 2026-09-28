@@ -6,9 +6,9 @@ import type {
   PlatformBucket,
   ScopeType,
   ServiceCode,
-  WorkspaceFeatureLocks,
   SiteType,
   VersionSnapshot,
+  WorkspaceFeatureLocks,
 } from './types';
 import { isApiBucket, snapshotFeatureKey } from './types';
 

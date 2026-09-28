@@ -12,7 +12,8 @@ const items = pgTable('items', {
 });
 
 const dialect = new PgDialect();
-const toSql = (orderBy: KeysetOrderBy[], values: unknown[]) => dialect.sqlToQuery(KeysetProcessor.buildAfter(orderBy, values));
+const toSql = (orderBy: KeysetOrderBy[], values: unknown[]) =>
+  dialect.sqlToQuery(KeysetProcessor.buildAfter(orderBy, values));
 
 describe('KeysetProcessor.buildAfter', () => {
   it('single asc column uses > comparison, no OR/tuple wrapper', () => {

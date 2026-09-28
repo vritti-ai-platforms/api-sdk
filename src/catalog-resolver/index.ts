@@ -57,7 +57,6 @@ export {
   SERVICE_CODES,
   type ServiceCode,
   SITE_TYPES,
-  type WorkspaceFeatureLocks,
   type SiteType,
   SNAPSHOT_SCHEMA_VERSION,
   type SnapshotApp,
@@ -76,4 +75,5 @@ export {
   type UiPlatformBucket,
   type VersionSnapshot,
   type VocabularyEntry,
+  type WorkspaceFeatureLocks,
 } from './types';

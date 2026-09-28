@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CacheService } from '@vritti/api-sdk/cache';
-import type { TableViewState } from '../../../database/filter/filter.types';
+import type { TableViewState } from '../../filter/filter.types';
 import type { UpsertDataTableStateDto } from '../dto/request/upsert-data-table-state.dto';
 
 const EMPTY_TABLE_STATE: TableViewState = {

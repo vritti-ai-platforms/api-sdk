@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsObject, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
-import type { TableViewState } from '../../../../database/filter/filter.types';
+import type { TableViewState } from '../../../filter/filter.types';
 
 export class UpsertDataTableStateDto {
   @ApiProperty({ description: 'Unique slug identifying the table', example: 'cloud-providers' })

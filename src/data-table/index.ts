@@ -1,4 +1,6 @@
 export { DATA_TABLE_VIEWS_TABLE, DataTableModule, type DataTableModuleOptions } from './data-table.module';
+export { TableResponseDto } from './dto/table-response.dto';
+export * from './filter';
 export {
   type DataTableViewRecord,
   dataTableViewsColumns,

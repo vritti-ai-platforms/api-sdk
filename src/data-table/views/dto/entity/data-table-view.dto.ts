@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import type { TableViewState } from '../../../../database/filter/filter.types';
+import type { TableViewState } from '../../../filter/filter.types';
 import type { DataTableViewRecord } from '../../../schema/data-table-views.table';
 
 export class DataTableViewDto {

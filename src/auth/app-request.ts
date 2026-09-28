@@ -24,4 +24,3 @@ export { WORKSPACE_HEADER_ORDER } from '../signing/request';
  * window, which is why app operations should stay idempotent.
  */
 export const MAX_CLOCK_SKEW_SECONDS = 300;
-

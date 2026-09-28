@@ -1,7 +1,5 @@
 import { and, type Column, eq, gt, isNotNull, isNull, lt, or, type SQL, sql } from 'drizzle-orm';
 
-export const MAX_PAGE_SIZE = 100;
-
 export interface KeysetOrderBy {
   column: Column;
   direction: 'asc' | 'desc';

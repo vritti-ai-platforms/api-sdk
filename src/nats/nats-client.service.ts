@@ -1,11 +1,11 @@
 // Pulls the fastify module augmentation into this entry's dts graph — tsup builds each entry in isolation
 import '../types/fastify-augmentation';
+import { headers as natsHeaders } from '@nats-io/transport-node';
 import { Inject, Injectable, Scope } from '@nestjs/common';
 import { REQUEST } from '@nestjs/core';
 import type { ClientProxy } from '@nestjs/microservices';
 import { NatsRecordBuilder } from '@nestjs/microservices';
 import type { FastifyRequest } from 'fastify';
-import { headers as natsHeaders } from '@nats-io/transport-node';
 import { resolveInjectedRequest } from '../context/resolve-request';
 import { NATS_CONTEXT_RESOLVER } from './constants';
 import type { ContextResolverFn } from './nats-client.interfaces';

@@ -1,7 +1,7 @@
 {
   "name": "@vritti/api-sdk",
   "type": "module",
-  "version": "0.5.5",
+  "version": "0.6.0",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -236,6 +236,26 @@
         "default": "./dist/database.cjs"
       }
     },
+    "./select": {
+      "import": {
+        "types": "./dist/select.d.ts",
+        "default": "./dist/select.js"
+      },
+      "require": {
+        "types": "./dist/select.d.cts",
+        "default": "./dist/select.cjs"
+      }
+    },
+    "./select/graphql": {
+      "import": {
+        "types": "./dist/select/graphql.d.ts",
+        "default": "./dist/select/graphql.js"
+      },
+      "require": {
+        "types": "./dist/select/graphql.d.cts",
+        "default": "./dist/select/graphql.cjs"
+      }
+    },
     "./decorators": {
       "import": {
         "types": "./dist/decorators.d.ts",
@@ -284,6 +304,16 @@
       "require": {
         "types": "./dist/root.d.cts",
         "default": "./dist/root.cjs"
+      }
+    },
+    "./responses": {
+      "import": {
+        "types": "./dist/responses.d.ts",
+        "default": "./dist/responses.js"
+      },
+      "require": {
+        "types": "./dist/responses.d.cts",
+        "default": "./dist/responses.cjs"
       }
     },
     "./storage": {
@@ -382,6 +412,7 @@
     "class-transformer": "^0.5.0",
     "class-validator": "^0.14.0",
     "fastify": "^5.12.1",
+    "graphql": "^16.14.2",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0"
   },
@@ -406,6 +437,9 @@
     },
     "@aws-sdk/s3-request-presigner": {
       "optional": true
+    },
+    "graphql": {
+      "optional": true
     }
   },
   "devDependencies": {
@@ -416,6 +450,7 @@
     "@nestjs/common": "12.0.1",
     "@nestjs/config": "^12.0.0",
     "@nestjs/core": "12.0.1",
+    "@nestjs/graphql": "14.0.0",
     "@nestjs/jwt": "^12.0.1",
     "@nestjs/microservices": "12.0.1",
     "@nestjs/swagger": "^12.0.1",
@@ -427,6 +462,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.4",
     "fastify": "5.12.1",
+    "graphql": "16.14.2",
     "jsonwebtoken": "^9.0.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",

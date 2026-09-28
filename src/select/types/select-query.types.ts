@@ -1,11 +1,15 @@
 import type { SQL } from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
 
+export type SelectAdditionalValue = string | number | boolean | null | object;
+
 export interface SelectQueryOption {
   value: string | number | boolean;
   label: string;
   description?: string;
-  additionals?: Record<string, string | number | boolean | null>;
+  // A json/jsonb expression arrives already parsed, so an additional may be an object or array — it is passed
+  // through rather than stringified, which would make it unusable
+  additionals?: Record<string, SelectAdditionalValue>;
   groupId?: string | number;
 }
 

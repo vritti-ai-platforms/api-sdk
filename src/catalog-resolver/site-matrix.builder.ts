@@ -4,13 +4,13 @@ import {
   type ApiSurface,
   type PlatformBucket,
   type ScopeType,
-  type WorkspaceFeatureLocks,
   type SiteType,
   type SnapshotPlan,
   SURFACE_BY_BUCKET,
   snapshotFeatureKey,
   UI_PLATFORMS,
   type VersionSnapshot,
+  type WorkspaceFeatureLocks,
 } from './types';
 
 export interface SiteMatrixCell {

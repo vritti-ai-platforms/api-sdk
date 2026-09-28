@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsObject } from 'class-validator';
-import type { TableViewState } from '../../../../database/filter/filter.types';
+import type { TableViewState } from '../../../filter/filter.types';
 
 // State-only update — name, tableSlug, and isShared are not updatable via this DTO
 export class UpdateDataTableViewDto {

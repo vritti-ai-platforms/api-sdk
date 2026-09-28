@@ -2,7 +2,7 @@
 
 // RPC exception filter (microservice side) — moved out of the main filters barrel
 export { RpcProblemExceptionFilter } from './filters/rpc-problem-exception.filter';
-export { RpcSiteCurrencyCode, RpcSiteId, RpcNatsHeaders } from './nats/decorators/nats-headers.decorator';
+export { RpcNatsHeaders, RpcSiteCurrencyCode, RpcSiteId } from './nats/decorators/nats-headers.decorator';
 export type {
   ContextResolverFn,
   NatsHeaders,

@@ -19,10 +19,9 @@ import {
 import type { PgColumn, PgSequence, PgTable, SelectedFields } from 'drizzle-orm/pg-core';
 import type { AnyPgAsyncSelect } from 'drizzle-orm/pg-core/async';
 import { PgViewBase } from 'drizzle-orm/pg-core/view-base';
-import { MAX_PAGE_SIZE } from '../filter';
+import type { FindForSelectConfig, SelectAdditionalValue, SelectQueryResult } from '../../select';
 import type { TypedDrizzleClient } from '../schema.registry';
 import { PrimaryDatabaseService } from '../services/primary-database.service';
-import type { FindForSelectConfig, SelectQueryResult } from '../types';
 
 // Converts snake_case string to camelCase
 function snakeToCamel(str: string): string {
@@ -339,8 +338,9 @@ export abstract class PrimaryBaseRepository<
     leftJoins?: { table: PgTable; on: SQL | undefined }[];
     groupBy?: (PgColumn | SQL)[];
   }): Promise<{ rows: TResult[]; hasMore: boolean }> {
-    // Clamp the requested page to [1, MAX_PAGE_SIZE], then fetch limit+1 to detect hasMore and trim.
-    const limit = Math.min(Math.max(1, Math.trunc(options.limit) || 1), MAX_PAGE_SIZE);
+    // Floor the page at one row (limit+1 and the trim below need a positive integer), then fetch
+    // limit+1 to detect hasMore
+    const limit = Math.max(1, Math.trunc(options.limit) || 1);
     const rows = (await this.buildSelectQuery({
       ...options,
       limit: limit + 1,
@@ -494,6 +494,14 @@ export abstract class PrimaryBaseRepository<
       ...Object.entries(config.additionalExpressions ?? {}).map(([key, expr]) => ({ key, expr })),
     ];
     const additionalAlias = (key: string) => `__additional_${key}`;
+    // Driver-parsed json passes through untouched; only a value with no JSON shape (a Date, a Buffer) is stringified
+    const isSelectAdditionalValue = (value: unknown): value is SelectAdditionalValue =>
+      value === null ||
+      typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'boolean' ||
+      Array.isArray(value) ||
+      (typeof value === 'object' && value.constructor === Object);
 
     // When values are provided, fetch those specific options by value (skip search/pagination)
     if (parsedValues && parsedValues.length > 0) {
@@ -531,25 +539,13 @@ export abstract class PrimaryBaseRepository<
           ...(config.groupIdKey && row.groupId != null ? { groupId: row.groupId } : {}),
           ...(additionalEntries.length > 0
             ? {
-                additionals: additionalEntries.reduce<Record<string, string | number | boolean | null>>(
-                  (acc, entry) => {
-                    const value = (row as unknown as Record<string, unknown>)[additionalAlias(entry.key)];
-                    if (value !== undefined) {
-                      if (
-                        typeof value === 'string' ||
-                        typeof value === 'number' ||
-                        typeof value === 'boolean' ||
-                        value === null
-                      ) {
-                        acc[entry.key] = value;
-                      } else {
-                        acc[entry.key] = String(value);
-                      }
-                    }
-                    return acc;
-                  },
-                  {},
-                ),
+                additionals: additionalEntries.reduce<Record<string, SelectAdditionalValue>>((acc, entry) => {
+                  const value = (row as unknown as Record<string, unknown>)[additionalAlias(entry.key)];
+                  if (value !== undefined) {
+                    acc[entry.key] = isSelectAdditionalValue(value) ? value : String(value);
+                  }
+                  return acc;
+                }, {}),
               }
             : {}),
         })),
@@ -641,19 +637,10 @@ export abstract class PrimaryBaseRepository<
       ...(config.groupIdKey && row.groupId != null ? { groupId: row.groupId } : {}),
       ...(additionalEntries.length > 0
         ? {
-            additionals: additionalEntries.reduce<Record<string, string | number | boolean | null>>((acc, entry) => {
+            additionals: additionalEntries.reduce<Record<string, SelectAdditionalValue>>((acc, entry) => {
               const value = (row as unknown as Record<string, unknown>)[additionalAlias(entry.key)];
               if (value !== undefined) {
-                if (
-                  typeof value === 'string' ||
-                  typeof value === 'number' ||
-                  typeof value === 'boolean' ||
-                  value === null
-                ) {
-                  acc[entry.key] = value;
-                } else {
-                  acc[entry.key] = String(value);
-                }
+                acc[entry.key] = isSelectAdditionalValue(value) ? value : String(value);
               }
               return acc;
             }, {}),
