@@ -134,12 +134,47 @@ export abstract class PrimaryBaseRepository<
     return record;
   }
 
-  // Finds a single record by primary key ID
-  async findById(id: string): Promise<TSelect | undefined> {
+  // Finds a single record by primary key ID. Given select (and joins) the row carries computed columns too —
+  // scalar subqueries, CASE expressions, joined values — none of which the relational builder's column pick-list can
+  // express. Without them this is the plain relational read, so a caller that wants the bare row passes nothing.
+  async findById<TResult = TSelect>(
+    id: string,
+    options?: {
+      select?: Record<string, unknown>;
+      innerJoin?: { table: PgTable; on: SQL | undefined };
+      innerJoins?: { table: PgTable; on: SQL | undefined }[];
+      leftJoin?: { table: PgTable; on: SQL | undefined };
+      leftJoins?: { table: PgTable; on: SQL | undefined }[];
+      groupBy?: (PgColumn | SQL)[];
+    },
+  ): Promise<TResult | undefined> {
     this.logger.debug(`Finding record by ID: ${id}`);
-    return this.model.findFirst({
-      where: { id },
-    });
+    if (!options || Object.keys(options).length === 0) {
+      return this.model.findFirst({ where: { id } }) as Promise<TResult | undefined>;
+    }
+    const idColumn = (this.table as unknown as Record<string, PgColumn>).id;
+    if (!idColumn) throw new Error(`Table '${this.tableName}' has no 'id' column`);
+    const rows = (await this.buildSelectQuery({
+      ...options,
+      where: eq(idColumn, id),
+      limit: 1,
+    })) as unknown as TResult[];
+    return rows[0];
+  }
+
+  // The list form: rows matching a SQL condition, with computed columns and no count query. findAllAndCount pays for
+  // a second query to report a total that a caller which already has its ids does not need.
+  async findAllWithSelect<TResult = TSelect>(options: {
+    select?: Record<string, unknown>;
+    where?: SQL;
+    orderBy?: SQL[];
+    innerJoin?: { table: PgTable; on: SQL | undefined };
+    innerJoins?: { table: PgTable; on: SQL | undefined }[];
+    leftJoin?: { table: PgTable; on: SQL | undefined };
+    leftJoins?: { table: PgTable; on: SQL | undefined }[];
+    groupBy?: (PgColumn | SQL)[];
+  }): Promise<TResult[]> {
+    return this.buildSelectQuery(options) as unknown as Promise<TResult[]>;
   }
 
   // Finds a single record matching the given where filter
@@ -166,6 +201,8 @@ export abstract class PrimaryBaseRepository<
     orderBy?: SQL[];
     limit?: number;
     offset?: number;
+    innerJoin?: { table: PgTable; on: SQL | undefined };
+    innerJoins?: { table: PgTable; on: SQL | undefined }[];
     leftJoin?: { table: PgTable; on: SQL | undefined };
     leftJoins?: { table: PgTable; on: SQL | undefined }[];
     groupBy?: (PgColumn | SQL)[];
@@ -177,6 +214,14 @@ export abstract class PrimaryBaseRepository<
         : this.db.select().from(this.table as PgTable)
     ).$dynamic() as AnyPgAsyncSelect;
 
+    if (options?.innerJoin) {
+      query = query.innerJoin(options.innerJoin.table, options.innerJoin.on) as AnyPgAsyncSelect;
+    }
+    if (options?.innerJoins) {
+      for (const join of options.innerJoins) {
+        query = query.innerJoin(join.table, join.on) as AnyPgAsyncSelect;
+      }
+    }
     if (options?.leftJoin) {
       query = query.leftJoin(options.leftJoin.table, options.leftJoin.on) as AnyPgAsyncSelect;
     }
@@ -210,6 +255,8 @@ export abstract class PrimaryBaseRepository<
     orderBy?: SQL[];
     limit?: number;
     offset?: number;
+    innerJoin?: { table: PgTable; on: SQL | undefined };
+    innerJoins?: { table: PgTable; on: SQL | undefined }[];
     leftJoin?: { table: PgTable; on: SQL | undefined };
     leftJoins?: { table: PgTable; on: SQL | undefined }[];
     groupBy?: (PgColumn | SQL)[];
@@ -222,6 +269,14 @@ export abstract class PrimaryBaseRepository<
         .select({ _: sql`1` })
         .from(this.table as PgTable)
         .$dynamic();
+      if (options.innerJoin) {
+        subq = subq.innerJoin(options.innerJoin.table, options.innerJoin.on) as typeof subq;
+      }
+      if (options.innerJoins) {
+        for (const join of options.innerJoins) {
+          subq = subq.innerJoin(join.table, join.on) as typeof subq;
+        }
+      }
       if (options.leftJoin) {
         subq = subq.leftJoin(options.leftJoin.table, options.leftJoin.on) as typeof subq;
       }
@@ -245,6 +300,14 @@ export abstract class PrimaryBaseRepository<
         .select({ count: sql<number>`count(*)::int` })
         .from(this.table as PgTable)
         .$dynamic();
+      if (options?.innerJoin) {
+        countQuery = countQuery.innerJoin(options.innerJoin.table, options.innerJoin.on) as typeof countQuery;
+      }
+      if (options?.innerJoins) {
+        for (const join of options.innerJoins) {
+          countQuery = countQuery.innerJoin(join.table, join.on) as typeof countQuery;
+        }
+      }
       if (options?.leftJoin) {
         countQuery = countQuery.leftJoin(options.leftJoin.table, options.leftJoin.on) as typeof countQuery;
       }
