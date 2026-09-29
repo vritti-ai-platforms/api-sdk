@@ -126,7 +126,6 @@ export interface SnapshotApp {
   code: string;
   name: string;
   icon: string;
-  sortOrder: number;
   features: SnapshotAppFeatureRef[];
 }
 export interface SnapshotRoleTemplate {
@@ -173,7 +172,7 @@ export function snapshotFeatureKey(code: string, scope: ScopeType): string {
   return `${scope}.${code}`;
 }
 
-export const SNAPSHOT_SCHEMA_VERSION = 6;
+export const SNAPSHOT_SCHEMA_VERSION = 7;
 
 // SERVICE = the org has not provisioned an external service the feature declares; the specific services are
 // reported alongside in `missingServices` so callers never branch on a service code baked into this union
@@ -207,7 +206,6 @@ export interface FeatureCatalogEntry {
   appCode: string;
   appName: string;
   appIcon: string | null;
-  appSortOrder: number;
   locked: boolean;
   lockReason: LockReason | null;
   unlockPlans: string[];

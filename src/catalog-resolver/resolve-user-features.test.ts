@@ -153,7 +153,6 @@ const snapshot: VersionSnapshot = {
       code: 'pos',
       name: 'POS',
       icon: 'store',
-      sortOrder: 1,
       features: [
         { code: 'sales', scope: 'SITE' },
         { code: 'reports', scope: 'SITE' },
@@ -217,7 +216,6 @@ describe('resolveUserFeatures', () => {
       { code: 'sales.create', reason: 'PLAN', unlockPlans: ['PRO'], missingServices: [] },
     ]);
     assert.equal(sales.appCode, 'pos');
-    assert.equal(sales.appSortOrder, 1);
   });
 
   it('emits a plan-omitted feature as fully locked with unlock plans (not vanished)', () => {
@@ -511,14 +509,12 @@ describe('resolveUserFeatures', () => {
           code: 'master',
           name: 'Master',
           icon: 'settings',
-          sortOrder: 1,
           features: [{ code: 'inventory-items', scope: 'ORG' }],
         },
         {
           code: 'inventory',
           name: 'Inventory',
           icon: 'boxes',
-          sortOrder: 2,
           features: [{ code: 'inventory-items', scope: 'SITE' }],
         },
       ],
@@ -593,7 +589,6 @@ describe('resolveUserFeatures', () => {
           code: 'integrations',
           name: 'Integrations',
           icon: 'plug',
-          sortOrder: 1,
           features: [{ code: 'feeds', scope: 'ORG' }],
         },
       ],

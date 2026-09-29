@@ -115,7 +115,6 @@ export function buildSiteCatalog(
         appCode: app.code,
         appName: app.name,
         appIcon: app.icon ?? null,
-        appSortOrder: app.sortOrder ?? 0,
         locked,
         lockReason,
         unlockPlans,

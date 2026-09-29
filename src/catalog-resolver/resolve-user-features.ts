@@ -75,7 +75,6 @@ export interface PermissionFeature {
   appCode: string;
   appName: string;
   appIcon: string | null;
-  appSortOrder: number;
 }
 
 export interface ResolveUserFeaturesParams {
@@ -207,7 +206,6 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
       appCode: catalogEntry.appCode,
       appName: catalogEntry.appName,
       appIcon: catalogEntry.appIcon,
-      appSortOrder: catalogEntry.appSortOrder,
     });
   }
 

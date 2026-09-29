@@ -108,7 +108,6 @@ const snapshot: VersionSnapshot = {
       code: 'pos',
       name: 'POS',
       icon: 'store',
-      sortOrder: 1,
       features: [
         { code: 'catalog', scope: 'ORG' },
         { code: 'sales', scope: 'SITE' },
