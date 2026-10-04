@@ -1,10 +1,11 @@
+import { sql } from '../../drizzle-orm';
 import { boolean, index, jsonb, timestamp, uniqueIndex, uuid, varchar } from '../../drizzle-pg-core';
 import type { TableViewState } from '../filter/filter.types';
 
 // Returns a fresh set of column builder instances — call once per table declaration
 export function dataTableViewsColumns() {
   return {
-    id: uuid('id').primaryKey().defaultRandom(),
+    id: uuid('id').primaryKey().default(sql`uuidv7()`),
     userId: uuid('user_id').notNull(),
     tableSlug: varchar('table_slug', { length: 200 }).notNull(),
     name: varchar('name', { length: 100 }).notNull(),

@@ -14,6 +14,6 @@ export class UpsertDataTableStateDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsUUID()
+  @IsUUID('7')
   activeViewId?: string | null;
 }
