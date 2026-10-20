@@ -24,6 +24,7 @@ export default defineConfig({
     signing: 'src/signing/index.ts',
     cache: 'src/cache/index.ts',
     email: 'src/email/index.ts',
+    jetstream: 'src/jetstream/index.ts',
     auth: 'src/auth/index.ts',
     context: 'src/context/index.ts',
     'data-table': 'src/data-table/index.ts',

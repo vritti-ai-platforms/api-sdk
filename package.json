@@ -196,6 +196,16 @@
         "default": "./dist/email.cjs"
       }
     },
+    "./jetstream": {
+      "import": {
+        "types": "./dist/jetstream.d.ts",
+        "default": "./dist/jetstream.js"
+      },
+      "require": {
+        "types": "./dist/jetstream.d.cts",
+        "default": "./dist/jetstream.cjs"
+      }
+    },
     "./auth": {
       "import": {
         "types": "./dist/auth.d.ts",
@@ -385,6 +395,7 @@
   "dependencies": {
     "@getbrevo/brevo": "^4.0.1",
     "@modelcontextprotocol/sdk": "1.30.0",
+    "@nats-io/jetstream": "^3.4.0",
     "@nats-io/transport-node": "^3.4.0",
     "decimal.js": "^10.6.0",
     "dinero.js": "2.0.2",
