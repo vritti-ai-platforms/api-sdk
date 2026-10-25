@@ -39,6 +39,7 @@ export interface FindForSelectConfig {
   additionalExpressions?: Record<string, SQL>;
   groupIdKey?: string;
   search?: string;
+  searchKeys?: string[];
   limit?: number;
   offset?: number;
   where?: Record<string, unknown>;

@@ -13,6 +13,7 @@ import {
   inArray,
   is,
   notInArray,
+  or,
   type SQL,
   sql,
 } from 'drizzle-orm';
@@ -570,8 +571,17 @@ export abstract class PrimaryBaseRepository<
     }
 
     const conditions: SQL[] = [];
+    // Search matches the label unless the caller names the columns, which may sit on a joined table
     if (config.search) {
-      conditions.push(ilike(labelCol, `%${config.search}%`));
+      const searchCols = config.searchKeys?.length
+        ? config.searchKeys.map((key) => {
+            const col = resolveColumn(key);
+            if (!col) throw new Error(`Search column '${key}' not found in table '${this.tableName}' or its joins`);
+            return col;
+          })
+        : [labelCol];
+      const matches = searchCols.map((col) => ilike(col, `%${config.search}%`));
+      conditions.push(or(...matches) as SQL);
     }
     if (parsedExcludeIds.length > 0) {
       conditions.push(notInArray(valueCol, parsedExcludeIds));
