@@ -47,9 +47,12 @@ function normalizeFieldErrors(value: unknown): ToolFieldError[] {
   }));
 }
 
+// Round-trips through JSON so structuredContent is a plain record: DTO class instances fail the MCP record check and Dates must reach the client as ISO strings
 export function toolOk(payload: unknown): CallToolResult {
-  const structuredContent = isRecord(payload) ? payload : { result: payload };
-  return { content: [{ type: 'text', text: JSON.stringify(payload) }], structuredContent };
+  const text = JSON.stringify(payload);
+  const plain: unknown = text === undefined ? undefined : JSON.parse(text);
+  const structuredContent = isRecord(plain) ? plain : { result: plain };
+  return { content: [{ type: 'text', text }], structuredContent };
 }
 
 export function toolError(problem: ToolProblem): CallToolResult {
