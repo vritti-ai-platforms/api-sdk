@@ -136,11 +136,13 @@ export abstract class PrimaryBaseRepository<
 
   // Finds a single record by primary key ID. Given select (and joins) the row carries computed columns too —
   // scalar subqueries, CASE expressions, joined values — none of which the relational builder's column pick-list can
-  // express. Without them this is the plain relational read, so a caller that wants the bare row passes nothing.
+  // express. A where narrows the match further (ANDed with the id), so a row that fails it reads as not found.
+  // Without options this is the plain relational read, so a caller that wants the bare row passes nothing.
   async findById<TResult = TSelect>(
     id: string,
     options?: {
       select?: Record<string, unknown>;
+      where?: SQL;
       innerJoin?: { table: PgTable; on: SQL | undefined };
       innerJoins?: { table: PgTable; on: SQL | undefined }[];
       leftJoin?: { table: PgTable; on: SQL | undefined };
@@ -156,7 +158,7 @@ export abstract class PrimaryBaseRepository<
     if (!idColumn) throw new Error(`Table '${this.tableName}' has no 'id' column`);
     const rows = (await this.buildSelectQuery({
       ...options,
-      where: eq(idColumn, id),
+      where: options.where ? and(eq(idColumn, id), options.where) : eq(idColumn, id),
       limit: 1,
     })) as unknown as TResult[];
     return rows[0];
