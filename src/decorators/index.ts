@@ -1,4 +1,5 @@
 export { IsCountry } from '../countries/is-country.decorator';
+export { ArrayIncludesField } from './array-includes-field.decorator';
 export {
   CODE_PATTERN,
   CODE_PATTERN_SOURCE,

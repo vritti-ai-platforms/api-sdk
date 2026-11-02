@@ -17,11 +17,11 @@ export type PgErrorShape = {
 export function tryTranslatePgError(error: unknown): ConflictException | undefined {
   const pgError = findPgError(error);
   if (!pgError) return undefined;
-  const { code, constraint, table, detail } = pgError;
+  const { code, constraint, table } = pgError;
   if (code !== PG_UNIQUE_VIOLATION) return undefined;
   return new ConflictException({
     label: 'Duplicate Entry',
-    detail: detail?.trim() || 'A record with these values already exists.',
+    detail: 'A record with these values already exists.',
     errors: [],
     ...(constraint || table ? { meta: { constraint, table } } : {}),
   });
