@@ -108,13 +108,14 @@ export class DataTableViewsService {
     if (!view) throw new NotFoundException('Table view not found.');
     if (view.userId !== userId) throw new BadRequestException('You do not have permission to update this view.');
 
+    const { state } = dto;
     // Skip DB write if the state has not changed
-    if (computeChecksum(dto.state) === computeChecksum(view.state)) {
+    if (computeChecksum(state) === computeChecksum(view.state)) {
       this.logger.log(`State unchanged for view ${id} — skipping DB write`);
       return DataTableViewDto.from(view, userId);
     }
 
-    const updated = await this.dataTableViewsRepository.update(id, { state: dto.state });
+    const updated = await this.dataTableViewsRepository.update(id, { state });
     this.logger.log(`Updated state for view ${id}, user: ${userId}`);
     await this.invalidateViewsCache(userId, view.tableSlug, !view.isShared, view.isShared);
     return DataTableViewDto.from(updated, userId);

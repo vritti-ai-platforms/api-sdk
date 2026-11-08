@@ -1,13 +1,14 @@
 import {
   and,
   asc,
-  type Column,
+  Column,
   desc,
   eq,
   gt,
   gte,
   ilike,
   inArray,
+  is,
   lt,
   lte,
   ne,
@@ -15,9 +16,10 @@ import {
   notInArray,
   or,
   type SQL,
+  type SQLWrapper,
   sql,
 } from 'drizzle-orm';
-import type { FilterCondition, FilterOperator, SearchState, SortCondition } from './filter.types';
+import type { FilterCondition, FilterOperator, SearchState, SortCondition, TableFilters } from './filter.types';
 
 type FieldType = 'string' | 'number' | 'boolean';
 
@@ -38,7 +40,7 @@ export type WildcardFieldDefinition = {
 }[ValueFormat];
 
 export type FieldDefinition =
-  | { column: Column; type: FieldType; nulls?: 'first' | 'last' }
+  | { column: Column | SQL.Aliased; type: FieldType; nulls?: 'first' | 'last' }
   | { expression: (value: string | number, operator: FilterOperator) => SQL; type: FieldType }
   | { multiExpression: (values: string[], operator: MultiValueOperator) => SQL; type: FieldType }
   | WildcardFieldDefinition;
@@ -53,9 +55,9 @@ export function isUuid(value: string): value is Uuid {
 }
 
 export class FilterProcessor {
-  // Returns undefined if no conditions (Drizzle accepts undefined as "no WHERE")
-  static buildWhere(filters: FilterCondition[] = [], fieldMap: FieldMap): SQL | undefined {
-    const conditions = filters.flatMap((f) => {
+  // ANDs every condition of both halves; undefined if none (Drizzle reads it as "no WHERE")
+  static buildWhere(filters: TableFilters, fieldMap: FieldMap): SQL | undefined {
+    const conditions = [...filters.panel, ...filters.context].flatMap((f) => {
       // Saved table state is client-supplied, so a condition can arrive without a usable field — skip it as unknown
       if (typeof f.field !== 'string' || f.field === '') return [];
 
@@ -75,7 +77,8 @@ export class FilterProcessor {
       }
       // Expression field — delegate SQL generation to the caller-supplied factory (operator passed for custom handling)
       if ('expression' in def) return Array.isArray(f.value) ? [] : [def.expression(f.value, f.operator)];
-      const { column: col } = def;
+      // A real Column still binds the value through its own encoder; typing it as a wrapper only widens the overloads
+      const col: SQLWrapper = def.column;
       const val = f.value;
       switch (f.operator) {
         case 'equals':
@@ -166,7 +169,7 @@ export class FilterProcessor {
     if (search.columnId === 'all') {
       const conditions = Object.values(fieldMap)
         .filter(
-          (def): def is { column: Column; type: 'string' | 'number' | 'boolean' } =>
+          (def): def is { column: Column | SQL.Aliased; type: 'string' | 'number' | 'boolean' } =>
             'column' in def && def.type === 'string' && !FilterProcessor.isUuidColumn(def.column),
         )
         .map((def) => ilike(def.column, `%${search.value}%`));
@@ -182,8 +185,8 @@ export class FilterProcessor {
     return ilike(def.column, `%${search.value}%`);
   }
 
-  private static isUuidColumn(column: Column): boolean {
-    return column.columnType === 'PgUUID';
+  private static isUuidColumn(column: Column | SQL.Aliased): column is Column {
+    return is(column, Column) && column.columnType === 'PgUUID';
   }
 
   // Maps each SortCondition to an asc/desc SQL expression
@@ -191,7 +194,8 @@ export class FilterProcessor {
     return sort.flatMap((s) => {
       const def = fieldMap[s.field];
       if (!def || !('column' in def)) return [];
-      return [s.direction === 'asc' ? asc(def.column) : desc(def.column)];
+      if (!def.nulls) return [s.direction === 'asc' ? asc(def.column) : desc(def.column)];
+      return [sql`${def.column} ${sql.raw(s.direction === 'asc' ? 'asc' : 'desc')} nulls ${sql.raw(def.nulls)}`];
     });
   }
 }

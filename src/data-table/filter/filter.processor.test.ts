@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { inArray, sql } from 'drizzle-orm';
 import { boolean, PgDialect, pgTable, uuid, varchar } from 'drizzle-orm/pg-core';
 import { type FieldMap, FilterProcessor, isUuid, type MultiValueOperator, type Uuid } from './filter.processor';
-import type { FilterCondition } from './filter.types';
+import type { FilterCondition, TableFilters } from './filter.types';
 
 const variants = pgTable('variants', {
   id: uuid('id').primaryKey(),
@@ -16,10 +16,11 @@ const VALUE_A = '019a7c2e-7d32-7f63-9c50-3b4c5d6e7f82';
 const VALUE_B = '019a7c2e-7d32-7f63-9c50-3b4c5d6e7f83';
 
 const dialect = new PgDialect();
-const where = (filters: FilterCondition[], fieldMap: FieldMap) => {
+const whereOf = (filters: TableFilters, fieldMap: FieldMap) => {
   const condition = FilterProcessor.buildWhere(filters, fieldMap);
   return condition ? dialect.sqlToQuery(condition) : undefined;
 };
+const where = (panel: FilterCondition[], fieldMap: FieldMap) => whereOf({ panel, context: [] }, fieldMap);
 
 describe('FilterProcessor.buildWhere — multiExpression', () => {
   const seen: { values: string[]; operator: MultiValueOperator }[] = [];
@@ -211,11 +212,65 @@ describe('FilterProcessor.buildWhere — wildcard fields', () => {
   });
 });
 
+describe('FilterProcessor.buildWhere — TableFilters', () => {
+  const fieldMap: FieldMap = {
+    code: { column: variants.code, type: 'string' },
+    isActive: { column: variants.isActive, type: 'boolean' },
+  };
+  const code: FilterCondition = { field: 'code', operator: 'contains', value: 'ab' };
+  const active: FilterCondition = { field: 'isActive', operator: 'equals', value: 'true' };
+
+  it('applies a context-only condition', () => {
+    const q = whereOf({ panel: [], context: [active] }, fieldMap);
+    assert.match(q?.sql ?? '', /"is_active" = \$1/);
+    assert.deepEqual(q?.params, [true]);
+  });
+
+  it('ANDs panel and context, panel first', () => {
+    const q = whereOf({ panel: [code], context: [active] }, fieldMap);
+    assert.match(q?.sql ?? '', /"code" ilike \$1\) and \("variants"\."is_active" = \$2/);
+    assert.deepEqual(q?.params, ['%ab%', true]);
+  });
+
+  it('returns undefined for empty halves', () => {
+    assert.equal(whereOf({ panel: [], context: [] }, fieldMap), undefined);
+  });
+});
+
 describe('isUuid', () => {
   it('accepts a canonical uuid and rejects anything else', () => {
     assert.equal(isUuid(DIMENSION), true);
     assert.equal(isUuid('019a7c2e6c217e528b4f2a3b4c5d6e71'), false);
     assert.equal(isUuid("x' or 1=1 --"), false);
     assert.equal(isUuid(''), false);
+  });
+});
+
+describe('FilterProcessor — aliased expression fields', () => {
+  const latest = new PgDialect();
+  const standing = sql<number>`${variants.code} is not null`.as('has_code');
+  const fieldMap: FieldMap = {
+    hasCode: { column: standing, type: 'boolean' },
+    code: { column: variants.code, type: 'string', nulls: 'last' },
+  };
+
+  it('filters on an aliased expression like a column', () => {
+    const condition = FilterProcessor.buildWhere(
+      { panel: [{ field: 'hasCode', operator: 'equals', value: 'true' }], context: [] },
+      fieldMap,
+    );
+    const q = condition ? latest.sqlToQuery(condition) : undefined;
+    assert.deepEqual(q?.params, [true]);
+  });
+
+  it('searches an aliased expression without treating it as a uuid column', () => {
+    assert.ok(FilterProcessor.buildSearch({ columnId: 'hasCode', value: 'x' }, fieldMap));
+  });
+
+  it('places nulls where the field says, in either direction', () => {
+    const orderSql = (direction: 'asc' | 'desc') =>
+      FilterProcessor.buildOrderBy([{ field: 'code', direction }], fieldMap).map((part) => latest.sqlToQuery(part).sql);
+    assert.match(orderSql('asc')[0] ?? '', /"code" asc nulls last$/);
+    assert.match(orderSql('desc')[0] ?? '', /"code" desc nulls last$/);
   });
 });

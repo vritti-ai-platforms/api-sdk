@@ -33,8 +33,9 @@ export interface FindForSelectJoin {
 
 export interface FindForSelectConfig {
   value: string;
-  label: string;
-  description?: string;
+  // A column name (on the table or a join), or an expression for a label built from several columns
+  label: string | SQL;
+  description?: string | SQL;
   additionalKeys?: string | string[];
   additionalExpressions?: Record<string, SQL>;
   groupIdKey?: string;

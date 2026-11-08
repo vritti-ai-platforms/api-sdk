@@ -11,7 +11,10 @@ const fieldMap: FieldMap = {
   lineCount: { expression: compareCount(sql`(select count(*) from lines)`), type: 'number' },
 };
 const where = (operator: FilterOperator, value: FilterCondition['value']) => {
-  const condition = FilterProcessor.buildWhere([{ field: 'lineCount', operator, value }], fieldMap);
+  const condition = FilterProcessor.buildWhere(
+    { panel: [{ field: 'lineCount', operator, value }], context: [] },
+    fieldMap,
+  );
   return condition ? dialect.sqlToQuery(condition) : undefined;
 };
 

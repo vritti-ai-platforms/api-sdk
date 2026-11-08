@@ -17,6 +17,8 @@ export type {
   FilterOperator,
   SearchState,
   SortCondition,
+  TableFilters,
+  TablePageRequest,
   TableViewState,
 } from './filter.types';
 export { FilterOperators } from './filter.types';

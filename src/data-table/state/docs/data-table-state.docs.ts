@@ -7,7 +7,7 @@ export function ApiUpsertDataTableState() {
     ApiOperation({
       summary: 'Save live table state',
       description:
-        'Stores the current filter, sort, and column visibility state in Redis cache. Called on filter Apply and sort column click. State expires after TABLE_STATE_CACHE_TTL seconds.',
+        'Stores the current filter, sort, and column visibility state in Redis cache. Called whenever the table state changes. `filters` is `{ panel, context }`. State expires after TABLE_STATE_CACHE_TTL seconds.',
     }),
     ApiBody({ type: UpsertDataTableStateDto }),
     ApiResponse({ status: 200, description: 'Live state cached.' }),

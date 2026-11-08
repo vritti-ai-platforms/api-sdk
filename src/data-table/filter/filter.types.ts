@@ -46,8 +46,14 @@ export interface SearchState {
   value: string;
 }
 
+// Filter panel conditions (counted, reset) and context bar conditions (always visible, not counted or reset)
+export interface TableFilters {
+  panel: FilterCondition[];
+  context: FilterCondition[];
+}
+
 export interface TableViewState {
-  filters: FilterCondition[];
+  filters: TableFilters;
   sort: SortCondition[];
   columnVisibility: Record<string, boolean>;
   columnOrder: string[];
@@ -60,3 +66,6 @@ export interface TableViewState {
   search: SearchState | null;
   pagination: { limit: number; offset: number };
 }
+
+// What a table page query reads: a saved TableViewState is one, and so is a page request another service sends
+export type TablePageRequest = Pick<TableViewState, 'filters' | 'search' | 'sort' | 'pagination'>;

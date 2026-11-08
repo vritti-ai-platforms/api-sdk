@@ -15,6 +15,7 @@ import {
   notInArray,
   or,
   type SQL,
+  type Subquery,
   sql,
 } from 'drizzle-orm';
 import type { PgColumn, PgSequence, PgTable, SelectedFields } from 'drizzle-orm/pg-core';
@@ -46,6 +47,43 @@ interface TypedRelationalQueryBuilder<TSelect> {
     with?: Record<string, unknown>;
     columns?: Record<string, boolean>;
   }): Promise<TSelect[]>;
+}
+
+// One join of a select: a table, or a subquery; a lateral subquery may read the rows joined before it
+export interface RepositoryJoin {
+  table: PgTable | Subquery;
+  on: SQL | undefined;
+  lateral?: boolean;
+}
+
+// The joins a select can take — the single forms are kept for callers that join once
+export interface RepositoryJoins {
+  innerJoin?: RepositoryJoin;
+  innerJoins?: RepositoryJoin[];
+  leftJoin?: RepositoryJoin;
+  leftJoins?: RepositoryJoin[];
+}
+
+// Adds the inner joins, then the left joins, in the order given; a lateral join with no condition joins on true
+function applyJoins(query: AnyPgAsyncSelect, joins: RepositoryJoins | undefined): AnyPgAsyncSelect {
+  const inner = [...(joins?.innerJoin ? [joins.innerJoin] : []), ...(joins?.innerJoins ?? [])];
+  const left = [...(joins?.leftJoin ? [joins.leftJoin] : []), ...(joins?.leftJoins ?? [])];
+  let joined = query;
+  for (const join of inner) {
+    joined = (
+      join.lateral
+        ? joined.innerJoinLateral(join.table as Subquery, join.on ?? sql`true`)
+        : joined.innerJoin(join.table as PgTable, join.on)
+    ) as AnyPgAsyncSelect;
+  }
+  for (const join of left) {
+    joined = (
+      join.lateral
+        ? joined.leftJoinLateral(join.table as Subquery, join.on ?? sql`true`)
+        : joined.leftJoin(join.table as PgTable, join.on)
+    ) as AnyPgAsyncSelect;
+  }
+  return joined;
 }
 
 export abstract class PrimaryBaseRepository<
@@ -143,10 +181,10 @@ export abstract class PrimaryBaseRepository<
     options?: {
       select?: Record<string, unknown>;
       where?: SQL;
-      innerJoin?: { table: PgTable; on: SQL | undefined };
-      innerJoins?: { table: PgTable; on: SQL | undefined }[];
-      leftJoin?: { table: PgTable; on: SQL | undefined };
-      leftJoins?: { table: PgTable; on: SQL | undefined }[];
+      innerJoin?: RepositoryJoin;
+      innerJoins?: RepositoryJoin[];
+      leftJoin?: RepositoryJoin;
+      leftJoins?: RepositoryJoin[];
       groupBy?: (PgColumn | SQL)[];
     },
   ): Promise<TResult | undefined> {
@@ -170,10 +208,10 @@ export abstract class PrimaryBaseRepository<
     select?: Record<string, unknown>;
     where?: SQL;
     orderBy?: SQL[];
-    innerJoin?: { table: PgTable; on: SQL | undefined };
-    innerJoins?: { table: PgTable; on: SQL | undefined }[];
-    leftJoin?: { table: PgTable; on: SQL | undefined };
-    leftJoins?: { table: PgTable; on: SQL | undefined }[];
+    innerJoin?: RepositoryJoin;
+    innerJoins?: RepositoryJoin[];
+    leftJoin?: RepositoryJoin;
+    leftJoins?: RepositoryJoin[];
     groupBy?: (PgColumn | SQL)[];
   }): Promise<TResult[]> {
     return this.buildSelectQuery(options) as unknown as Promise<TResult[]>;
@@ -203,10 +241,10 @@ export abstract class PrimaryBaseRepository<
     orderBy?: SQL[];
     limit?: number;
     offset?: number;
-    innerJoin?: { table: PgTable; on: SQL | undefined };
-    innerJoins?: { table: PgTable; on: SQL | undefined }[];
-    leftJoin?: { table: PgTable; on: SQL | undefined };
-    leftJoins?: { table: PgTable; on: SQL | undefined }[];
+    innerJoin?: RepositoryJoin;
+    innerJoins?: RepositoryJoin[];
+    leftJoin?: RepositoryJoin;
+    leftJoins?: RepositoryJoin[];
     groupBy?: (PgColumn | SQL)[];
   }) {
     // Type as the concrete async select and cast each reassignment — Drizzle's dynamic builder returns union types.
@@ -216,22 +254,7 @@ export abstract class PrimaryBaseRepository<
         : this.db.select().from(this.table as PgTable)
     ).$dynamic() as AnyPgAsyncSelect;
 
-    if (options?.innerJoin) {
-      query = query.innerJoin(options.innerJoin.table, options.innerJoin.on) as AnyPgAsyncSelect;
-    }
-    if (options?.innerJoins) {
-      for (const join of options.innerJoins) {
-        query = query.innerJoin(join.table, join.on) as AnyPgAsyncSelect;
-      }
-    }
-    if (options?.leftJoin) {
-      query = query.leftJoin(options.leftJoin.table, options.leftJoin.on) as AnyPgAsyncSelect;
-    }
-    if (options?.leftJoins) {
-      for (const join of options.leftJoins) {
-        query = query.leftJoin(join.table, join.on) as AnyPgAsyncSelect;
-      }
-    }
+    query = applyJoins(query, options);
     if (options?.where) {
       query = query.where(options.where) as AnyPgAsyncSelect;
     }
@@ -257,40 +280,27 @@ export abstract class PrimaryBaseRepository<
     orderBy?: SQL[];
     limit?: number;
     offset?: number;
-    innerJoin?: { table: PgTable; on: SQL | undefined };
-    innerJoins?: { table: PgTable; on: SQL | undefined }[];
-    leftJoin?: { table: PgTable; on: SQL | undefined };
-    leftJoins?: { table: PgTable; on: SQL | undefined }[];
+    innerJoin?: RepositoryJoin;
+    innerJoins?: RepositoryJoin[];
+    leftJoin?: RepositoryJoin;
+    leftJoins?: RepositoryJoin[];
     groupBy?: (PgColumn | SQL)[];
   }): Promise<{ result: TResult[]; count: number }> {
     let countResultPromise: Promise<{ count: number }[]>;
 
     if (options?.groupBy?.length) {
       // When groupBy is active, wrap the grouped query in a subquery so we count distinct groups.
-      let subq = this.db
-        .select({ _: sql`1` })
-        .from(this.table as PgTable)
-        .$dynamic();
-      if (options.innerJoin) {
-        subq = subq.innerJoin(options.innerJoin.table, options.innerJoin.on) as typeof subq;
-      }
-      if (options.innerJoins) {
-        for (const join of options.innerJoins) {
-          subq = subq.innerJoin(join.table, join.on) as typeof subq;
-        }
-      }
-      if (options.leftJoin) {
-        subq = subq.leftJoin(options.leftJoin.table, options.leftJoin.on) as typeof subq;
-      }
-      if (options.leftJoins) {
-        for (const join of options.leftJoins) {
-          subq = subq.leftJoin(join.table, join.on) as typeof subq;
-        }
-      }
+      let subq = applyJoins(
+        this.db
+          .select({ _: sql`1` })
+          .from(this.table as PgTable)
+          .$dynamic() as AnyPgAsyncSelect,
+        options,
+      );
       if (options.where) {
-        subq = subq.where(options.where) as typeof subq;
+        subq = subq.where(options.where) as AnyPgAsyncSelect;
       }
-      subq = subq.groupBy(...options.groupBy) as typeof subq;
+      subq = subq.groupBy(...options.groupBy) as AnyPgAsyncSelect;
 
       const named = subq.as('_count_subq');
       countResultPromise = this.db.select({ count: sql<number>`count(*)::int` }).from(named) as unknown as Promise<
@@ -298,28 +308,15 @@ export abstract class PrimaryBaseRepository<
       >;
     } else {
       // Count query mirrors the same JOINs so WHERE clauses on joined columns are valid
-      let countQuery = this.db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(this.table as PgTable)
-        .$dynamic();
-      if (options?.innerJoin) {
-        countQuery = countQuery.innerJoin(options.innerJoin.table, options.innerJoin.on) as typeof countQuery;
-      }
-      if (options?.innerJoins) {
-        for (const join of options.innerJoins) {
-          countQuery = countQuery.innerJoin(join.table, join.on) as typeof countQuery;
-        }
-      }
-      if (options?.leftJoin) {
-        countQuery = countQuery.leftJoin(options.leftJoin.table, options.leftJoin.on) as typeof countQuery;
-      }
-      if (options?.leftJoins) {
-        for (const join of options.leftJoins) {
-          countQuery = countQuery.leftJoin(join.table, join.on) as typeof countQuery;
-        }
-      }
+      let countQuery = applyJoins(
+        this.db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(this.table as PgTable)
+          .$dynamic() as AnyPgAsyncSelect,
+        options,
+      );
       if (options?.where) {
-        countQuery = countQuery.where(options.where) as typeof countQuery;
+        countQuery = countQuery.where(options.where) as AnyPgAsyncSelect;
       }
       countResultPromise = countQuery as unknown as Promise<{ count: number }[]>;
     }
@@ -337,8 +334,8 @@ export abstract class PrimaryBaseRepository<
     where?: SQL;
     orderBy: SQL[];
     limit: number;
-    leftJoin?: { table: PgTable; on: SQL | undefined };
-    leftJoins?: { table: PgTable; on: SQL | undefined }[];
+    leftJoin?: RepositoryJoin;
+    leftJoins?: RepositoryJoin[];
     groupBy?: (PgColumn | SQL)[];
   }): Promise<{ rows: TResult[]; hasMore: boolean }> {
     // Floor the page at one row (limit+1 and the trim below need a positive integer), then fetch
@@ -479,10 +476,23 @@ export abstract class PrimaryBaseRepository<
     const valueCol = resolveColumn(config.value);
     if (!valueCol) throw new Error(`Column '${config.value}' not found in table '${this.tableName}' or its joins`);
 
-    const labelCol = resolveColumn(config.label);
+    // A label or description names a column, or is an expression over the table and its joins
+    const resolveField = (field: string | SQL): PgColumn | SQL | undefined =>
+      typeof field === 'string' ? resolveColumn(field) : field;
+
+    const labelCol = resolveField(config.label);
     if (!labelCol) throw new Error(`Column '${config.label}' not found in table '${this.tableName}' or its joins`);
 
-    const descriptionCol = config.description ? resolveColumn(config.description) : undefined;
+    const descriptionCol = config.description ? resolveField(config.description) : undefined;
+
+    // The selector's scope — equality on a column of the table or a join, plus raw conditions — bounds both the search
+    // and the lookup of already-picked values, so a picked value outside the scope is never resolved
+    const scopeConditions: SQL[] = [];
+    for (const [field, val] of Object.entries(config.where ?? {})) {
+      const column = resolveColumn(field);
+      if (column) scopeConditions.push(eq(column, val));
+    }
+    scopeConditions.push(...(config.conditions ?? []));
 
     const parseKeys = (input?: string | string[]): string[] => {
       if (!input) return [];
@@ -532,7 +542,7 @@ export abstract class PrimaryBaseRepository<
         }
       }
 
-      const rows = await valuesQuery.where(inArray(valueCol, parsedValues));
+      const rows = await valuesQuery.where(and(inArray(valueCol, parsedValues), ...scopeConditions));
 
       return {
         options: (rows as unknown as SelectRow[]).map((row) => ({
@@ -558,10 +568,11 @@ export abstract class PrimaryBaseRepository<
     }
 
     // Use SQL builder for count(*) over() window function support
+    // A window count runs before DISTINCT, so a distinct select counts its distinct rows in a separate query instead
     const selectFields: Record<string, PgColumn | SQL> = {
       value: valueCol,
       label: labelCol,
-      totalCount: sql<number>`count(*) over()`.mapWith(Number),
+      ...(config.distinct ? {} : { totalCount: sql<number>`count(*) over()`.mapWith(Number) }),
     };
     if (descriptionCol) selectFields.description = descriptionCol;
     if (config.groupIdKey) {
@@ -588,59 +599,56 @@ export abstract class PrimaryBaseRepository<
     if (parsedExcludeIds.length > 0) {
       conditions.push(notInArray(valueCol, parsedExcludeIds));
     }
-    if (config.where) {
-      for (const [field, val] of Object.entries(config.where)) {
-        const column = tableColumns[field];
-        if (column) {
-          conditions.push(eq(column, val));
-        }
-      }
-    }
-    // Append raw SQL conditions (e.g. for joined table columns)
-    if (config.conditions) {
-      conditions.push(...config.conditions);
-    }
+    conditions.push(...scopeConditions);
 
-    const orderByKey = config.orderByKey || (config.orderBy ? Object.keys(config.orderBy)[0] : undefined);
-    const orderDirection = config.orderDirection || (config.orderBy ? Object.values(config.orderBy)[0] : undefined);
-    const orderByCol = orderByKey ? (tableColumns[orderByKey] ?? labelCol) : labelCol;
+    // Every sort key in order — orderByKey alone, else each orderBy entry; a key may name a joined table's column, and
+    // an unknown key sorts by the label
+    const sortKeys: [string, 'asc' | 'desc'][] = config.orderByKey
+      ? [[config.orderByKey, config.orderDirection ?? 'asc']]
+      : Object.entries(config.orderBy ?? {});
+    const sortClauses = sortKeys.map(([key, direction]) => {
+      const column = resolveColumn(key) ?? labelCol;
+      return direction === 'desc' ? desc(column) : asc(column);
+    });
     const limit = Number(config.limit) || 20;
     const offset = Number(config.offset) || 0;
 
-    let query = selectFn(selectFields as SelectedFields)
-      .from(this.table as PgTable)
-      .$dynamic();
-
-    // Apply optional JOINs
-    if (config.joins) {
-      for (const join of config.joins) {
-        if (join.type === 'inner') {
-          query = query.innerJoin(join.table, join.on);
-        } else {
-          query = query.leftJoin(join.table, join.on);
-        }
+    // The options' rows: the table with its joins, narrowed by the search, the exclusions and the scope
+    const filteredSelect = () => {
+      let filtered = selectFn(selectFields as SelectedFields)
+        .from(this.table as PgTable)
+        .$dynamic();
+      for (const join of config.joins ?? []) {
+        filtered =
+          join.type === 'inner' ? filtered.innerJoin(join.table, join.on) : filtered.leftJoin(join.table, join.on);
       }
-    }
-
-    if (conditions.length > 0) {
-      query = query.where(conditions.length === 1 ? conditions[0] : (and(...conditions) as SQL));
-    }
+      return conditions.length > 0 ? filtered.where(and(...conditions) as SQL) : filtered;
+    };
 
     const orderClauses: SQL[] = [];
     if (config.groupIdKey) {
       const groupIdCol = resolveColumn(config.groupIdKey);
       if (groupIdCol) orderClauses.push(asc(groupIdCol));
     }
-    orderClauses.push(orderDirection === 'desc' ? desc(orderByCol) : asc(orderByCol));
+    orderClauses.push(...(sortClauses.length > 0 ? sortClauses : [asc(labelCol)]));
 
-    query = query
+    const query = filteredSelect()
       .orderBy(...orderClauses)
       .limit(limit)
       .offset(offset);
 
-    const rows = await query;
+    const [rows, distinctCount] = await Promise.all([
+      query,
+      config.distinct
+        ? this.db.select({ count: sql<number>`count(*)::int` }).from(filteredSelect().as('distinct_options'))
+        : undefined,
+    ]);
 
-    const totalCount = rows.length > 0 ? (rows[0] as unknown as SelectRowWithCount).totalCount : 0;
+    const totalCount = distinctCount
+      ? (distinctCount[0]?.count ?? 0)
+      : rows.length > 0
+        ? (rows[0] as unknown as SelectRowWithCount).totalCount
+        : 0;
 
     const options = (rows as unknown as SelectRow[]).map((row) => ({
       value: row.value,

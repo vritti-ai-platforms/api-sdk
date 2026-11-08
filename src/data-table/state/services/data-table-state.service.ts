@@ -4,8 +4,13 @@ import { CacheService } from '@vritti/api-sdk/cache';
 import type { TableViewState } from '../../filter/filter.types';
 import type { UpsertDataTableStateDto } from '../dto/request/upsert-data-table-state.dto';
 
+// Redis key of one user's live state for one table
+function stateKey(userId: string, tableSlug: string): string {
+  return `table-state:${userId}:${tableSlug}`;
+}
+
 const EMPTY_TABLE_STATE: TableViewState = {
-  filters: [],
+  filters: { panel: [], context: [] },
   sort: [],
   columnVisibility: {},
   columnOrder: [],
@@ -35,18 +40,23 @@ export class DataTableStateService {
 
   // Saves live table state and active view ID to Redis; DB is not written
   async upsertCurrentState(userId: string, dto: UpsertDataTableStateDto): Promise<void> {
-    const key = `dt:${userId}:${dto.tableSlug}`;
-    await this.cacheService.set(key, { state: dto.state, activeViewId: dto.activeViewId ?? null }, this.stateTtl);
+    await this.cacheService.set(
+      stateKey(userId, dto.tableSlug),
+      { state: dto.state, activeViewId: dto.activeViewId ?? null },
+      this.stateTtl,
+    );
     this.logger.log(`Cached live state for user: ${userId}, table: ${dto.tableSlug}`);
   }
 
-  // Returns live table state and active view ID from Redis; returns empty state on miss — no DB query
+  // Returns live table state and active view ID from Redis; an empty state on a miss — no DB query
   async getCurrentState(
     userId: string,
     tableSlug: string,
   ): Promise<{ state: TableViewState; activeViewId: string | null }> {
-    const key = `dt:${userId}:${tableSlug}`;
-    const cached = await this.cacheService.get<{ state: TableViewState; activeViewId: string | null }>(key);
-    return cached ?? { state: EMPTY_TABLE_STATE, activeViewId: null };
+    const cached = await this.cacheService.get<{ state: TableViewState; activeViewId: string | null }>(
+      stateKey(userId, tableSlug),
+    );
+    if (!cached) return { state: structuredClone(EMPTY_TABLE_STATE), activeViewId: null };
+    return { state: cached.state, activeViewId: cached.activeViewId ?? null };
   }
 }
