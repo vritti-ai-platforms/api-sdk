@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import type { TableViewState } from '../filter/filter.types';
+import type { TableState } from '../table-state.types';
 
 export class TableResponseDto<T> {
   @ApiProperty()
@@ -9,7 +9,7 @@ export class TableResponseDto<T> {
   count: number;
 
   @ApiProperty()
-  state: TableViewState;
+  state: TableState;
 
   @ApiPropertyOptional({ nullable: true })
   activeViewId: string | null;

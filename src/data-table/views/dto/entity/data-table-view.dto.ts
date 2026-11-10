@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import type { TableViewState } from '../../../filter/filter.types';
 import type { DataTableViewRecord } from '../../../schema/data-table-views.table';
+import type { TableState } from '../../../table-state.types';
 
 export class DataTableViewDto {
   @ApiProperty({ description: 'View unique identifier' })
@@ -13,7 +13,7 @@ export class DataTableViewDto {
   tableSlug: string;
 
   @ApiProperty({ description: 'Stored filter, sort, and column visibility state' })
-  state: TableViewState;
+  state: TableState;
 
   @ApiProperty({ description: 'Whether the view is visible to all users', example: false })
   isShared: boolean;

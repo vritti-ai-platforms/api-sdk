@@ -2,9 +2,9 @@ import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 import { sql } from 'drizzle-orm';
 import { PgDialect } from 'drizzle-orm/pg-core';
+import type { FilterCondition, FilterOperator } from './condition.types';
 import { compareCount } from './count.expression';
 import { type FieldMap, FilterProcessor } from './filter.processor';
-import type { FilterCondition, FilterOperator } from './filter.types';
 
 const dialect = new PgDialect();
 const fieldMap: FieldMap = {

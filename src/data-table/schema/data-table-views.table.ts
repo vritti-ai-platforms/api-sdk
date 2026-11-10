@@ -1,6 +1,6 @@
 import { sql } from '../../drizzle-orm';
 import { boolean, index, jsonb, timestamp, uniqueIndex, uuid, varchar } from '../../drizzle-pg-core';
-import type { TableViewState } from '../filter/filter.types';
+import type { TableState } from '../table-state.types';
 
 // Returns a fresh set of column builder instances — call once per table declaration
 export function dataTableViewsColumns() {
@@ -9,7 +9,7 @@ export function dataTableViewsColumns() {
     userId: uuid('user_id').notNull(),
     tableSlug: varchar('table_slug', { length: 200 }).notNull(),
     name: varchar('name', { length: 100 }).notNull(),
-    state: jsonb('state').notNull().$type<TableViewState>(),
+    state: jsonb('state').notNull().$type<TableState>(),
     isShared: boolean('is_shared').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).$onUpdate(() => new Date()),
@@ -36,7 +36,7 @@ export interface DataTableViewRecord {
   userId: string;
   tableSlug: string;
   name: string;
-  state: TableViewState;
+  state: TableState;
   isShared: boolean;
   createdAt: Date;
   updatedAt: Date | null | undefined;
@@ -46,6 +46,6 @@ export interface NewDataTableViewRecord {
   userId: string;
   tableSlug: string;
   name: string;
-  state: TableViewState;
+  state: TableState;
   isShared?: boolean;
 }

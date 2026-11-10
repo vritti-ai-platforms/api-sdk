@@ -27,6 +27,12 @@ export class CacheService {
     }
   }
 
+  // Returns cached value or null on a miss; a Redis error propagates — for a read-modify-write, where a failed read
+  // must not pass for an empty one
+  async getOrThrow<T>(key: string): Promise<T | null> {
+    return this.provider.get<T>(key);
+  }
+
   // Reads many keys at once. On any error every entry reads as a miss, so callers fall back to the
   // database exactly as they would for a cold cache.
   async mget<T>(keys: string[]): Promise<(T | null)[]> {

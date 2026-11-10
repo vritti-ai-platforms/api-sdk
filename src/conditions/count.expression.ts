@@ -1,5 +1,5 @@
 import { eq, gt, gte, lt, lte, ne, type SQL, sql } from 'drizzle-orm';
-import type { FilterOperator } from './filter.types';
+import type { FilterOperator } from './condition.types';
 
 // A number filter on a correlated count, which is a subquery rather than a column a FieldMap can name. A value that is
 // empty or not a number, or an operator a number filter never sends, matches everything rather than reaching SQL.

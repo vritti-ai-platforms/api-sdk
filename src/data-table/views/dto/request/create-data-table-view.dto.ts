@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsBoolean, IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
-import type { TableViewState } from '../../../filter/filter.types';
+import type { TableState } from '../../../table-state.types';
 
 export class CreateDataTableViewDto {
   @ApiProperty({ description: 'Display name for the saved view', example: 'AWS Only' })
@@ -15,7 +15,7 @@ export class CreateDataTableViewDto {
 
   @ApiProperty({ description: 'Full table view state including filters, sort, and column visibility' })
   @IsObject()
-  state: TableViewState;
+  state: TableState;
 
   @ApiPropertyOptional({ description: 'Whether this view is visible to all users', example: false })
   @IsBoolean()

@@ -1,14 +1,17 @@
 export { DATA_TABLE_VIEWS_TABLE, DataTableModule, type DataTableModuleOptions } from './data-table.module';
 export { TableResponseDto } from './dto/table-response.dto';
-export * from './filter';
+export { CursorCodec } from './pagination/cursor.codec';
+export { type KeysetOrderBy, KeysetProcessor, keysetSignature } from './pagination/keyset.processor';
 export {
   type DataTableViewRecord,
   dataTableViewsColumns,
   dataTableViewsIndexes,
   type NewDataTableViewRecord,
 } from './schema/data-table-views.table';
-export { UpsertDataTableStateDto } from './state/dto/request/upsert-data-table-state.dto';
-export { DataTableStateService } from './state/services/data-table-state.service';
+export { PatchTableStateDto } from './state/dto/request/patch-table-state.dto';
+export { PutTableStateDto } from './state/dto/request/put-table-state.dto';
+export { TableStateService } from './state/services/table-state.service';
+export type { ColumnPinning, DensityType, TableFilters, TablePageRequest, TableState } from './table-state.types';
 export { DataTableViewDto } from './views/dto/entity/data-table-view.dto';
 export { CreateDataTableViewDto } from './views/dto/request/create-data-table-view.dto';
 export { RenameDataTableViewDto } from './views/dto/request/rename-data-table-view.dto';

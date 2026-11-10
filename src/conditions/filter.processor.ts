@@ -19,7 +19,7 @@ import {
   type SQLWrapper,
   sql,
 } from 'drizzle-orm';
-import type { FilterCondition, FilterOperator, SearchState, SortCondition, TableFilters } from './filter.types';
+import type { FilterCondition, FilterOperator, SearchState, SortCondition } from './condition.types';
 
 type FieldType = 'string' | 'number' | 'boolean';
 
@@ -43,6 +43,7 @@ export type FieldDefinition =
   | { column: Column | SQL.Aliased; type: FieldType; nulls?: 'first' | 'last' }
   | { expression: (value: string | number, operator: FilterOperator) => SQL; type: FieldType }
   | { multiExpression: (values: string[], operator: MultiValueOperator) => SQL; type: FieldType }
+  | { rangeExpression: (from: string, to: string) => SQL; type: FieldType }
   | WildcardFieldDefinition;
 export type FieldMap = Record<string, FieldDefinition>;
 
@@ -54,20 +55,63 @@ export function isUuid(value: string): value is Uuid {
   return UUID_PATTERN.test(value);
 }
 
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+// The YYYY-MM-DD day after a YYYY-MM-DD day
+function dayAfter(day: string): string {
+  const next = new Date(`${day}T00:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return next.toISOString().slice(0, 10);
+}
+
+function isTimestampColumn(column: Column | SQL.Aliased): column is Column {
+  return is(column, Column) && (column.columnType === 'PgTimestamp' || column.columnType === 'PgTimestampString');
+}
+
+// An inclusive [from, to] range on a column. On a timestamp column a date-only `to` means that whole day, so the range
+// ends before the next day starts — `<= '2026-12-31'` alone would stop at midnight and miss the day.
+function columnRange(column: Column | SQL.Aliased, from: string, to: string): SQL {
+  const compared: SQLWrapper = column;
+  const coversWholeDay = isTimestampColumn(column) && DATE_ONLY_PATTERN.test(to);
+  const end = coversWholeDay ? lt(compared, dayAfter(to)) : lte(compared, to);
+  return and(gte(compared, from), end) as SQL;
+}
+
+// A field's definition — only the map's own keys, so a client-sent name like `constructor` reads as unknown
+function fieldDefinition(fieldMap: FieldMap, field: string): FieldDefinition | undefined {
+  return Object.hasOwn(fieldMap, field) ? fieldMap[field] : undefined;
+}
+
 export class FilterProcessor {
   // ANDs every condition of both halves; undefined if none (Drizzle reads it as "no WHERE")
-  static buildWhere(filters: TableFilters, fieldMap: FieldMap): SQL | undefined {
-    const conditions = [...filters.panel, ...filters.context].flatMap((f) => {
+  static buildWhere(
+    filters: FilterCondition[] | { panel: FilterCondition[]; context: FilterCondition[] },
+    fieldMap: FieldMap,
+  ): SQL | undefined {
+    // A stored state is client-supplied and may lack either list
+    const all = Array.isArray(filters) ? filters : [...(filters.panel ?? []), ...(filters.context ?? [])];
+    const conditions = all.flatMap((f) => {
       // Saved table state is client-supplied, so a condition can arrive without a usable field — skip it as unknown
       if (typeof f.field !== 'string' || f.field === '') return [];
 
-      const def = fieldMap[f.field];
+      const def = fieldDefinition(fieldMap, f.field);
       if (!def) {
         const wildcard = FilterProcessor.resolveWildcard(f.field, fieldMap);
         return wildcard ? FilterProcessor.buildWildcard(wildcard.def, wildcard.key, f) : [];
       }
       // A wildcard definition only answers through its 'prefix*' key — named exactly, it is a misconfiguration
       if ('wildcardExpression' in def) return [];
+
+      // A range applies only as a complete [from, to] pair — on a column, or through the field's own SQL
+      if (f.operator === 'between') {
+        const range = FilterProcessor.rangeOf(f.value);
+        if (!range) return [];
+        const [from, to] = range;
+        if ('rangeExpression' in def) return [def.rangeExpression(from, to)];
+        if ('column' in def) return [columnRange(def.column, from, to)];
+        return [];
+      }
+      if ('rangeExpression' in def) return [];
 
       // Multi-value expression — always handed an array, so a multi-select filter keeps every value it picked
       if ('multiExpression' in def) {
@@ -155,6 +199,13 @@ export class FilterProcessor {
     return undefined;
   }
 
+  // A between condition's [from, to] pair, or undefined when either end is missing
+  private static rangeOf(value: FilterCondition['value']): [string, string] | undefined {
+    if (!Array.isArray(value) || value.length !== 2) return undefined;
+    const [from, to] = value.map(String);
+    return from && to ? [from, to] : undefined;
+  }
+
   // A condition's value as a list of strings, whether it arrived as one value or many
   private static valuesOf(value: FilterCondition['value']): string[] {
     return (Array.isArray(value) ? value : [value]).map(String).filter((entry) => entry !== '');
@@ -176,7 +227,7 @@ export class FilterProcessor {
       return conditions.length ? or(...conditions) : undefined;
     }
 
-    const def = fieldMap[search.columnId];
+    const def = fieldDefinition(fieldMap, search.columnId);
     if (!def || !('column' in def)) return undefined;
     if (FilterProcessor.isUuidColumn(def.column)) {
       // Anything that is not a full uuid cannot match a uuid column — say so with an empty result, not with a 500
@@ -192,7 +243,7 @@ export class FilterProcessor {
   // Maps each SortCondition to an asc/desc SQL expression
   static buildOrderBy(sort: SortCondition[] = [], fieldMap: FieldMap): SQL[] {
     return sort.flatMap((s) => {
-      const def = fieldMap[s.field];
+      const def = fieldDefinition(fieldMap, s.field);
       if (!def || !('column' in def)) return [];
       if (!def.nulls) return [s.direction === 'asc' ? asc(def.column) : desc(def.column)];
       return [sql`${def.column} ${sql.raw(s.direction === 'asc' ? 'asc' : 'desc')} nulls ${sql.raw(def.nulls)}`];

@@ -27,6 +27,8 @@ export default defineConfig({
     jetstream: 'src/jetstream/index.ts',
     auth: 'src/auth/index.ts',
     context: 'src/context/index.ts',
+    conditions: 'src/conditions/index.ts',
+    'context-state': 'src/context-state/index.ts',
     'data-table': 'src/data-table/index.ts',
     database: 'src/database/index.ts',
     select: 'src/select/index.ts',

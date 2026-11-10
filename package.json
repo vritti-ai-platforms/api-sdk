@@ -1,7 +1,7 @@
 {
   "name": "@vritti/api-sdk",
   "type": "module",
-  "version": "0.6.9",
+  "version": "0.6.10",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -224,6 +224,26 @@
       "require": {
         "types": "./dist/context.d.cts",
         "default": "./dist/context.cjs"
+      }
+    },
+    "./conditions": {
+      "import": {
+        "types": "./dist/conditions.d.ts",
+        "default": "./dist/conditions.js"
+      },
+      "require": {
+        "types": "./dist/conditions.d.cts",
+        "default": "./dist/conditions.cjs"
+      }
+    },
+    "./context-state": {
+      "import": {
+        "types": "./dist/context-state.d.ts",
+        "default": "./dist/context-state.js"
+      },
+      "require": {
+        "types": "./dist/context-state.d.cts",
+        "default": "./dist/context-state.cjs"
       }
     },
     "./data-table": {

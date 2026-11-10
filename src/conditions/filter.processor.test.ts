@@ -1,14 +1,16 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 import { inArray, sql } from 'drizzle-orm';
-import { boolean, PgDialect, pgTable, uuid, varchar } from 'drizzle-orm/pg-core';
+import { boolean, date, PgDialect, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import type { FilterCondition } from './condition.types';
 import { type FieldMap, FilterProcessor, isUuid, type MultiValueOperator, type Uuid } from './filter.processor';
-import type { FilterCondition, TableFilters } from './filter.types';
 
 const variants = pgTable('variants', {
   id: uuid('id').primaryKey(),
   code: varchar('code', { length: 100 }),
   isActive: boolean('is_active'),
+  createdAt: timestamp('created_at', { withTimezone: true }),
+  validFrom: date('valid_from', { mode: 'string' }),
 });
 
 const DIMENSION = '019a7c2e-6c21-7e52-8b4f-2a3b4c5d6e71';
@@ -16,7 +18,7 @@ const VALUE_A = '019a7c2e-7d32-7f63-9c50-3b4c5d6e7f82';
 const VALUE_B = '019a7c2e-7d32-7f63-9c50-3b4c5d6e7f83';
 
 const dialect = new PgDialect();
-const whereOf = (filters: TableFilters, fieldMap: FieldMap) => {
+const whereOf = (filters: { panel: FilterCondition[]; context: FilterCondition[] }, fieldMap: FieldMap) => {
   const condition = FilterProcessor.buildWhere(filters, fieldMap);
   return condition ? dialect.sqlToQuery(condition) : undefined;
 };
@@ -212,7 +214,7 @@ describe('FilterProcessor.buildWhere — wildcard fields', () => {
   });
 });
 
-describe('FilterProcessor.buildWhere — TableFilters', () => {
+describe('FilterProcessor.buildWhere — panel and context', () => {
   const fieldMap: FieldMap = {
     code: { column: variants.code, type: 'string' },
     isActive: { column: variants.isActive, type: 'boolean' },
@@ -234,6 +236,42 @@ describe('FilterProcessor.buildWhere — TableFilters', () => {
 
   it('returns undefined for empty halves', () => {
     assert.equal(whereOf({ panel: [], context: [] }, fieldMap), undefined);
+  });
+
+  it('reads a missing half of a stored state as empty', () => {
+    const partial = { context: [active] } as unknown as { panel: FilterCondition[]; context: FilterCondition[] };
+    assert.match(whereOf(partial, fieldMap)?.sql ?? '', /"is_active" = \$1/);
+  });
+
+  it('skips a field named after an object built-in instead of building broken SQL', () => {
+    const names = ['constructor', 'toString', '__proto__', 'hasOwnProperty'];
+    const built = names.map((field) => ({ field, operator: 'equals' as const, value: 'x' }));
+    assert.equal(where(built, fieldMap), undefined);
+    assert.equal(FilterProcessor.buildSearch({ columnId: 'constructor', value: 'x' }, fieldMap), undefined);
+    assert.deepEqual(FilterProcessor.buildOrderBy([{ field: 'toString', direction: 'asc' }], fieldMap), []);
+  });
+});
+
+describe('FilterProcessor.buildWhere — between', () => {
+  const fieldMap: FieldMap = {
+    createdAt: { column: variants.createdAt, type: 'string' },
+    validFrom: { column: variants.validFrom, type: 'string' },
+  };
+  const range = (field: string, value: string[]) => where([{ field, operator: 'between', value }], fieldMap);
+
+  it('covers the whole end day on a timestamp, bounding before the next day', () => {
+    const q = range('createdAt', ['2026-09-01', '2026-12-31']);
+    assert.match(q?.sql ?? '', /"created_at" >= \$1\) and \("variants"\."created_at" < \$2/);
+    assert.deepEqual(q?.params, ['2026-09-01', '2027-01-01']);
+  });
+
+  it('keeps an end with a time, and a date column, inclusive', () => {
+    assert.deepEqual(range('createdAt', ['2026-09-01', '2026-12-31T18:00:00Z'])?.params, [
+      '2026-09-01',
+      '2026-12-31T18:00:00Z',
+    ]);
+    const q = range('validFrom', ['2026-09-01', '2026-12-31']);
+    assert.match(q?.sql ?? '', /"valid_from" <= \$2/);
   });
 });
 
@@ -272,5 +310,40 @@ describe('FilterProcessor — aliased expression fields', () => {
       FilterProcessor.buildOrderBy([{ field: 'code', direction }], fieldMap).map((part) => latest.sqlToQuery(part).sql);
     assert.match(orderSql('asc')[0] ?? '', /"code" asc nulls last$/);
     assert.match(orderSql('desc')[0] ?? '', /"code" desc nulls last$/);
+  });
+});
+
+describe('FilterProcessor.buildWhere — between', () => {
+  const prices = pgTable('prices', {
+    validFrom: varchar('valid_from', { length: 10 }),
+    validTo: varchar('valid_to', { length: 10 }),
+  });
+  const range: FilterCondition = { field: 'period', operator: 'between', value: ['2026-09-01', '2026-12-01'] };
+
+  it('bounds a column inclusively at both ends', () => {
+    const query = where([range], { period: { column: prices.validFrom, type: 'string' } });
+    assert.equal(query?.sql, '(("prices"."valid_from" >= $1) and ("prices"."valid_from" <= $2))');
+    assert.deepEqual(query?.params, ['2026-09-01', '2026-12-01']);
+  });
+
+  it('hands the pair to a range expression', () => {
+    const query = where([range], {
+      period: {
+        rangeExpression: (from, to) => sql`${prices.validFrom} <= ${to} and ${prices.validTo} >= ${from}`,
+        type: 'string',
+      },
+    });
+    assert.equal(query?.sql, '"prices"."valid_from" <= $1 and "prices"."valid_to" >= $2');
+    assert.deepEqual(query?.params, ['2026-12-01', '2026-09-01']);
+  });
+
+  it('skips a range missing an end', () => {
+    const half: FilterCondition = { field: 'period', operator: 'between', value: ['2026-09-01'] };
+    assert.equal(where([half], { period: { column: prices.validFrom, type: 'string' } }), undefined);
+  });
+
+  it('takes a plain list of conditions', () => {
+    const condition = FilterProcessor.buildWhere([range], { period: { column: prices.validFrom, type: 'string' } });
+    assert.ok(condition);
   });
 });
