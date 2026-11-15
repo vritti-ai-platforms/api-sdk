@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 // Standardized query params for select dropdown option endpoints
 export class SelectOptionsQueryDto {
@@ -15,6 +15,15 @@ export class SelectOptionsQueryDto {
   @IsInt()
   @Min(1)
   limit?: number;
+
+  @ApiPropertyOptional({
+    description: 'Also count every matching option into totalCount; off by default, since the count adds a full pass',
+    default: false,
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  withTotalCount?: boolean;
 
   @ApiPropertyOptional({ description: 'Number of results to skip', example: 0, default: 0 })
   @IsOptional()

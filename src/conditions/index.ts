@@ -1,7 +1,9 @@
 export {
   type FilterCondition,
+  type FilterCurrencyValue,
   type FilterOperator,
   FilterOperators,
+  isFilterCurrencyValue,
   type SearchState,
   type SortCondition,
 } from './condition.types';
@@ -19,3 +21,4 @@ export {
   type ValueFormat,
   type WildcardFieldDefinition,
 } from './filter.processor';
+export { compareMoney } from './money.expression';

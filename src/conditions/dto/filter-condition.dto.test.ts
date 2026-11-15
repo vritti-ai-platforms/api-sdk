@@ -31,6 +31,15 @@ describe('context conditions in request bodies', () => {
     assert.deepEqual(check(PatchTableStateDto, { tableSlug: 'prices', context: [site] }).errors, []);
   });
 
+  it('keeps a money amount intact and rejects a malformed one', () => {
+    const money = { field: 'stockValue', operator: 'gte', value: { currency: 'INR', value: '1000.50' } };
+    const { value, errors } = check(PutContextStateDto, { slug: 'graph', context: [money] });
+    assert.deepEqual(errors, []);
+    assert.deepEqual(JSON.parse(JSON.stringify(value.context)), [money]);
+    const malformed = { ...money, value: { currency: 'inr', value: 'ten' } };
+    assert.equal(check(PutContextStateDto, { slug: 'graph', context: [malformed] }).errors.length, 1);
+  });
+
   it('rejects an unknown operator, a malformed value and an unknown key', () => {
     const { errors } = check(PatchContextStateDto, {
       slug: 'graph',

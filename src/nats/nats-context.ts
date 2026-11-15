@@ -6,7 +6,7 @@ export interface NatsHeaders {
   siteGroupId: string;
   siteIds: string;
   siteTimezone: string;
-  siteCurrencyCode: string;
+  leCurrencyCode: string;
 }
 
 // The single source of truth for context transport, both directions. Adding a field means
@@ -19,7 +19,7 @@ export const NATS_HEADER_KEYS = {
   siteGroupId: 'x-sg-id',
   siteIds: 'x-site-ids',
   siteTimezone: 'x-site-timezone',
-  siteCurrencyCode: 'x-site-currency-code',
+  leCurrencyCode: 'x-le-currency-code',
 } as const satisfies Record<keyof NatsHeaders, string>;
 
 // Applied when a header is absent, so a missing optional field lands on the same value the

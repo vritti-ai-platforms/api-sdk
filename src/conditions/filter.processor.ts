@@ -19,7 +19,14 @@ import {
   type SQLWrapper,
   sql,
 } from 'drizzle-orm';
-import type { FilterCondition, FilterOperator, SearchState, SortCondition } from './condition.types';
+import {
+  type FilterCondition,
+  type FilterCurrencyValue,
+  type FilterOperator,
+  isFilterCurrencyValue,
+  type SearchState,
+  type SortCondition,
+} from './condition.types';
 
 type FieldType = 'string' | 'number' | 'boolean';
 
@@ -44,6 +51,7 @@ export type FieldDefinition =
   | { expression: (value: string | number, operator: FilterOperator) => SQL; type: FieldType }
   | { multiExpression: (values: string[], operator: MultiValueOperator) => SQL; type: FieldType }
   | { rangeExpression: (from: string, to: string) => SQL; type: FieldType }
+  | { moneyExpression: (value: FilterCurrencyValue, operator: FilterOperator) => SQL; type: FieldType }
   | WildcardFieldDefinition;
 export type FieldMap = Record<string, FieldDefinition>;
 
@@ -96,11 +104,19 @@ export class FilterProcessor {
 
       const def = fieldDefinition(fieldMap, f.field);
       if (!def) {
+        // A wildcard entry compares values, never a { currency, value } amount
+        if (isFilterCurrencyValue(f.value)) return [];
         const wildcard = FilterProcessor.resolveWildcard(f.field, fieldMap);
         return wildcard ? FilterProcessor.buildWildcard(wildcard.def, wildcard.key, f) : [];
       }
       // A wildcard definition only answers through its 'prefix*' key — named exactly, it is a misconfiguration
       if ('wildcardExpression' in def) return [];
+
+      // A money field compares only a { currency, value } amount, and only a money field takes one
+      if ('moneyExpression' in def) {
+        return isFilterCurrencyValue(f.value) ? [def.moneyExpression(f.value, f.operator)] : [];
+      }
+      if (isFilterCurrencyValue(f.value)) return [];
 
       // A range applies only as a complete [from, to] pair — on a column, or through the field's own SQL
       if (f.operator === 'between') {

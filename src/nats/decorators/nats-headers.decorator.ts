@@ -16,10 +16,11 @@ export const RpcSiteId = createParamDecorator((_data: unknown, ctx: ExecutionCon
   return headers.siteId;
 });
 
-// Extracts siteCurrencyCode from NATS headers — throws if missing or empty
-export const RpcSiteCurrencyCode = createParamDecorator((_data: unknown, ctx: ExecutionContext): string => {
+// Extracts the request's legal entity currency from NATS headers (a site request carries its legal entity's) — throws if
+// missing or empty
+export const RpcLeCurrencyCode = createParamDecorator((_data: unknown, ctx: ExecutionContext): string => {
   const rpcCtx = ctx.switchToRpc().getContext<NatsContext>();
   const headers = parseNatsHeaders(rpcCtx.getHeaders());
-  if (!headers?.siteCurrencyCode) throw new InternalServerErrorException('Missing siteCurrencyCode in NATS headers.');
-  return headers.siteCurrencyCode;
+  if (!headers?.leCurrencyCode) throw new InternalServerErrorException('Missing leCurrencyCode in NATS headers.');
+  return headers.leCurrencyCode;
 });

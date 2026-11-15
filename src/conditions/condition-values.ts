@@ -1,4 +1,4 @@
-import type { FilterCondition } from './condition.types';
+import { type FilterCondition, isFilterCurrencyValue } from './condition.types';
 
 // Returns the single value set on a field, or undefined when the field is absent or holds a list
 export function conditionValue(conditions: FilterCondition[], field: string): string | undefined {
@@ -9,7 +9,7 @@ export function conditionValue(conditions: FilterCondition[], field: string): st
 // Returns every value set on a field — a list as it is, a single value as a list of one, an absent field as none
 export function conditionValues(conditions: FilterCondition[], field: string): string[] {
   const value = conditions.find((condition) => condition.field === field)?.value;
-  if (value == null || value === '') return [];
+  if (value == null || value === '' || isFilterCurrencyValue(value)) return [];
   return Array.isArray(value) ? value.map(String) : [String(value)];
 }
 

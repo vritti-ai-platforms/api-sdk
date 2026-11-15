@@ -1,4 +1,4 @@
-import type { SQL } from 'drizzle-orm';
+import type { SQL, Subquery } from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
 
 export type SelectAdditionalValue = string | number | boolean | null | object;
@@ -25,9 +25,10 @@ export interface SelectQueryResult {
   totalCount?: number;
 }
 
+// One join of a select: a table, or a subquery such as an aggregate per row of the table
 export interface FindForSelectJoin {
-  table: PgTable;
-  on: SQL;
+  table: PgTable | Subquery;
+  on: SQL | undefined;
   type?: 'left' | 'inner';
 }
 
@@ -56,4 +57,6 @@ export interface FindForSelectConfig {
   joins?: FindForSelectJoin[];
   conditions?: SQL[];
   distinct?: boolean;
+  // Counts every matching option into totalCount; off by default, since the count adds a full pass over the matches
+  withTotalCount?: boolean;
 }

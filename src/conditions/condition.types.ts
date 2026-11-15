@@ -25,10 +25,28 @@ export const FilterOperators = {
   BETWEEN: 'between',
 } as const satisfies Record<string, FilterOperator>;
 
+// A money amount a filter compares against: major units as a decimal string, in a currency
+export interface FilterCurrencyValue {
+  currency: string;
+  value: string;
+}
+
 export interface FilterCondition {
   field: string;
   operator: FilterOperator;
-  value: string | number | string[];
+  value: string | number | string[] | FilterCurrencyValue;
+}
+
+// True for a well-formed money amount: a three-letter currency code and a decimal amount string
+export function isFilterCurrencyValue(value: unknown): value is FilterCurrencyValue {
+  if (value == null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const { currency, value: amount } = value as Partial<FilterCurrencyValue>;
+  return (
+    typeof currency === 'string' &&
+    /^[A-Z]{3}$/.test(currency) &&
+    typeof amount === 'string' &&
+    /^-?\d+(\.\d+)?$/.test(amount)
+  );
 }
 
 export interface SortCondition {

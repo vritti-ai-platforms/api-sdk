@@ -155,6 +155,14 @@ describe('FilterProcessor.buildWhere — wildcard fields', () => {
     assert.deepEqual(calls, []);
   });
 
+  it('skips a money amount on a wildcard field, before the expression runs', () => {
+    assert.equal(
+      run([{ field: 'tag.any key', operator: 'equals', value: { currency: 'INR', value: '10' } }]),
+      undefined,
+    );
+    assert.deepEqual(calls, []);
+  });
+
   it('passes string-format keys and values through as they are', () => {
     run([{ field: 'tag.any key', operator: 'isNotAnyOf', value: ['x', 'y'] }]);
     assert.deepEqual(calls, [{ entry: 'tag', key: 'any key', values: ['x', 'y'], operator: 'isNotAnyOf' }]);

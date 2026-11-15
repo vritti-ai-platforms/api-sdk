@@ -1,5 +1,5 @@
 import { Field, InputType, Int } from '@nestjs/graphql';
-import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 @InputType()
 export class SelectOptionsInput {
@@ -29,6 +29,12 @@ export class SelectOptionsInput {
   @IsString()
   @Field(() => String, { nullable: true })
   excludeIds?: string;
+
+  // Also count every matching option into totalCount; off by default, since the count adds a full pass
+  @IsOptional()
+  @IsBoolean()
+  @Field(() => Boolean, { nullable: true })
+  withTotalCount?: boolean;
 
   @IsOptional()
   @IsString()

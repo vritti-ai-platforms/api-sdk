@@ -567,12 +567,14 @@ export abstract class PrimaryBaseRepository<
       };
     }
 
-    // Use SQL builder for count(*) over() window function support
-    // A window count runs before DISTINCT, so a distinct select counts its distinct rows in a separate query instead
+    // One row past the page tells whether there is a next one. The total is counted only on request: a count over every
+    // match is a full pass, and a window count also makes Postgres work out each match's selected expressions before the
+    // limit instead of after it. A window count runs before DISTINCT, so a distinct select counts in a separate query
+    const countByWindow = config.withTotalCount && !config.distinct;
     const selectFields: Record<string, PgColumn | SQL> = {
       value: valueCol,
       label: labelCol,
-      ...(config.distinct ? {} : { totalCount: sql<number>`count(*) over()`.mapWith(Number) }),
+      ...(countByWindow ? { totalCount: sql<number>`count(*) over()`.mapWith(Number) } : {}),
     };
     if (descriptionCol) selectFields.description = descriptionCol;
     if (config.groupIdKey) {
@@ -632,23 +634,22 @@ export abstract class PrimaryBaseRepository<
     }
     orderClauses.push(...(sortClauses.length > 0 ? sortClauses : [asc(labelCol)]));
 
-    const query = filteredSelect()
-      .orderBy(...orderClauses)
-      .limit(limit)
-      .offset(offset);
-
-    const [rows, distinctCount] = await Promise.all([
-      query,
-      config.distinct
+    const [pageAndOne, distinctCount] = await Promise.all([
+      filteredSelect()
+        .orderBy(...orderClauses)
+        .limit(limit + 1)
+        .offset(offset),
+      config.withTotalCount && config.distinct
         ? this.db.select({ count: sql<number>`count(*)::int` }).from(filteredSelect().as('distinct_options'))
         : undefined,
     ]);
-
+    const hasMore = pageAndOne.length > limit;
+    const rows = pageAndOne.slice(0, limit);
     const totalCount = distinctCount
       ? (distinctCount[0]?.count ?? 0)
-      : rows.length > 0
-        ? (rows[0] as unknown as SelectRowWithCount).totalCount
-        : 0;
+      : countByWindow
+        ? ((pageAndOne[0] as unknown as SelectRowWithCount | undefined)?.totalCount ?? 0)
+        : undefined;
 
     const options = (rows as unknown as SelectRow[]).map((row) => ({
       value: row.value,
@@ -693,8 +694,8 @@ export abstract class PrimaryBaseRepository<
 
     return {
       options,
-      hasMore: offset + limit < totalCount,
-      totalCount,
+      hasMore,
+      ...(totalCount !== undefined ? { totalCount } : {}),
       ...(resolvedGroups ? { groups: resolvedGroups } : {}),
     };
   }

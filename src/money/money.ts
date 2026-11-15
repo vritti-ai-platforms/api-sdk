@@ -1,3 +1,4 @@
+import Decimal from 'decimal.js';
 import { dinero, toDecimal } from 'dinero.js/bigint';
 import {
   AED,
@@ -418,4 +419,42 @@ export function majorToMinor(major: string, currencyCode: CurrencyCode, field = 
   const minor = BigInt(normalizedDigits || '0');
 
   return isNegative ? -minor : minor;
+}
+
+// Converts an amount in minor units of one currency into minor units of another, where 1 `from` = `rate` `to`; the
+// currencies' exponents differ (JPY 0, INR 2, KWD 3), so the minor units are rescaled too. Rounds half up
+export function convertMinor(minor: bigint, from: string, to: string, rate: Decimal.Value): bigint {
+  const fromExponent = Number(resolveCurrency(from as CurrencyCode).exponent);
+  const toExponent = Number(resolveCurrency(to as CurrencyCode).exponent);
+  return BigInt(
+    new Decimal(minor.toString())
+      .times(rate)
+      .times(new Decimal(10).pow(toExponent - fromExponent))
+      .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
+      .toFixed(0),
+  );
+}
+
+// Splits a total in minor units across weights so the parts sum to exactly the total: each part takes its floor of the
+// weighted share, and the units left over go to the largest remainders, the lowest index first on a tie. Weights that
+// add up to nothing (every part worth zero) split the total evenly, so none of it is lost
+export function allocateByWeight(total: bigint, weights: Decimal.Value[]): bigint[] {
+  if (weights.length === 0) return [];
+  const totalWeight = weights.reduce<Decimal>((sum, weight) => sum.plus(weight), new Decimal(0));
+  if (totalWeight.lte(0))
+    return allocateByWeight(
+      total,
+      weights.map(() => 1),
+    );
+
+  const exactShares = weights.map((weight) => new Decimal(total.toString()).times(weight).div(totalWeight));
+  const parts = exactShares.map((share) => BigInt(share.floor().toFixed(0)));
+  const byRemainder = exactShares
+    .map((share, index) => ({ index, remainder: share.minus(share.floor()) }))
+    .sort((a, b) => b.remainder.comparedTo(a.remainder) || a.index - b.index);
+
+  // Flooring leaves fewer units over than there are parts, so each of the largest remainders takes at most one
+  const leftover = Number(total - parts.reduce((sum, part) => sum + part, 0n));
+  const topped = new Set(byRemainder.slice(0, leftover).map(({ index }) => index));
+  return parts.map((part, index) => (topped.has(index) ? part + 1n : part));
 }
