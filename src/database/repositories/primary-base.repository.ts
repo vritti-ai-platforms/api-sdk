@@ -376,15 +376,15 @@ export abstract class PrimaryBaseRepository<
     return { count: result.rowCount ?? 0 };
   }
 
-  // Deletes a record by ID and returns the deleted record
-  async delete(id: string, tx?: TypedDrizzleClient): Promise<TSelect> {
+  // Deletes a record by ID — only while it also matches `where`, when given — and returns the deleted record
+  async delete(id: string, where?: SQL, tx?: TypedDrizzleClient): Promise<TSelect> {
     this.logger.log(`Deleting record with ID: ${id}`);
     const db = tx ?? this.db;
     const idColumn = (this.table as unknown as Record<string, PgColumn>).id;
     if (!idColumn) throw new Error(`Table '${this.tableName}' has no 'id' column`);
     const results = (await db
       .delete(this.table as PgTable)
-      .where(eq(idColumn, id))
+      .where(and(eq(idColumn, id), where))
       .returning()) as TSelect[];
     const record = results[0];
     if (!record) throw new Error(`${this.tableName}: database operation returned no record`);

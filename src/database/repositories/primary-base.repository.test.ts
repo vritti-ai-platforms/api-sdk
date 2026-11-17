@@ -67,3 +67,17 @@ describe('PrimaryBaseRepository.findForSelect — search', () => {
     );
   });
 });
+
+describe('PrimaryBaseRepository.delete', () => {
+  it('deletes by ID alone without a where', async () => {
+    const { repository, statements } = recordingRepository();
+    await assert.rejects(repository.delete('item-1'), /returned no record/);
+    assert.match(statements[0] ?? '', /delete from "items" where "items"\."id" = \$1 returning/);
+  });
+
+  it('deletes by ID only while the row also matches the where', async () => {
+    const { repository, statements } = recordingRepository();
+    await assert.rejects(repository.delete('item-1', eq(items.code, 'open')), /returned no record/);
+    assert.match(statements[0] ?? '', /where \(\("items"\."id" = \$1\) and \("items"\."code" = \$2\)\) returning/);
+  });
+});
