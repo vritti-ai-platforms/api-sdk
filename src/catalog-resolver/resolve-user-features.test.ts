@@ -48,15 +48,12 @@ const snapshot: VersionSnapshot = {
         web: {
           code: 'mf-web',
           name: 'Sales Web',
-          remoteEntry: 'https://web/remote.js',
           exposedModule: './Sales',
           routePrefix: '/sales',
         },
         mobile: {
           code: 'mf-mobile',
           name: 'Sales Mobile',
-          remoteEntryAndroid: 'https://android/remote.js',
-          remoteEntryIos: 'https://ios/remote.js',
           exposedModule: './SalesMobile',
           routePrefix: '/m/sales',
         },
@@ -80,7 +77,6 @@ const snapshot: VersionSnapshot = {
         web: {
           code: 'mf-web',
           name: 'Reports Web',
-          remoteEntry: 'https://web/remote.js',
           exposedModule: './Reports',
           routePrefix: '/reports',
         },
@@ -110,7 +106,6 @@ const snapshot: VersionSnapshot = {
         web: {
           code: 'mf-web',
           name: 'Repositories Web',
-          remoteEntry: 'https://web/remote.js',
           exposedModule: './Repositories',
           routePrefix: '/repositories',
         },
@@ -141,7 +136,6 @@ const snapshot: VersionSnapshot = {
         web: {
           code: 'mf-web',
           name: 'Dashboard Web',
-          remoteEntry: 'https://web/remote.js',
           exposedModule: './Dashboard',
           routePrefix: '/dashboard',
         },
@@ -206,7 +200,7 @@ describe('resolveUserFeatures', () => {
     assert.equal(sales.code, 'sales');
     assert.deepEqual(sales.permissions, ['sales.view', 'sales.create']);
     assert.deepEqual(sales.route, {
-      remoteEntry: 'https://web/remote.js',
+      microfrontendCode: 'mf-web',
       exposedModule: './Sales',
       routePrefix: '/sales',
     });
@@ -312,7 +306,7 @@ describe('resolveUserFeatures', () => {
     assert.deepEqual(feature.unlockPlans, ['PRO']);
   });
 
-  it('gates membership per platform and picks the per-OS mobile remote entry', () => {
+  it('gates membership per platform and routes both OSes to the mobile microfrontend', () => {
     const params = {
       snapshot,
       businessCode: 'RETAIL',
@@ -325,8 +319,8 @@ describe('resolveUserFeatures', () => {
 
     // reports has no mobile grant bucket and no mobile MF → only sales resolves
     assert.equal(ios.length, 1);
-    assert.equal(must(ios[0]).route.remoteEntry, 'https://ios/remote.js');
-    assert.equal(must(android[0]).route.remoteEntry, 'https://android/remote.js');
+    assert.equal(must(ios[0]).route.microfrontendCode, 'mf-mobile');
+    assert.equal(must(android[0]).route.microfrontendCode, 'mf-mobile');
   });
 
   it('applies BU locks as a deny-list on the resolving platform', () => {
@@ -478,7 +472,6 @@ describe('resolveUserFeatures', () => {
     const webMf = {
       code: 'mf-web',
       name: 'Inventory Web',
-      remoteEntry: 'https://web/remote.js',
       exposedModule: './Inventory',
       routePrefix: '/inventory-items',
     };

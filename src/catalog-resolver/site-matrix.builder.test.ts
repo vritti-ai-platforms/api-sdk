@@ -40,15 +40,12 @@ const snapshot: VersionSnapshot = {
         web: {
           code: 'mf-web',
           name: 'Sales Web',
-          remoteEntry: 'https://web/remote.js',
           exposedModule: './Sales',
           routePrefix: '/sales',
         },
         mobile: {
           code: 'mf-mobile',
           name: 'Sales Mobile',
-          remoteEntryAndroid: 'https://android/remote.js',
-          remoteEntryIos: 'https://ios/remote.js',
           exposedModule: './SalesMobile',
           routePrefix: '/m/sales',
         },
@@ -72,7 +69,6 @@ const snapshot: VersionSnapshot = {
         web: {
           code: 'mf-web',
           name: 'Catalog Web',
-          remoteEntry: 'https://web/remote.js',
           exposedModule: './Catalog',
           routePrefix: '/catalog',
         },
@@ -96,7 +92,6 @@ const snapshot: VersionSnapshot = {
         web: {
           code: 'mf-web',
           name: 'Reports Web',
-          remoteEntry: 'https://web/remote.js',
           exposedModule: './Reports',
           routePrefix: '/reports',
         },

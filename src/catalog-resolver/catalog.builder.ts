@@ -99,15 +99,14 @@ export function buildSiteCatalog(
         materialSymbol: feature.materialSymbol ?? 'square',
         web: web
           ? {
-              remoteEntry: web.remoteEntry ?? '',
+              microfrontendCode: web.code,
               exposedModule: web.exposedModule ?? '',
               routePrefix: web.routePrefix ?? '',
             }
           : null,
         mobile: mobile
           ? {
-              remoteEntryAndroid: mobile.remoteEntryAndroid ?? '',
-              remoteEntryIos: mobile.remoteEntryIos ?? '',
+              microfrontendCode: mobile.code,
               exposedModule: mobile.exposedModule ?? '',
               routePrefix: mobile.routePrefix ?? '',
             }

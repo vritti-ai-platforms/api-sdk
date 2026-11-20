@@ -39,7 +39,7 @@ const BUCKET_BY_CLIENT: Record<ClientPlatform, PlatformBucket> = {
  * `permissions` and `locked` — so an empty route keeps one shape for every bucket instead of
  * widening the field to null across every consumer.
  */
-const EMPTY_ROUTE = { remoteEntry: '', exposedModule: '', routePrefix: '' };
+const EMPTY_ROUTE = { microfrontendCode: '', exposedModule: '', routePrefix: '' };
 
 export interface LockedPermission {
   code: string;
@@ -68,7 +68,7 @@ export interface PermissionFeature {
   lockedPermissions: LockedPermission[];
   upsell: PlanUpsell[];
   route: {
-    remoteEntry: string;
+    microfrontendCode: string;
     exposedModule: string;
     routePrefix: string;
   };
@@ -220,26 +220,25 @@ export function resolveUserFeatures(params: ResolveUserFeaturesParams): Permissi
 export function pickRouteForPlatform(
   entry: {
     web: {
-      remoteEntry: string;
+      microfrontendCode: string;
       exposedModule: string;
       routePrefix: string;
     } | null;
     mobile: {
-      remoteEntryAndroid: string;
-      remoteEntryIos: string;
+      microfrontendCode: string;
       exposedModule: string;
       routePrefix: string;
     } | null;
   },
   platform: ClientPlatform,
-): { remoteEntry: string; exposedModule: string; routePrefix: string } | null {
+): { microfrontendCode: string; exposedModule: string; routePrefix: string } | null {
   // API platforms load nothing — resolveUserFeatures never routes them here, and answering with the
   // web block for an unhandled value would hand an API caller a remote it cannot mount
   if (platform === 'graphql' || platform === 'http') return null;
   if (platform === 'ios' || platform === 'android') {
     if (!entry.mobile) return null;
     return {
-      remoteEntry: platform === 'ios' ? entry.mobile.remoteEntryIos : entry.mobile.remoteEntryAndroid,
+      microfrontendCode: entry.mobile.microfrontendCode,
       exposedModule: entry.mobile.exposedModule,
       routePrefix: entry.mobile.routePrefix,
     };
@@ -247,7 +246,7 @@ export function pickRouteForPlatform(
   // Web
   if (!entry.web) return null;
   return {
-    remoteEntry: entry.web.remoteEntry,
+    microfrontendCode: entry.web.microfrontendCode,
     exposedModule: entry.web.exposedModule,
     routePrefix: entry.web.routePrefix,
   };
