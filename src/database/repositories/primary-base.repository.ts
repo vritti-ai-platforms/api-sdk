@@ -4,6 +4,7 @@ import {
   asc,
   desc,
   eq,
+  getColumns,
   getTableName,
   getViewName,
   type InferInsertModel,
@@ -63,6 +64,25 @@ export interface RepositoryJoins {
   leftJoin?: RepositoryJoin;
   leftJoins?: RepositoryJoin[];
 }
+
+// How findAllAndCount totals the rows: a count query beside the page (the default — cheap where the page reads a few
+// index entries and the count scans only an index), or a window count on the page query itself, for a table whose
+// filter costs more to run twice than reading every row it matches does
+export type CountMode = 'separate' | 'window';
+
+// A page of rows with computed columns, joins, grouping and ordering, and how its total is counted
+export interface FindAllAndCountOptions extends RepositoryJoins {
+  select?: Record<string, unknown>;
+  where?: SQL;
+  orderBy?: SQL[];
+  limit?: number;
+  offset?: number;
+  groupBy?: (PgColumn | SQL)[];
+  countMode?: CountMode;
+}
+
+// The column the window count rides on, dropped from each row before it is returned
+const WINDOW_TOTAL = '__total';
 
 // Adds the inner joins, then the left joins, in the order given; a lateral join with no condition joins on true
 function applyJoins(query: AnyPgAsyncSelect, joins: RepositoryJoins | undefined): AnyPgAsyncSelect {
@@ -274,22 +294,40 @@ export abstract class PrimaryBaseRepository<
   }
 
   // Returns paginated result and total count, with optional custom select, LEFT JOINs, GROUP BY, and ordering
-  async findAllAndCount<TResult = TSelect>(options?: {
-    select?: Record<string, unknown>;
-    where?: SQL;
-    orderBy?: SQL[];
-    limit?: number;
-    offset?: number;
-    innerJoin?: RepositoryJoin;
-    innerJoins?: RepositoryJoin[];
-    leftJoin?: RepositoryJoin;
-    leftJoins?: RepositoryJoin[];
-    groupBy?: (PgColumn | SQL)[];
-  }): Promise<{ result: TResult[]; count: number }> {
-    let countResultPromise: Promise<{ count: number }[]>;
+  async findAllAndCount<TResult = TSelect>(
+    options?: FindAllAndCountOptions,
+  ): Promise<{ result: TResult[]; count: number }> {
+    if (options?.countMode === 'window') return this.findAllWithWindowCount<TResult>(options);
+    const [countResult, result] = await Promise.all([
+      this.buildCountQuery(options),
+      this.buildSelectQuery(options) as unknown as Promise<TResult[]>,
+    ]);
+    return { result, count: countResult[0]?.count ?? 0 };
+  }
 
+  // One query for the page and its total: count(*) over () rides on every row, so the filter runs once. A page past the
+  // end has no row to carry it, so only then is the total counted on its own
+  private async findAllWithWindowCount<TResult>(
+    options: FindAllAndCountOptions,
+  ): Promise<{ result: TResult[]; count: number }> {
+    const select = {
+      ...(options.select ?? getColumns(this.table as PgTable)),
+      [WINDOW_TOTAL]: sql<number>`count(*) over ()`.mapWith(Number),
+    };
+    const rows = (await this.buildSelectQuery({ ...options, select })) as unknown as Record<string, unknown>[];
+    if (rows.length === 0) {
+      if (!options.offset) return { result: [], count: 0 };
+      const [countRow] = await this.buildCountQuery(options);
+      return { result: [], count: countRow?.count ?? 0 };
+    }
+    const result = rows.map(({ [WINDOW_TOTAL]: _total, ...row }) => row) as TResult[];
+    return { result, count: rows[0]?.[WINDOW_TOTAL] as number };
+  }
+
+  // Counts the rows the options match, mirroring their joins so a where on a joined column is valid; with a groupBy it
+  // counts the groups
+  private buildCountQuery(options?: FindAllAndCountOptions): Promise<{ count: number }[]> {
     if (options?.groupBy?.length) {
-      // When groupBy is active, wrap the grouped query in a subquery so we count distinct groups.
       let subq = applyJoins(
         this.db
           .select({ _: sql`1` })
@@ -301,31 +339,22 @@ export abstract class PrimaryBaseRepository<
         subq = subq.where(options.where) as AnyPgAsyncSelect;
       }
       subq = subq.groupBy(...options.groupBy) as AnyPgAsyncSelect;
-
       const named = subq.as('_count_subq');
-      countResultPromise = this.db.select({ count: sql<number>`count(*)::int` }).from(named) as unknown as Promise<
+      return this.db.select({ count: sql<number>`count(*)::int` }).from(named) as unknown as Promise<
         { count: number }[]
       >;
-    } else {
-      // Count query mirrors the same JOINs so WHERE clauses on joined columns are valid
-      let countQuery = applyJoins(
-        this.db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(this.table as PgTable)
-          .$dynamic() as AnyPgAsyncSelect,
-        options,
-      );
-      if (options?.where) {
-        countQuery = countQuery.where(options.where) as AnyPgAsyncSelect;
-      }
-      countResultPromise = countQuery as unknown as Promise<{ count: number }[]>;
     }
-
-    const [countResult, result] = await Promise.all([
-      countResultPromise,
-      this.buildSelectQuery(options) as unknown as Promise<TResult[]>,
-    ]);
-    return { result, count: (countResult[0] as { count: number }).count };
+    let countQuery = applyJoins(
+      this.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(this.table as PgTable)
+        .$dynamic() as AnyPgAsyncSelect,
+      options,
+    );
+    if (options?.where) {
+      countQuery = countQuery.where(options.where) as AnyPgAsyncSelect;
+    }
+    return countQuery as unknown as Promise<{ count: number }[]>;
   }
 
   // Fetches limit+1 rows for keyset pagination and trims, returning rows plus hasMore.
